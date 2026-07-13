@@ -92,6 +92,9 @@ const state = {
   charsTyped: 0,
   errors: 0,
   characterErrors: 0,
+  lessonLetterStats: {},
+  lastAcceptedAt: null,
+  lastActivityAt: null,
   lastWpm: 0,
   lastAccuracy: 100,
   kjv: null,
@@ -105,6 +108,7 @@ try { storedData = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catc
 const defaultPrefs = {
   practiceLetters: startLetters,
   wordsPerRow: 10,
+  dailyGoalMinutes: 15,
   currentCue: "highlight",
   keyboardLayout: "mac",
   keyboardSize: "standard",
@@ -133,6 +137,7 @@ if (!keyboardLayouts[prefs.keyboardLayout]) prefs.keyboardLayout = defaultPrefs.
 if (!rewardSoundStyles.has(prefs.rewardStyle)) prefs.rewardStyle = defaultPrefs.rewardStyle;
 if (!errorSoundStyles.has(prefs.errorStyle)) prefs.errorStyle = defaultPrefs.errorStyle;
 if (!themeStyles.has(prefs.theme)) prefs.theme = defaultPrefs.theme;
+prefs.dailyGoalMinutes = Math.max(5, Math.min(60, Number(prefs.dailyGoalMinutes) || defaultPrefs.dailyGoalMinutes));
 
 function applyTheme() {
   document.documentElement.dataset.theme = prefs.theme;
@@ -144,9 +149,15 @@ const progress = Object.assign({
   rowsCleared: 0,
   avgWpm: 0,
   avgAccuracy: 100,
-  letterStats: {}
+  letterStats: {},
+  lessonHistory: [],
+  letterHistory: {},
+  dailyActivity: {}
 }, storedData.progress || {});
 if (!progress.letterStats || typeof progress.letterStats !== "object") progress.letterStats = {};
+if (!Array.isArray(progress.lessonHistory)) progress.lessonHistory = [];
+if (!progress.letterHistory || typeof progress.letterHistory !== "object" || Array.isArray(progress.letterHistory)) progress.letterHistory = {};
+if (!progress.dailyActivity || typeof progress.dailyActivity !== "object" || Array.isArray(progress.dailyActivity)) progress.dailyActivity = {};
 
 const commonWords = `a able about act add after again air all also always am an and any are area arm around as ask at back base be bed been best big bit blue book both bring build but by call came can care carry case change child city clear close come cost could course cut day did do door down draw dream drive during each early ease east eat end enough even ever every eye face fact fall far feel few field find fine fire first five for form found four free friend from full game gave get give go good got great green ground group grow had hand hard has have he head hear help her here high him his hold home hope hour house how i idea if in into is it job join just keep key kind know land large last late lead lean learn leave left less let life light like line list little live long look love made make man many mark may me mean men mind miss money more most move much must my name near need never new next night no not note now of off old on once one only open or our out over own page part pass pay people place plan play point power press put quick rain ran read real right river road room run said same saw say school see seem send set she short show side small so some sound stand start stay still story strong study such sure take talk tell than that the their them then there these they thing think this those time to told too took top tree true try turn two type under up use very view voice wait walk want war warm was watch water way we well went were what when where which while white who why will with word work world would write yard year yes yet you young your`.split(" ");
 const moderateWords = `abide accent active admire adore advice alert anchor answer arena arise attend balance banner beacon belong better border borrow branch calmly captain careful center chance chosen circle comfort common corner courage custom daily decide delight detail direct divide double eager earnest effect effort either enable ending energy engine entire escape estate expand expect fabric faith family favor fellow figure filter finish flower follow future gather gentle glory golden handle harbor honest humble improve indeed inside intent island joyful keeper kingdom ladder leader lesson letter linger listen living matter memory middle modern moment motion notice number office origin palace patient pattern period phrase planet plenty polish ponder proper public quiet reason record remain rescue rhythm sample season second secret signal simple single smooth steady stream strength summer supply surely temple tender thread travel useful valley virtue window wonder worthy`.split(" ");
@@ -170,7 +181,7 @@ const kjvQuotes = [
 
 const books = ["Genesis","Exodus","Leviticus","Numbers","Deuteronomy","Joshua","Judges","Ruth","1 Samuel","2 Samuel","1 Kings","2 Kings","1 Chronicles","2 Chronicles","Ezra","Nehemiah","Esther","Job","Psalm","Proverbs","Ecclesiastes","Song of Solomon","Isaiah","Jeremiah","Lamentations","Ezekiel","Daniel","Hosea","Joel","Amos","Obadiah","Jonah","Micah","Nahum","Habakkuk","Zephaniah","Haggai","Zechariah","Malachi","Matthew","Mark","Luke","John","Acts","Romans","1 Corinthians","2 Corinthians","Galatians","Ephesians","Philippians","Colossians","1 Thessalonians","2 Thessalonians","1 Timothy","2 Timothy","Titus","Philemon","Hebrews","James","1 Peter","2 Peter","1 John","2 John","3 John","Jude","Revelation"];
 
-const els = Object.fromEntries(["modeEyebrow","lessonTitle","modeControls","typingText","rowLabel","charLabel","scriptureStrip","scriptureRef","completionBanner","keyboard","keyboardWrap","avgWpm","avgAccuracy","letterCount","rowsCleared","settingsDialog","settingsBtn","restartBtn","letterHud","unlockNext","unlockCount","unlockMeterFill","unlockTrack","letterHeatmap","heatmapSummary"].map(id => [id, document.getElementById(id)]));
+const els = Object.fromEntries(["modeEyebrow","lessonTitle","modeControls","typingText","rowLabel","charLabel","scriptureStrip","scriptureRef","completionBanner","keyboard","keyboardWrap","lessonScore","lastWpm","lastAccuracy","topWpm","learningRate","dailyGoalText","dailyGoalFill","settingsDialog","settingsBtn","restartBtn","letterHud","unlockNext","unlockCount","unlockMeterFill","unlockTrack","letterHeatmap","heatmapSummary","letterDialog","letterDetailBadge","letterDetailTitle","letterLastSpeed","letterTopSpeed","letterAccuracy","letterLearningRate","letterLessons","letterCurveCaption","letterChart"].map(id => [id, document.getElementById(id)]));
 
 let saveTimer;
 
@@ -181,6 +192,68 @@ function save() {
 function scheduleSave() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(save, 250);
+}
+
+function localDateKey(date = new Date()) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function learningRate(history) {
+  const values = history.slice(-12).map(item => Number(item?.wpm)).filter(Number.isFinite);
+  if (values.length < 2) return null;
+  const xMean = (values.length - 1) / 2;
+  const yMean = values.reduce((sum, value) => sum + value, 0) / values.length;
+  let numerator = 0;
+  let denominator = 0;
+  values.forEach((value, index) => {
+    numerator += (index - xMean) * (value - yMean);
+    denominator += (index - xMean) ** 2;
+  });
+  return denominator ? numerator / denominator : 0;
+}
+
+function formatLearningRate(history) {
+  const rate = learningRate(history);
+  return rate === null ? "Collecting" : `${rate >= 0 ? "+" : ""}${rate.toFixed(1)} WPM/lesson`;
+}
+
+function lessonScore(wpm, accuracy) {
+  const accuracyFactor = Math.max(0, Math.min(1, accuracy / 100));
+  return Math.round(Math.max(0, wpm) * 20 * accuracyFactor ** 2);
+}
+
+function trackDailyActivity(now) {
+  const previous = state.lastActivityAt;
+  state.lastActivityAt = now;
+  if (!previous) return;
+  const elapsed = now - previous;
+  if (elapsed <= 0 || elapsed > 12000) return;
+  const today = localDateKey();
+  progress.dailyActivity[today] = (Number(progress.dailyActivity[today]) || 0) + elapsed / 1000;
+  Object.keys(progress.dailyActivity).sort().slice(0, -35).forEach(key => delete progress.dailyActivity[key]);
+  scheduleSave();
+}
+
+function renderPerformance() {
+  const history = progress.lessonHistory.filter(item => item && Number.isFinite(Number(item.wpm)) && Number.isFinite(Number(item.accuracy)));
+  const latest = history.at(-1);
+  const topSpeed = history.reduce((best, item) => Math.max(best, Number(item.wpm) || 0), 0);
+  els.lessonScore.textContent = latest ? Math.round(Number(latest.score) || 0).toLocaleString() : "0";
+  els.lastWpm.textContent = latest ? `${Math.round(latest.wpm)} WPM` : "0 WPM";
+  els.lastAccuracy.textContent = latest ? `${Math.round(latest.accuracy)}%` : "--";
+  els.topWpm.textContent = `${Math.round(topSpeed)} WPM`;
+  els.learningRate.textContent = formatLearningRate(history);
+
+  const goalMinutes = Number(prefs.dailyGoalMinutes) || defaultPrefs.dailyGoalMinutes;
+  const activeMinutes = (Number(progress.dailyActivity[localDateKey()]) || 0) / 60;
+  const shownMinutes = activeMinutes < 10 ? Number(activeMinutes.toFixed(1)) : Math.round(activeMinutes);
+  const goalRatio = Math.min(1, activeMinutes / goalMinutes);
+  els.dailyGoalText.textContent = `${shownMinutes} / ${goalMinutes} min`;
+  els.dailyGoalFill.style.width = `${goalRatio * 100}%`;
+  els.dailyGoalFill.parentElement.classList.toggle("complete", goalRatio >= 1);
 }
 
 function shuffle(items) {
@@ -262,6 +335,9 @@ async function restart() {
   state.charsTyped = 0;
   state.errors = 0;
   state.characterErrors = 0;
+  state.lessonLetterStats = {};
+  state.lastAcceptedAt = null;
+  state.lastActivityAt = null;
   state.completion = false;
   els.completionBanner.classList.add("hidden");
   if (state.mode === "adaptive") {
@@ -296,10 +372,7 @@ function render() {
   renderText();
   renderKeyboard();
   renderLetterProgress();
-  els.avgWpm.textContent = Math.round(progress.avgWpm);
-  els.avgAccuracy.textContent = `${Math.round(progress.avgAccuracy)}%`;
-  els.letterCount.textContent = prefs.practiceLetters;
-  els.rowsCleared.textContent = progress.rowsCleared;
+  renderPerformance();
   els.keyboardWrap.classList.toggle("hidden", !prefs.showKeyboard);
 }
 
@@ -338,7 +411,8 @@ function renderLetterProgress() {
       const hue = Math.round((accuracy / 100) * 120);
       const intensity = (.42 + Math.min(1, stats.attempts / 20) * .5).toFixed(2);
       const heatStyle = isEarned && stats.attempts ? ` style="--heat-hue:${hue};--heat-intensity:${intensity}"` : "";
-      return `<span class="heat-key ${strength}${locked}"${heatStyle} title="${letter}: ${detail}">${letter}</span>`;
+      const disabled = isEarned ? "" : " disabled";
+      return `<button type="button" class="heat-key ${strength}${locked}" data-letter="${letter}"${heatStyle}${disabled} title="${letter}: ${detail}" aria-label="${letter}: ${detail}">${letter}</button>`;
     }).join("");
     return `<div class="heat-row">${keys}</div>`;
   }).join("");
@@ -347,13 +421,103 @@ function renderLetterProgress() {
     : "No samples yet";
 }
 
-function recordLetterAttempt(expected, isCorrect) {
+function recordLetterAttempt(expected, isCorrect, recordedAt = performance.now()) {
+  if (state.mode !== "adaptive") return;
   const letter = String(expected || "").toLowerCase();
   if (!/^[a-z]$/.test(letter)) return;
   const stats = progress.letterStats[letter] ||= { attempts: 0, correct: 0 };
   stats.attempts++;
   if (isCorrect) stats.correct++;
+
+  const lessonStats = state.lessonLetterStats[letter] ||= { attempts: 0, correct: 0, timedCorrect: 0, elapsedMs: 0 };
+  lessonStats.attempts++;
+  if (isCorrect) {
+    lessonStats.correct++;
+    if (state.lastAcceptedAt) {
+      const elapsed = recordedAt - state.lastAcceptedAt;
+      if (elapsed > 0 && elapsed <= 12000) {
+        lessonStats.elapsedMs += elapsed;
+        lessonStats.timedCorrect++;
+      }
+    }
+    state.lastAcceptedAt = recordedAt;
+  }
   scheduleSave();
+}
+
+function renderLetterChart(letter, history, lifetimeStats) {
+  const points = history.slice(-24);
+  if (!points.length) {
+    const detail = lifetimeStats.attempts
+      ? `${Math.round((lifetimeStats.correct / lifetimeStats.attempts) * 100)}% accuracy over ${lifetimeStats.attempts} attempts`
+      : "No typing samples yet";
+    els.letterChart.innerHTML = `<div class="curve-empty"><strong>No completed-page samples</strong><span>${detail}</span></div>`;
+    return;
+  }
+
+  const width = 720;
+  const height = 270;
+  const margin = { top: 22, right: 22, bottom: 38, left: 62 };
+  const plotWidth = width - margin.left - margin.right;
+  const plotHeight = height - margin.top - margin.bottom;
+  const speeds = points.map(point => Number(point.wpm) || 0);
+  let minY = Math.max(0, Math.floor((Math.min(...speeds) - 5) / 5) * 5);
+  let maxY = Math.ceil((Math.max(...speeds) + 5) / 5) * 5;
+  if (maxY - minY < 10) maxY = minY + 10;
+  const xFor = index => points.length === 1
+    ? margin.left + plotWidth / 2
+    : margin.left + (index / (points.length - 1)) * plotWidth;
+  const yFor = value => margin.top + ((maxY - value) / (maxY - minY)) * plotHeight;
+  const coordinates = points.map((point, index) => [xFor(index), yFor(Number(point.wpm) || 0)]);
+  const linePath = coordinates.map(([x, y], index) => `${index ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
+  const areaPath = points.length > 1
+    ? `${linePath} L${coordinates.at(-1)[0].toFixed(1)} ${(margin.top + plotHeight).toFixed(1)} L${coordinates[0][0].toFixed(1)} ${(margin.top + plotHeight).toFixed(1)} Z`
+    : "";
+  const grid = Array.from({ length: 5 }, (_, index) => {
+    const value = maxY - ((maxY - minY) * index / 4);
+    const y = yFor(value);
+    return `<g><line class="curve-grid-line" x1="${margin.left}" y1="${y.toFixed(1)}" x2="${width - margin.right}" y2="${y.toFixed(1)}"></line><text class="curve-axis-label" x="${margin.left - 10}" y="${(y + 4).toFixed(1)}" text-anchor="end">${Math.round(value)} WPM</text></g>`;
+  }).join("");
+  const dots = coordinates.map(([x, y], index) => {
+    const point = points[index];
+    const lessonNumber = Math.max(1, history.length - points.length + index + 1);
+    const currentClass = index === points.length - 1 ? " current" : "";
+    return `<circle class="curve-point${currentClass}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${index === points.length - 1 ? 6 : 4}"><title>Lesson ${lessonNumber}: ${Math.round(point.wpm)} WPM, ${Math.round(point.accuracy)}% accuracy</title></circle>`;
+  }).join("");
+
+  els.letterChart.innerHTML = `
+    <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${letter} speed learning curve">
+      ${grid}
+      ${areaPath ? `<path class="curve-area" d="${areaPath}"></path>` : ""}
+      <path class="curve-line" d="${linePath}"></path>
+      ${dots}
+      <text class="curve-axis-label" x="${margin.left}" y="${height - 10}">Older</text>
+      <text class="curve-axis-label" x="${width - margin.right}" y="${height - 10}" text-anchor="end">Latest</text>
+    </svg>`;
+}
+
+function openLetterDetails(letter) {
+  const upperLetter = String(letter || "").toUpperCase();
+  const letterIndex = letterOrder.indexOf(upperLetter);
+  if (letterIndex < 0 || letterIndex >= Number(prefs.practiceLetters)) return;
+  const key = upperLetter.toLowerCase();
+  const lifetimeStats = progress.letterStats[key] || { attempts: 0, correct: 0 };
+  const history = Array.isArray(progress.letterHistory[key])
+    ? progress.letterHistory[key].filter(item => item && Number.isFinite(Number(item.wpm)))
+    : [];
+  const latest = history.at(-1);
+  const topSpeed = history.reduce((best, item) => Math.max(best, Number(item.wpm) || 0), 0);
+  const accuracy = lifetimeStats.attempts ? Math.round((lifetimeStats.correct / lifetimeStats.attempts) * 100) : null;
+  els.letterDetailBadge.textContent = upperLetter;
+  els.letterDetailTitle.textContent = `${upperLetter} progress`;
+  els.letterLastSpeed.textContent = latest ? `${Math.round(latest.wpm)} WPM` : "--";
+  els.letterTopSpeed.textContent = history.length ? `${Math.round(topSpeed)} WPM` : "--";
+  els.letterAccuracy.textContent = accuracy === null ? "--" : `${accuracy}%`;
+  els.letterLearningRate.textContent = formatLearningRate(history);
+  els.letterLessons.textContent = String(history.length);
+  els.letterCurveCaption.textContent = history.length ? `${history.length} completed ${history.length === 1 ? "page" : "pages"}` : "No completed pages";
+  renderLetterChart(upperLetter, history, lifetimeStats);
+  if (!els.letterDialog.open) els.letterDialog.showModal();
 }
 
 function renderText() {
@@ -507,7 +671,7 @@ function flashMistakeKey(key) {
 }
 
 function handleKey(event) {
-  if (els.settingsDialog.open) return;
+  if (els.settingsDialog.open || els.letterDialog.open) return;
   const keyId = visualKeyId(event);
   flashPressedKey(keyId);
   if (event.metaKey || event.ctrlKey || event.altKey) return;
@@ -526,7 +690,9 @@ function handleKey(event) {
   }
   if (event.key.length !== 1) return;
   event.preventDefault();
-  if (!state.startedAt) state.startedAt = performance.now();
+  const recordedAt = performance.now();
+  if (!state.startedAt) state.startedAt = recordedAt;
+  trackDailyActivity(recordedAt);
   const target = currentTarget();
   const key = event.key;
   const expected = target[state.input.length];
@@ -534,24 +700,62 @@ function handleKey(event) {
     if (state.characterErrors < 3) {
       state.errors++;
       state.characterErrors++;
-      recordLetterAttempt(expected, false);
+      recordLetterAttempt(expected, false, recordedAt);
     }
     flashMistakeKey(keyId);
-    const now = performance.now();
-    if (prefs.errorSounds && now - lastErrorSoundAt > 90) {
+    if (prefs.errorSounds && recordedAt - lastErrorSoundAt > 90) {
       playError();
-      lastErrorSoundAt = now;
+      lastErrorSoundAt = recordedAt;
     }
     renderLetterProgress();
+    renderPerformance();
     return;
   }
-  if (state.mode !== "free") recordLetterAttempt(expected, true);
+  if (state.mode !== "free") recordLetterAttempt(expected, true, recordedAt);
   state.characterErrors = 0;
   state.input += key;
   state.charsTyped++;
   if (prefs.typingSounds) playKey();
   if (state.mode !== "free" && state.input.length >= target.length) finishLine();
   render();
+}
+
+function recordLetterLessonResults(pageWpm, completedAt) {
+  if (state.mode !== "adaptive") return;
+  Object.entries(state.lessonLetterStats).forEach(([letter, stats]) => {
+    if (!stats.attempts) return;
+    const accuracy = (stats.correct / stats.attempts) * 100;
+    const timedWpm = stats.timedCorrect >= 2 && stats.elapsedMs > 0
+      ? (stats.timedCorrect / 5) / (stats.elapsedMs / 60000)
+      : pageWpm;
+    const wpm = Math.max(0, Math.min(200, timedWpm));
+    const history = Array.isArray(progress.letterHistory[letter]) ? progress.letterHistory[letter] : [];
+    progress.letterHistory[letter] = history;
+    history.push({
+      at: completedAt,
+      wpm: Number(wpm.toFixed(1)),
+      accuracy: Number(accuracy.toFixed(1)),
+      attempts: stats.attempts
+    });
+    if (history.length > 60) progress.letterHistory[letter] = history.slice(-60);
+  });
+}
+
+function recordCompletedLesson(wpm, accuracy) {
+  const completedAt = Date.now();
+  const result = {
+    at: completedAt,
+    mode: state.mode,
+    wpm: Number(wpm.toFixed(1)),
+    accuracy: Number(accuracy.toFixed(1)),
+    score: lessonScore(wpm, accuracy)
+  };
+  progress.lessonHistory.push(result);
+  if (progress.lessonHistory.length > 120) progress.lessonHistory = progress.lessonHistory.slice(-120);
+  state.lastWpm = result.wpm;
+  state.lastAccuracy = result.accuracy;
+  recordLetterLessonResults(wpm, completedAt);
+  return result;
 }
 
 function finishLine() {
@@ -567,6 +771,7 @@ function finishLine() {
     const accuracy = attempts ? (state.charsTyped / attempts) * 100 : 100;
     progress.avgWpm = progress.avgWpm ? (progress.avgWpm * .75 + wpm * .25) : wpm;
     progress.avgAccuracy = progress.avgAccuracy ? (progress.avgAccuracy * .8 + accuracy * .2) : accuracy;
+    recordCompletedLesson(wpm, accuracy);
   }
   progress.rowsCleared++;
   save();
@@ -580,7 +785,9 @@ function finishLine() {
       state.startedAt = null;
       state.charsTyped = 0;
       state.errors = 0;
+      state.lessonLetterStats = {};
     }
+    state.lastAcceptedAt = null;
     if (state.mode === "adaptive") {
       state.rowIndex++;
       if (state.rowIndex >= rowsPerPage) {
@@ -799,7 +1006,7 @@ function setupSettings() {
     if (i === Number(prefs.practiceLetters)) opt.selected = true;
     document.getElementById("practiceLetters").appendChild(opt);
   }
-  ["wordsPerRow", "currentCue", "keyboardLayout", "keyboardSize", "soundStyle", "rewardStyle", "errorStyle", "theme", "capitalization"].forEach(id => {
+  ["wordsPerRow", "dailyGoalMinutes", "currentCue", "keyboardLayout", "keyboardSize", "soundStyle", "rewardStyle", "errorStyle", "theme", "capitalization"].forEach(id => {
     const el = document.getElementById(id);
     el.value = prefs[id];
   });
@@ -815,6 +1022,11 @@ function setupSettings() {
     prefs.practiceLetters = Number(e.target.value);
     save();
     restart();
+  });
+  document.getElementById("dailyGoalMinutes").addEventListener("change", e => {
+    prefs.dailyGoalMinutes = Number(e.target.value);
+    save();
+    renderPerformance();
   });
   document.getElementById("currentCue").addEventListener("change", e => {
     prefs.currentCue = e.target.value;
@@ -873,6 +1085,12 @@ function setupSettings() {
   });
   els.settingsBtn.addEventListener("click", () => els.settingsDialog.showModal());
 }
+
+els.letterHeatmap.addEventListener("click", event => {
+  const key = event.target.closest("[data-letter]");
+  if (!key || key.disabled) return;
+  openLetterDetails(key.dataset.letter);
+});
 
 document.querySelectorAll(".mode-button").forEach(btn => {
   btn.addEventListener("click", () => {

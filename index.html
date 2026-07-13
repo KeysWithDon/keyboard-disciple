@@ -13,7 +13,7 @@
   <link rel="canonical" href="https://keyswithdon.github.io/keyboard-disciple/">
   <link rel="sitemap" type="application/xml" href="https://keyswithdon.github.io/keyboard-disciple/sitemap.xml">
   <link rel="icon" href="assets/keyboard-disciple-logo.png">
-  <link rel="stylesheet" href="styles.css?v=20260713-search-support">
+  <link rel="stylesheet" href="styles.css?v=20260713-learning-curve">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Keyboard Disciple">
   <meta property="og:title" content="Keyboard Disciple | Free Typing Practice Game">
@@ -73,13 +73,27 @@
         <button class="mode-button" data-mode="free">Free Typing</button>
       </nav>
 
-      <section class="panel compact">
-        <h2>Progress</h2>
-        <div class="mini-grid">
-          <span>WPM <strong id="avgWpm">0</strong></span>
-          <span>Accuracy <strong id="avgAccuracy">100%</strong></span>
-          <span>Letters <strong id="letterCount">6</strong></span>
-          <span>Rows <strong id="rowsCleared">0</strong></span>
+      <section class="panel compact performance-panel" aria-labelledby="lessonScoreTitle">
+        <header class="panel-heading">
+          <h2 id="lessonScoreTitle">Lesson Score</h2>
+          <span>Per page</span>
+        </header>
+        <div class="score-total">
+          <span>Latest</span>
+          <strong id="lessonScore">0</strong>
+        </div>
+        <div class="lesson-metrics">
+          <span>Speed <strong id="lastWpm">0 WPM</strong></span>
+          <span>Accuracy <strong id="lastAccuracy">--</strong></span>
+          <span>Top speed <strong id="topWpm">0 WPM</strong></span>
+          <span>Learning rate <strong id="learningRate">Collecting</strong></span>
+        </div>
+        <div class="daily-goal">
+          <div>
+            <span>Daily goal</span>
+            <strong id="dailyGoalText">0 / 15 min</strong>
+          </div>
+          <div class="daily-goal-meter" aria-hidden="true"><span id="dailyGoalFill"></span></div>
         </div>
       </section>
 
@@ -176,6 +190,17 @@
             <option>12</option>
           </select>
         </label>
+        <label>Daily goal
+          <select id="dailyGoalMinutes">
+            <option value="5">5 minutes</option>
+            <option value="10">10 minutes</option>
+            <option value="15" selected>15 minutes</option>
+            <option value="20">20 minutes</option>
+            <option value="30">30 minutes</option>
+            <option value="45">45 minutes</option>
+            <option value="60">60 minutes</option>
+          </select>
+        </label>
         <label>Current letter
           <select id="currentCue">
             <option value="highlight">Highlight</option>
@@ -248,6 +273,35 @@
     </form>
   </dialog>
 
-  <script src="app.js?v=20260713-finger-zones"></script>
+  <dialog id="letterDialog" class="letter-dialog">
+    <form method="dialog">
+      <header class="letter-dialog-header">
+        <div class="letter-dialog-title">
+          <span class="letter-badge" id="letterDetailBadge">E</span>
+          <div>
+            <p>Letter learning curve</p>
+            <h2 id="letterDetailTitle">E progress</h2>
+          </div>
+        </div>
+        <button value="close" class="icon-button" aria-label="Close letter details">×</button>
+      </header>
+      <div class="letter-metrics">
+        <span>Last speed <strong id="letterLastSpeed">--</strong></span>
+        <span>Top speed <strong id="letterTopSpeed">--</strong></span>
+        <span>Accuracy <strong id="letterAccuracy">--</strong></span>
+        <span>Learning rate <strong id="letterLearningRate">Collecting</strong></span>
+        <span>Lessons <strong id="letterLessons">0</strong></span>
+      </div>
+      <section class="curve-section" aria-labelledby="curveTitle">
+        <header>
+          <h3 id="curveTitle">Speed by lesson</h3>
+          <span id="letterCurveCaption">No completed pages</span>
+        </header>
+        <div class="letter-chart" id="letterChart"></div>
+      </section>
+    </form>
+  </dialog>
+
+  <script src="app.js?v=20260713-learning-curve"></script>
 </body>
 </html>
