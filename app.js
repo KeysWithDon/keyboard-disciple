@@ -330,19 +330,25 @@ function renderLetterProgress() {
   let totalAttempts = 0;
   let totalCorrect = 0;
   els.letterHeatmap.innerHTML = letterHeatmapRows.map(row => {
-    const keys = [...row].filter(letter => earnedLetters.has(letter)).map(letter => {
+    const keys = [...row].map(letter => {
+      const isEarned = earnedLetters.has(letter);
       const stats = progress.letterStats[letter.toLowerCase()] || { attempts: 0, correct: 0 };
-      totalAttempts += stats.attempts;
-      totalCorrect += stats.correct;
+      if (isEarned) {
+        totalAttempts += stats.attempts;
+        totalCorrect += stats.correct;
+      }
       const accuracy = stats.attempts ? Math.round((stats.correct / stats.attempts) * 100) : 0;
-      const strength = stats.attempts ? "sampled" : "unseen";
-      const detail = stats.attempts ? `${accuracy}% accuracy over ${stats.attempts} attempts` : "No samples yet";
+      const strength = isEarned && stats.attempts ? "sampled" : "unseen";
+      const locked = isEarned ? "" : " locked";
+      const detail = !isEarned
+        ? "Locked"
+        : stats.attempts ? `${accuracy}% accuracy over ${stats.attempts} attempts` : "No samples yet";
       const hue = Math.round((accuracy / 100) * 120);
       const intensity = (.42 + Math.min(1, stats.attempts / 20) * .5).toFixed(2);
-      const heatStyle = stats.attempts ? ` style="--heat-hue:${hue};--heat-intensity:${intensity}"` : "";
-      return `<span class="heat-key ${strength}"${heatStyle} title="${letter}: ${detail}">${letter}</span>`;
+      const heatStyle = isEarned && stats.attempts ? ` style="--heat-hue:${hue};--heat-intensity:${intensity}"` : "";
+      return `<span class="heat-key ${strength}${locked}"${heatStyle} title="${letter}: ${detail}">${letter}</span>`;
     }).join("");
-    return keys ? `<div class="heat-row">${keys}</div>` : "";
+    return `<div class="heat-row">${keys}</div>`;
   }).join("");
   els.heatmapSummary.textContent = totalAttempts
     ? `${Math.round((totalCorrect / totalAttempts) * 100)}% overall`
