@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Keyboard Disciple</title>
+  <meta name="description" content="A focused, game-feeling typing practice app with adaptive lessons, Bible reading, Bible quotes, and a live keyboard.">
+  <link rel="icon" href="assets/keyboard-disciple-logo.png">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" aria-label="Practice modes">
+      <div class="brand">
+        <img src="assets/keyboard-disciple-logo.png" alt="" class="brand-mark">
+        <div>
+          <h1>Keyboard Disciple</h1>
+          <p>Typing practice</p>
+        </div>
+      </div>
+
+      <nav class="mode-list">
+        <button class="mode-button active" data-mode="adaptive">Adaptive</button>
+        <button class="mode-button" data-mode="bible">Bible Reading</button>
+        <button class="mode-button" data-mode="quotes">Bible Quotes</button>
+        <button class="mode-button" data-mode="free">Free Typing</button>
+      </nav>
+
+      <section class="panel compact">
+        <h2>Progress</h2>
+        <div class="mini-grid">
+          <span>WPM <strong id="avgWpm">0</strong></span>
+          <span>Accuracy <strong id="avgAccuracy">100%</strong></span>
+          <span>Letters <strong id="letterCount">6</strong></span>
+          <span>Rows <strong id="rowsCleared">0</strong></span>
+        </div>
+      </section>
+    </aside>
+
+    <main class="stage">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow" id="modeEyebrow">Adaptive Lesson</p>
+          <h2 id="lessonTitle">Ready</h2>
+        </div>
+        <div class="topbar-actions">
+          <button class="icon-button" id="restartBtn" title="Restart lesson">↻</button>
+          <button class="primary-button" id="settingsBtn">Settings</button>
+        </div>
+      </header>
+
+      <section class="mode-controls" id="modeControls"></section>
+
+      <section class="typing-card" aria-live="polite">
+        <div class="scripture-strip hidden" id="scriptureStrip">
+          <span>Scripture</span>
+          <strong id="scriptureRef"></strong>
+        </div>
+        <div class="row-status">
+          <span id="rowLabel">Row 1 of 10</span>
+          <span id="charLabel">0 / 0</span>
+        </div>
+        <div id="typingText" class="typing-text" tabindex="0" aria-label="Typing target"></div>
+        <div class="completion-banner hidden" id="completionBanner">Line cleared</div>
+      </section>
+
+      <section class="keyboard-wrap" id="keyboardWrap">
+        <div class="keyboard" id="keyboard"></div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="settingsDialog" class="settings-dialog">
+    <form method="dialog">
+      <header>
+        <h2>Settings</h2>
+        <button value="close" class="icon-button">×</button>
+      </header>
+      <div class="settings-grid">
+        <label>Practice letters
+          <select id="practiceLetters"></select>
+        </label>
+        <label>Words per row
+          <select id="wordsPerRow">
+            <option>8</option>
+            <option selected>10</option>
+            <option>12</option>
+          </select>
+        </label>
+        <label>Current letter
+          <select id="currentCue">
+            <option value="highlight">Highlight</option>
+            <option value="underline">Underline</option>
+            <option value="color">Color</option>
+          </select>
+        </label>
+        <label>Keyboard size
+          <select id="keyboardSize">
+            <option value="compact">Compact</option>
+            <option value="standard" selected>Standard</option>
+            <option value="large">Large</option>
+          </select>
+        </label>
+        <label>Keyboard sound
+          <select id="soundStyle">
+            <option value="clicky">Clicky</option>
+            <option value="clacky">Clacky</option>
+            <option value="creamy">Creamy</option>
+            <option value="crunchy">Crunchy</option>
+            <option value="thacky">Thacky</option>
+            <option value="blocky">Blocky</option>
+          </select>
+        </label>
+        <label>Capitalization
+          <select id="capitalization">
+            <option value="source">Source</option>
+            <option value="lower">Lowercase only</option>
+            <option value="sentences">Sentence case</option>
+            <option value="words">Each Word</option>
+          </select>
+        </label>
+      </div>
+      <div class="toggle-list">
+        <label><input type="checkbox" id="typingSounds" checked> Typing sounds</label>
+        <label><input type="checkbox" id="errorSounds" checked> Error beep</label>
+        <label><input type="checkbox" id="showKeyboard" checked> Live keyboard</label>
+        <label><input type="checkbox" id="includePunctuation" checked> Punctuation</label>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
