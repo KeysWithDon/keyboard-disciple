@@ -6,7 +6,7 @@ const letterHeatmapRows = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
 const keyboardSoundStyles = new Set(["clicky", "clacky", "creamy", "thocky", "poppy", "marbly", "silent", "typewriter"]);
 const rewardSoundStyles = new Set(["preacher", "key-bloom", "glass-keys"]);
 const errorSoundStyles = new Set(["beep", "soft-knock", "digital-blip"]);
-const themeStyles = new Set(["dark", "light", "system"]);
+const themeStyles = new Set(["dark", "light"]);
 const keyboardKey = (id, label = id, units = 4, shift = "") => ({ id, label, units, shift });
 const macKeyboardLayout = [
   [
@@ -134,18 +134,10 @@ if (!rewardSoundStyles.has(prefs.rewardStyle)) prefs.rewardStyle = defaultPrefs.
 if (!errorSoundStyles.has(prefs.errorStyle)) prefs.errorStyle = defaultPrefs.errorStyle;
 if (!themeStyles.has(prefs.theme)) prefs.theme = defaultPrefs.theme;
 
-const systemThemeQuery = window.matchMedia("(prefers-color-scheme: light)");
-
 function applyTheme() {
-  const theme = prefs.theme === "system"
-    ? (systemThemeQuery.matches ? "light" : "dark")
-    : prefs.theme;
-  document.documentElement.dataset.theme = theme;
+  document.documentElement.dataset.theme = prefs.theme;
 }
 
-systemThemeQuery.addEventListener("change", () => {
-  if (prefs.theme === "system") applyTheme();
-});
 applyTheme();
 
 const progress = Object.assign({
