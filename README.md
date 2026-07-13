@@ -4,7 +4,7 @@ Keyboard Disciple is a fast, game-inspired typing practice app with adaptive let
 
 ## Play
 
-Open the published GitHub Pages site in a modern desktop or mobile browser. Progress and preferences are saved on the current device.
+[Play Keyboard Disciple](https://keyswithdon.github.io/keyboard-disciple/) in a modern desktop or mobile browser. Progress and preferences are saved on the current device.
 
 ## Bible Versions
 
