@@ -1,7 +1,10 @@
-const letterOrder = "ENIARLTOSUDYCGHPMKBWFZVXQNJ".split("");
+const letterOrder = "ENIARLTOSUDYCGHPMKBWFZVXQJ".split("");
 const startLetters = 6;
 const rowsPerPage = 10;
 const STORAGE_KEY = "keyboard-disciple-web";
+const keyboardRows = ["QWERTYUIOP", "ASDFGHJKL;", "ZXCVBNM,./"];
+const letterHeatmapRows = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
+const keyboardSoundStyles = new Set(["clicky", "clacky", "creamy", "thocky", "poppy", "marbly", "silent", "typewriter"]);
 
 const state = {
   mode: "adaptive",
@@ -21,7 +24,10 @@ const state = {
   mistakeKey: ""
 };
 
-const prefs = Object.assign({
+let storedData = {};
+try { storedData = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch (_) {}
+
+const defaultPrefs = {
   practiceLetters: startLetters,
   wordsPerRow: 10,
   currentCue: "highlight",
@@ -32,19 +38,26 @@ const prefs = Object.assign({
   showKeyboard: true,
   includePunctuation: true,
   capitalization: "source",
-  bibleTranslation: "KJV",
-  quoteTranslation: "KJV",
   bibleBook: "John",
   bibleChapter: 3,
   bibleStart: 16,
   bibleEnd: 17
-}, JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}").prefs || {});
+};
+const storedPrefs = storedData.prefs || {};
+const prefs = Object.fromEntries(Object.keys(defaultPrefs).map(key => [
+  key,
+  storedPrefs[key] ?? defaultPrefs[key]
+]));
+prefs.practiceLetters = Math.max(startLetters, Math.min(letterOrder.length, Number(prefs.practiceLetters) || startLetters));
+if (!keyboardSoundStyles.has(prefs.soundStyle)) prefs.soundStyle = defaultPrefs.soundStyle;
 
 const progress = Object.assign({
   rowsCleared: 0,
   avgWpm: 0,
-  avgAccuracy: 100
-}, JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}").progress || {});
+  avgAccuracy: 100,
+  letterStats: {}
+}, storedData.progress || {});
+if (!progress.letterStats || typeof progress.letterStats !== "object") progress.letterStats = {};
 
 const commonWords = `a able about act add after again air all also always am an and any are area arm around as ask at back base be bed been best big bit blue book both bring build but by call came can care carry case change child city clear close come cost could course cut day did do door down draw dream drive during each early ease east eat end enough even ever every eye face fact fall far feel few field find fine fire first five for form found four free friend from full game gave get give go good got great green ground group grow had hand hard has have he head hear help her here high him his hold home hope hour house how i idea if in into is it job join just keep key kind know land large last late lead lean learn leave left less let life light like line list little live long look love made make man many mark may me mean men mind miss money more most move much must my name near need never new next night no not note now of off old on once one only open or our out over own page part pass pay people place plan play point power press put quick rain ran read real right river road room run said same saw say school see seem send set she short show side small so some sound stand start stay still story strong study such sure take talk tell than that the their them then there these they thing think this those time to told too took top tree true try turn two type under up use very view voice wait walk want war warm was watch water way we well went were what when where which while white who why will with word work world would write yard year yes yet you young your`.split(" ");
 const moderateWords = `abide accent active admire adore advice alert anchor answer arena arise attend balance banner beacon belong better border borrow branch calmly captain careful center chance chosen circle comfort common corner courage custom daily decide delight detail direct divide double eager earnest effect effort either enable ending energy engine entire escape estate expand expect fabric faith family favor fellow figure filter finish flower follow future gather gentle glory golden handle harbor honest humble improve indeed inside intent island joyful keeper kingdom ladder leader lesson letter linger listen living matter memory middle modern moment motion notice number office origin palace patient pattern period phrase planet plenty polish ponder proper public quiet reason record remain rescue rhythm sample season second secret signal simple single smooth steady stream strength summer supply surely temple tender thread travel useful valley virtue window wonder worthy`.split(" ");
@@ -66,29 +79,19 @@ const kjvQuotes = [
   ["1 Peter 5:7 KJV", "Casting all your care upon him; for he careth for you."]
 ];
 
-const webQuotes = [
-  ["Psalm 23:1 WEB", "Yahweh is my shepherd: I shall lack nothing."],
-  ["Psalm 23:4 WEB", "Even though I walk through the valley of the shadow of death, I will fear no evil, for you are with me. Your rod and your staff, they comfort me."],
-  ["Isaiah 40:31 WEB", "But those who wait for Yahweh will renew their strength. They will mount up with wings like eagles. They will run, and not be weary. They will walk, and not faint."],
-  ["Romans 8:28 WEB", "We know that all things work together for good for those who love God, for those who are called according to his purpose."],
-  ["Philippians 4:13 WEB", "I can do all things through Christ who strengthens me."],
-  ["Proverbs 3:5-6 WEB", "Trust in Yahweh with all your heart, and don't lean on your own understanding. In all your ways acknowledge him, and he will make your paths straight."],
-  ["Joshua 1:9 WEB", "Haven't I commanded you? Be strong and courageous. Don't be afraid. Don't be dismayed, for Yahweh your God is with you wherever you go."],
-  ["Matthew 6:33 WEB", "But seek first God's Kingdom and his righteousness; and all these things will be given to you as well."],
-  ["John 3:16-17 WEB", "For God so loved the world, that he gave his one and only Son, that whoever believes in him should not perish, but have eternal life. For God didn't send his Son into the world to judge the world, but that the world should be saved through him."],
-  ["2 Corinthians 5:7 WEB", "For we walk by faith, not by sight."],
-  ["Ephesians 2:8-9 WEB", "For by grace you have been saved through faith, and that not of yourselves; it is the gift of God, not of works, that no one would boast."],
-  ["1 Peter 5:7 WEB", "Casting all your worries on him, because he cares for you."]
-];
-
 const books = ["Genesis","Exodus","Leviticus","Numbers","Deuteronomy","Joshua","Judges","Ruth","1 Samuel","2 Samuel","1 Kings","2 Kings","1 Chronicles","2 Chronicles","Ezra","Nehemiah","Esther","Job","Psalm","Proverbs","Ecclesiastes","Song of Solomon","Isaiah","Jeremiah","Lamentations","Ezekiel","Daniel","Hosea","Joel","Amos","Obadiah","Jonah","Micah","Nahum","Habakkuk","Zephaniah","Haggai","Zechariah","Malachi","Matthew","Mark","Luke","John","Acts","Romans","1 Corinthians","2 Corinthians","Galatians","Ephesians","Philippians","Colossians","1 Thessalonians","2 Thessalonians","1 Timothy","2 Timothy","Titus","Philemon","Hebrews","James","1 Peter","2 Peter","1 John","2 John","3 John","Jude","Revelation"];
-const translationOptions = ["KJV", "WEB", "NIV", "NLT"];
-const onlineOnlyTranslations = new Set(["NIV", "NLT"]);
 
-const els = Object.fromEntries(["modeEyebrow","lessonTitle","modeControls","typingText","rowLabel","charLabel","scriptureStrip","scriptureRef","completionBanner","keyboard","keyboardWrap","avgWpm","avgAccuracy","letterCount","rowsCleared","settingsDialog","settingsBtn","restartBtn"].map(id => [id, document.getElementById(id)]));
+const els = Object.fromEntries(["modeEyebrow","lessonTitle","modeControls","typingText","rowLabel","charLabel","scriptureStrip","scriptureRef","completionBanner","keyboard","keyboardWrap","avgWpm","avgAccuracy","letterCount","rowsCleared","settingsDialog","settingsBtn","restartBtn","letterHud","unlockNext","unlockCount","unlockMeterFill","unlockTrack","letterHeatmap","heatmapSummary"].map(id => [id, document.getElementById(id)]));
+
+let saveTimer;
 
 function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ prefs, progress }));
+}
+
+function scheduleSave() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(save, 250);
 }
 
 function shuffle(items) {
@@ -148,14 +151,6 @@ async function loadKJV() {
 }
 
 async function makeBiblePages() {
-  if (onlineOnlyTranslations.has(prefs.bibleTranslation)) {
-    const reference = bibleReferenceText();
-    return [[`${reference} ${prefs.bibleTranslation}`, `${prefs.bibleTranslation} is connected as an online reading option. Open the passage online to read this translation, then switch back here for local KJV typing practice.`]];
-  }
-  if (prefs.bibleTranslation === "WEB") {
-    const reference = bibleReferenceText();
-    return [[`${reference} WEB`, "WEB full-passage reading is not stored locally in this web build yet. WEB is available in Bible Quotes, and NIV or NLT can be opened online from the selector."]];
-  }
   const data = await loadKJV();
   const pages = [];
   for (let v = Number(prefs.bibleStart); v <= Number(prefs.bibleEnd); v++) {
@@ -165,38 +160,25 @@ async function makeBiblePages() {
   return pages.length ? pages : [["John 3:16 KJV", cleanVerse(data["John 3:16"] || "For God so loved the world, that he gave his only begotten Son.")]];
 }
 
-function bibleReferenceText() {
-  return `${prefs.bibleBook} ${prefs.bibleChapter}:${prefs.bibleStart}${Number(prefs.bibleEnd) > Number(prefs.bibleStart) ? `-${prefs.bibleEnd}` : ""}`;
-}
-
-function bibleGatewayUrl(reference, version) {
-  return `https://www.biblegateway.com/passage/?search=${encodeURIComponent(reference)}&version=${encodeURIComponent(version)}`;
-}
-
 function cleanVerse(text) {
   return text.replace(/[#\[\]]/g, "").replace(/\s+/g, " ").trim();
 }
 
 async function restart() {
+  stopRewardSound();
   state.input = "";
   state.rowIndex = 0;
   state.pageIndex = 0;
   state.startedAt = null;
+  state.charsTyped = 0;
+  state.errors = 0;
   state.completion = false;
   els.completionBanner.classList.add("hidden");
   if (state.mode === "adaptive") {
     state.targetRows = makeAdaptiveRows();
     state.scripturePages = [];
   } else if (state.mode === "quotes") {
-    if (onlineOnlyTranslations.has(prefs.quoteTranslation)) {
-      state.scripturePages = shuffle(kjvQuotes).slice(0, 12).map(([ref]) => {
-        const reference = ref.replace(/\sKJV$/, "");
-        return [`${reference} ${prefs.quoteTranslation}`, `${prefs.quoteTranslation} is connected as an online quote option. Use the Open online button to read this reference in ${prefs.quoteTranslation}.`];
-      });
-    } else {
-      const pool = prefs.quoteTranslation === "WEB" ? webQuotes : kjvQuotes;
-      state.scripturePages = shuffle(pool).slice(0, 12);
-    }
+    state.scripturePages = shuffle(kjvQuotes).slice(0, 12);
   } else if (state.mode === "bible") {
     state.scripturePages = await makeBiblePages();
   } else {
@@ -223,11 +205,56 @@ function render() {
   renderControls();
   renderText();
   renderKeyboard();
+  renderLetterProgress();
   els.avgWpm.textContent = Math.round(progress.avgWpm);
   els.avgAccuracy.textContent = `${Math.round(progress.avgAccuracy)}%`;
   els.letterCount.textContent = prefs.practiceLetters;
   els.rowsCleared.textContent = progress.rowsCleared;
   els.keyboardWrap.classList.toggle("hidden", !prefs.showKeyboard);
+}
+
+function renderLetterProgress() {
+  const isAdaptive = state.mode === "adaptive";
+  els.letterHud.classList.toggle("hidden", !isAdaptive);
+  if (!isAdaptive) return;
+
+  const unlockedCount = Number(prefs.practiceLetters);
+  const nextLetter = letterOrder[unlockedCount];
+  els.unlockCount.textContent = `${unlockedCount} / ${letterOrder.length}`;
+  els.unlockNext.textContent = nextLetter ? `Next: ${nextLetter}` : "All letters unlocked";
+  els.unlockMeterFill.style.width = `${(unlockedCount / letterOrder.length) * 100}%`;
+  els.unlockTrack.innerHTML = letterOrder.map((letter, index) => {
+    const status = index < unlockedCount ? "unlocked" : index === unlockedCount ? "next" : "locked";
+    return `<span class="unlock-letter ${status}" title="${letter} - ${status}">${letter}</span>`;
+  }).join("");
+
+  let totalAttempts = 0;
+  let totalCorrect = 0;
+  els.letterHeatmap.innerHTML = letterHeatmapRows.map(row => {
+    const keys = [...row].map(letter => {
+      const stats = progress.letterStats[letter.toLowerCase()] || { attempts: 0, correct: 0 };
+      totalAttempts += stats.attempts;
+      totalCorrect += stats.correct;
+      const accuracy = stats.attempts ? Math.round((stats.correct / stats.attempts) * 100) : 0;
+      const strength = !stats.attempts ? "unseen" : accuracy < 80 ? "needs-work" : accuracy < 93 ? "building" : "accurate";
+      const locked = letterOrder.indexOf(letter) >= unlockedCount ? " locked" : "";
+      const detail = stats.attempts ? `${accuracy}% accuracy over ${stats.attempts} attempts` : "No samples yet";
+      return `<span class="heat-key ${strength}${locked}" title="${letter}: ${detail}">${letter}</span>`;
+    }).join("");
+    return `<div class="heat-row">${keys}</div>`;
+  }).join("");
+  els.heatmapSummary.textContent = totalAttempts
+    ? `${Math.round((totalCorrect / totalAttempts) * 100)}% overall`
+    : "No samples yet";
+}
+
+function recordLetterAttempt(expected, isCorrect) {
+  const letter = String(expected || "").toLowerCase();
+  if (!/^[a-z]$/.test(letter)) return;
+  const stats = progress.letterStats[letter] ||= { attempts: 0, correct: 0 };
+  stats.attempts++;
+  if (isCorrect) stats.correct++;
+  scheduleSave();
 }
 
 function renderText() {
@@ -240,26 +267,30 @@ function renderText() {
     els.typingText.textContent = state.input || "Start typing freely.";
     return;
   }
-  els.typingText.innerHTML = [...target].map((ch, i) => {
-    const cls = i < state.input.length ? "done" : i === state.input.length ? `current ${prefs.currentCue}` : "pending";
-    return `<span class="${cls}">${escapeHtml(ch)}</span>`;
+  let characterIndex = 0;
+  const wordGroups = target.match(/\S+|\s+/g) || [];
+  els.typingText.innerHTML = wordGroups.map(group => {
+    const characters = [...group].map(ch => {
+      const index = characterIndex++;
+      const cls = index < state.input.length ? "done" : index === state.input.length ? `current ${prefs.currentCue}` : "pending";
+      return `<span class="${cls}">${escapeHtml(ch)}</span>`;
+    }).join("");
+    const groupClass = /^\s+$/.test(group) ? "typing-space" : "typing-word";
+    return `<span class="${groupClass}">${characters}</span>`;
   }).join("");
 }
 
 function renderControls() {
   if (state.mode === "bible") {
     els.modeControls.innerHTML = `
-      <label>Version<select id="bibleVersion">${translationOptions.map(t => `<option ${prefs.bibleTranslation === t ? "selected" : ""}>${t}</option>`).join("")}</select></label>
+      <strong>KJV</strong>
       <label>Book<select id="bibleBook">${books.map(b => `<option ${b === prefs.bibleBook ? "selected" : ""}>${b}</option>`).join("")}</select></label>
       <label>Chapter<input id="bibleChapter" type="number" min="1" max="150" value="${prefs.bibleChapter}"></label>
       <label>Start<input id="bibleStart" type="number" min="1" max="176" value="${prefs.bibleStart}"></label>
-      <label>End<input id="bibleEnd" type="number" min="${prefs.bibleStart}" max="176" value="${prefs.bibleEnd}"></label>
-      ${onlineOnlyTranslations.has(prefs.bibleTranslation) ? `<a class="primary-button link-button" target="_blank" rel="noopener" href="${bibleGatewayUrl(bibleReferenceText(), prefs.bibleTranslation)}">Open ${prefs.bibleTranslation} online</a>` : ""}`;
+      <label>End<input id="bibleEnd" type="number" min="${prefs.bibleStart}" max="176" value="${prefs.bibleEnd}"></label>`;
     bindBibleControls();
   } else if (state.mode === "quotes") {
-    const currentRef = currentReference().replace(/\s(KJV|WEB|NIV|NLT)$/, "");
-    els.modeControls.innerHTML = `<label>Quote version<select id="quoteTranslation">${translationOptions.map(t => `<option ${prefs.quoteTranslation === t ? "selected" : ""}>${t}</option>`).join("")}</select></label>${onlineOnlyTranslations.has(prefs.quoteTranslation) && currentRef ? `<a class="primary-button link-button" target="_blank" rel="noopener" href="${bibleGatewayUrl(currentRef, prefs.quoteTranslation)}">Open ${prefs.quoteTranslation} online</a>` : ""}`;
-    document.getElementById("quoteTranslation").addEventListener("change", e => { prefs.quoteTranslation = e.target.value; save(); restart(); });
+    els.modeControls.innerHTML = `<strong>KJV</strong>`;
   } else if (state.mode === "adaptive") {
     els.modeControls.innerHTML = `<strong>Unlocked:</strong> ${letterOrder.slice(0, prefs.practiceLetters).join(" ")}`;
   } else {
@@ -268,10 +299,10 @@ function renderControls() {
 }
 
 function bindBibleControls() {
-  ["bibleVersion","bibleBook","bibleChapter","bibleStart","bibleEnd"].forEach(id => {
+  ["bibleBook","bibleChapter","bibleStart","bibleEnd"].forEach(id => {
     document.getElementById(id).addEventListener("change", e => {
       const key = id.replace("bible", "");
-      const prop = id === "bibleVersion" ? "bibleTranslation" : `bible${key}`;
+      const prop = `bible${key}`;
       prefs[prop] = e.target.type === "number" ? Number(e.target.value) : e.target.value;
       if (prefs.bibleEnd < prefs.bibleStart) prefs.bibleEnd = prefs.bibleStart;
       save();
@@ -281,14 +312,23 @@ function bindBibleControls() {
 }
 
 function renderKeyboard() {
-  const rows = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
   const unlocked = new Set(letterOrder.slice(0, prefs.practiceLetters));
   els.keyboard.className = `keyboard ${prefs.keyboardSize}`;
-  els.keyboard.innerHTML = rows.map(row => `<div class="key-row">${[...row].map(k => {
-    const finger = "ASDFJKL".includes(k) ? "home" : "QWERTGZXCVB".includes(k) ? "left" : "right";
-    const cls = ["key", finger, unlocked.has(k) ? "" : "locked", state.pressedKey === k.toLowerCase() ? "pressed" : "", state.mistakeKey === k.toLowerCase() ? "mistake" : ""].join(" ");
-    return `<span class="${cls}" data-key="${k.toLowerCase()}">${k}</span>`;
-  }).join("")}</div>`).join("") + `<div class="key-row"><span class="key thumb" data-key=" ">Space</span></div>`;
+  els.keyboard.innerHTML = keyboardRows.map(row => `<div class="key-row">${[...row].map(k => {
+    const zone = fingerZone(k);
+    const isLockedLetter = /^[A-Z]$/.test(k) && !unlocked.has(k);
+    const cls = ["key", zone.className, isLockedLetter ? "locked" : "", state.pressedKey === k.toLowerCase() ? "pressed" : "", state.mistakeKey === k.toLowerCase() ? "mistake" : ""].join(" ");
+    return `<span class="${cls}" data-key="${escapeHtml(k.toLowerCase())}" title="${zone.label}">${escapeHtml(k)}</span>`;
+  }).join("")}</div>`).join("") + `<div class="key-row"><span class="key thumb zone-thumb" data-key=" " title="Thumbs">Space</span></div>`;
+}
+
+function fingerZone(key) {
+  if ("QAZP;/".includes(key)) return { className: "zone-pinky", label: "P;/".includes(key) ? "Right pinky" : "Left pinky" };
+  if ("WSXOL.".includes(key)) return { className: "zone-ring", label: "Ring finger" };
+  if ("EDCIK,".includes(key)) return { className: "zone-middle", label: "Middle finger" };
+  if ("RFTGVB".includes(key)) return { className: "zone-left-index", label: "Left index finger" };
+  if ("YUHJNM".includes(key)) return { className: "zone-right-index", label: "Right index finger" };
+  return { className: "zone-thumb", label: "Thumb" };
 }
 
 function handleKey(event) {
@@ -303,14 +343,17 @@ function handleKey(event) {
   if (!state.startedAt) state.startedAt = performance.now();
   const target = currentTarget();
   const key = event.key;
+  const expected = target[state.input.length];
   state.pressedKey = key.toLowerCase();
   setTimeout(() => { state.pressedKey = ""; renderKeyboard(); }, 90);
-  if (state.mode !== "free" && key !== target[state.input.length]) {
+  if (state.mode !== "free") recordLetterAttempt(expected, key === expected);
+  if (state.mode !== "free" && key !== expected) {
     state.errors++;
     state.mistakeKey = key.toLowerCase();
     if (prefs.errorSounds) playError();
     setTimeout(() => { state.mistakeKey = ""; renderKeyboard(); }, 220);
     renderKeyboard();
+    renderLetterProgress();
     return;
   }
   state.input += key;
@@ -321,34 +364,50 @@ function handleKey(event) {
 }
 
 function finishLine() {
-  const elapsedMin = Math.max(.02, (performance.now() - state.startedAt) / 60000);
-  const wpm = (state.input.length / 5) / elapsedMin;
-  const accuracy = Math.max(0, 100 - (state.errors / Math.max(1, state.charsTyped)) * 100);
-  progress.avgWpm = progress.avgWpm ? (progress.avgWpm * .75 + wpm * .25) : wpm;
-  progress.avgAccuracy = progress.avgAccuracy ? (progress.avgAccuracy * .8 + accuracy * .2) : accuracy;
+  const completedAdaptiveRow = state.mode === "adaptive" ? state.rowIndex + 1 : 0;
+  const completedPage = state.mode !== "adaptive" || completedAdaptiveRow === rowsPerPage;
+  const newlyUnlocked = completedAdaptiveRow === rowsPerPage && prefs.practiceLetters < letterOrder.length
+    ? letterOrder[prefs.practiceLetters]
+    : "";
+  if (completedPage) {
+    const elapsedMin = Math.max(.02, (performance.now() - state.startedAt) / 60000);
+    const wpm = (state.charsTyped / 5) / elapsedMin;
+    const attempts = state.charsTyped + state.errors;
+    const accuracy = attempts ? (state.charsTyped / attempts) * 100 : 100;
+    progress.avgWpm = progress.avgWpm ? (progress.avgWpm * .75 + wpm * .25) : wpm;
+    progress.avgAccuracy = progress.avgAccuracy ? (progress.avgAccuracy * .8 + accuracy * .2) : accuracy;
+  }
   progress.rowsCleared++;
   save();
-  els.completionBanner.textContent = state.mode === "adaptive" ? "Line cleared" : "Scripture cleared";
+  els.completionBanner.textContent = newlyUnlocked ? `${newlyUnlocked} unlocked` : state.mode === "adaptive" ? "Line cleared" : "Scripture cleared";
   els.completionBanner.classList.remove("hidden");
-  playSuccess(state.rowIndex + 1);
+  if (completedAdaptiveRow) playReward(completedAdaptiveRow);
   setTimeout(() => {
     els.completionBanner.classList.add("hidden");
     state.input = "";
-    state.startedAt = null;
+    if (completedPage) {
+      state.startedAt = null;
+      state.charsTyped = 0;
+      state.errors = 0;
+    }
     if (state.mode === "adaptive") {
       state.rowIndex++;
       if (state.rowIndex >= rowsPerPage) {
         state.pageIndex++;
         state.rowIndex = 0;
+        if (prefs.practiceLetters < letterOrder.length) {
+          prefs.practiceLetters++;
+          document.getElementById("practiceLetters").value = String(prefs.practiceLetters);
+          save();
+        }
         state.targetRows = makeAdaptiveRows();
-        playPage();
       }
     } else {
       state.pageIndex++;
       if (state.pageIndex >= state.scripturePages.length) state.pageIndex = 0;
     }
     render();
-  }, 360);
+  }, 160);
 }
 
 let audioCtx;
@@ -369,12 +428,94 @@ function tone(freq, dur, type = "square", gain = .045) {
   osc.stop(c.currentTime + dur);
 }
 function playKey() {
-  const map = { clicky: [1800, .025, "square"], clacky: [1100, .035, "sawtooth"], creamy: [520, .045, "sine"], crunchy: [760, .05, "sawtooth"], thacky: [330, .05, "triangle"], blocky: [190, .065, "square"] };
-  tone(...(map[prefs.soundStyle] || map.clicky));
+  if (prefs.soundStyle === "silent") return;
+  const buffers = keyboardSoundBuffers[prefs.soundStyle] || keyboardSoundBuffers.clicky;
+  if (!buffers?.length) return;
+
+  const c = ctx();
+  if (c.state === "suspended") c.resume().catch(() => {});
+  const cursor = keyboardSoundCursors[prefs.soundStyle] || 0;
+  keyboardSoundCursors[prefs.soundStyle] = (cursor + 1) % buffers.length;
+
+  const source = c.createBufferSource();
+  const gain = c.createGain();
+  source.buffer = buffers[cursor % buffers.length];
+  gain.gain.value = keyboardSoundVolumes[prefs.soundStyle] || .5;
+  source.connect(gain).connect(c.destination);
+  source.start();
 }
 function playError() { tone(420, .11, "square", .08); }
-function playSuccess(level) { tone(440 + level * 22, .08, "triangle", .06); setTimeout(() => tone(660 + level * 18, .08, "triangle", .04), 70); }
-function playPage() { [523, 659, 784].forEach((f, i) => setTimeout(() => tone(f, .11, "triangle", .055), i * 90)); }
+
+const keyboardSoundFiles = {
+  clicky: Array.from({ length: 5 }, (_, index) => `assets/key-sounds/clicky/key-${index + 1}.mp3`),
+  clacky: Array.from({ length: 5 }, (_, index) => `assets/key-sounds/clacky/key-${index + 1}.mp3`),
+  creamy: Array.from({ length: 5 }, (_, index) => `assets/key-sounds/creamy/key-${index + 1}.mp3`),
+  thocky: Array.from({ length: 5 }, (_, index) => `assets/key-sounds/thocky/key-${index + 1}.mp3`),
+  poppy: Array.from({ length: 5 }, (_, index) => `assets/key-sounds/poppy/key-${index + 1}.mp3`),
+  marbly: Array.from({ length: 5 }, (_, index) => `assets/key-sounds/marbly/key-${index + 1}.mp3`),
+  typewriter: ["assets/key-sounds/typewriter/key.wav", "assets/key-sounds/typewriter/key2.wav"]
+};
+const keyboardSoundVolumes = {
+  clicky: .48,
+  clacky: .5,
+  creamy: .58,
+  thocky: .58,
+  poppy: .54,
+  marbly: .52,
+  typewriter: .42
+};
+const keyboardSoundBuffers = {};
+const keyboardSoundCursors = {};
+
+async function preloadKeySounds() {
+  const c = ctx();
+  await Promise.all(Object.entries(keyboardSoundFiles).map(async ([style, files]) => {
+    const decoded = await Promise.all(files.map(async file => {
+      const response = await fetch(new URL(file, document.baseURI));
+      if (!response.ok) throw new Error(`Could not load ${file}`);
+      return c.decodeAudioData(await response.arrayBuffer());
+    }));
+    keyboardSoundBuffers[style] = decoded;
+  })).catch(error => console.warn("Keyboard sounds could not be preloaded.", error));
+}
+
+const rowRewardFiles = Array.from({ length: 9 }, (_, index) => `assets/Shout_${index + 1}.wav`);
+const specialRewardFile = "assets/Shout_Special.wav";
+const rowRewardSounds = [];
+let specialRewardSound;
+let activeRewardSound;
+
+function makeRewardAudio(file) {
+  const audio = new Audio(new URL(file, document.baseURI).href);
+  audio.preload = "auto";
+  audio.playsInline = true;
+  audio.load();
+  return audio;
+}
+
+function preloadRewardSounds() {
+  rowRewardSounds.push(...rowRewardFiles.map(makeRewardAudio));
+  specialRewardSound = makeRewardAudio(specialRewardFile);
+}
+
+function stopRewardSound() {
+  if (!activeRewardSound) return;
+  activeRewardSound.pause();
+  try { activeRewardSound.currentTime = 0; } catch (_) {}
+  activeRewardSound = undefined;
+}
+
+function playReward(completedRow) {
+  const reward = completedRow === rowsPerPage
+    ? specialRewardSound
+    : rowRewardSounds[completedRow - 1];
+  if (!reward) return;
+  stopRewardSound();
+  activeRewardSound = reward;
+  try { reward.currentTime = 0; } catch (_) {}
+  const playback = reward.play();
+  if (playback) playback.catch(() => {});
+}
 
 function escapeHtml(text) {
   return text.replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[ch]));
@@ -414,5 +555,8 @@ document.querySelectorAll(".mode-button").forEach(btn => {
 });
 els.restartBtn.addEventListener("click", restart);
 document.addEventListener("keydown", handleKey);
+preloadRewardSounds();
+preloadKeySounds();
 setupSettings();
+save();
 restart();

@@ -6,7 +6,7 @@
   <title>Keyboard Disciple</title>
   <meta name="description" content="A focused, game-feeling typing practice app with adaptive lessons, Bible reading, Bible quotes, and a live keyboard.">
   <link rel="icon" href="assets/keyboard-disciple-logo.png">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=20260713-real-key-sounds">
 </head>
 <body>
   <div class="app-shell">
@@ -51,6 +51,34 @@
 
       <section class="mode-controls" id="modeControls"></section>
 
+      <section class="letter-hud" id="letterHud" aria-label="Letter progress">
+        <div class="unlock-panel">
+          <header class="hud-heading">
+            <div>
+              <span>Letter unlocks</span>
+              <strong id="unlockNext">Next: T</strong>
+            </div>
+            <b id="unlockCount">6 / 26</b>
+          </header>
+          <div class="unlock-meter" aria-hidden="true"><span id="unlockMeterFill"></span></div>
+          <div class="unlock-track" id="unlockTrack"></div>
+        </div>
+        <div class="heatmap-panel">
+          <header class="hud-heading">
+            <div>
+              <span>Letter accuracy</span>
+              <strong id="heatmapSummary">No samples yet</strong>
+            </div>
+          </header>
+          <div class="letter-heatmap" id="letterHeatmap"></div>
+          <div class="heat-legend" aria-hidden="true">
+            <span class="needs-work">Needs work</span>
+            <span class="building">Building</span>
+            <span class="accurate">Accurate</span>
+          </div>
+        </div>
+      </section>
+
       <section class="typing-card" aria-live="polite">
         <div class="scripture-strip hidden" id="scriptureStrip">
           <span>Scripture</span>
@@ -66,6 +94,14 @@
 
       <section class="keyboard-wrap" id="keyboardWrap">
         <div class="keyboard" id="keyboard"></div>
+        <div class="finger-legend" aria-label="Keyboard finger color guide">
+          <span class="zone-pinky">Pinky</span>
+          <span class="zone-ring">Ring</span>
+          <span class="zone-middle">Middle</span>
+          <span class="zone-left-index">Left index</span>
+          <span class="zone-right-index">Right index</span>
+          <span class="zone-thumb">Thumbs</span>
+        </div>
       </section>
     </main>
   </div>
@@ -106,9 +142,11 @@
             <option value="clicky">Clicky</option>
             <option value="clacky">Clacky</option>
             <option value="creamy">Creamy</option>
-            <option value="crunchy">Crunchy</option>
-            <option value="thacky">Thacky</option>
-            <option value="blocky">Blocky</option>
+            <option value="thocky">Thocky</option>
+            <option value="poppy">Poppy</option>
+            <option value="marbly">Marbly</option>
+            <option value="silent">Silent</option>
+            <option value="typewriter">Typewriter</option>
           </select>
         </label>
         <label>Capitalization
@@ -129,6 +167,6 @@
     </form>
   </dialog>
 
-  <script src="app.js"></script>
+  <script src="app.js?v=20260713-real-key-sounds"></script>
 </body>
 </html>
