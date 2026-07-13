@@ -2,9 +2,50 @@ const letterOrder = "ENIARLTOSUDYCGHPMKBWFZVXQJ".split("");
 const startLetters = 6;
 const rowsPerPage = 10;
 const STORAGE_KEY = "keyboard-disciple-web";
-const keyboardRows = ["QWERTYUIOP", "ASDFGHJKL;", "ZXCVBNM,./"];
 const letterHeatmapRows = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
 const keyboardSoundStyles = new Set(["clicky", "clacky", "creamy", "thocky", "poppy", "marbly", "silent", "typewriter"]);
+const keyboardKey = (id, label = id, units = 4, shift = "") => ({ id, label, units, shift });
+const keyboardLayout = [
+  [
+    keyboardKey("`", "`", 4, "~"), keyboardKey("1", "1", 4, "!"), keyboardKey("2", "2", 4, "@"),
+    keyboardKey("3", "3", 4, "#"), keyboardKey("4", "4", 4, "$"), keyboardKey("5", "5", 4, "%"),
+    keyboardKey("6", "6", 4, "^"), keyboardKey("7", "7", 4, "&"), keyboardKey("8", "8", 4, "*"),
+    keyboardKey("9", "9", 4, "("), keyboardKey("0", "0", 4, ")"), keyboardKey("-", "-", 4, "_"),
+    keyboardKey("=", "=", 4, "+"), keyboardKey("backspace", "delete", 8)
+  ],
+  [
+    keyboardKey("tab", "tab", 6), keyboardKey("q", "Q"), keyboardKey("w", "W"), keyboardKey("e", "E"),
+    keyboardKey("r", "R"), keyboardKey("t", "T"), keyboardKey("y", "Y"), keyboardKey("u", "U"),
+    keyboardKey("i", "I"), keyboardKey("o", "O"), keyboardKey("p", "P"), keyboardKey("[", "[", 4, "{"),
+    keyboardKey("]", "]", 4, "}"), keyboardKey("\\", "\\", 6, "|")
+  ],
+  [
+    keyboardKey("capslock", "caps lock", 7), keyboardKey("a", "A"), keyboardKey("s", "S"), keyboardKey("d", "D"),
+    keyboardKey("f", "F"), keyboardKey("g", "G"), keyboardKey("h", "H"), keyboardKey("j", "J"),
+    keyboardKey("k", "K"), keyboardKey("l", "L"), keyboardKey(";", ";", 4, ":"), keyboardKey("'", "'", 4, "\""),
+    keyboardKey("enter", "return", 9)
+  ],
+  [
+    keyboardKey("shiftleft", "shift", 9), keyboardKey("z", "Z"), keyboardKey("x", "X"), keyboardKey("c", "C"),
+    keyboardKey("v", "V"), keyboardKey("b", "B"), keyboardKey("n", "N"), keyboardKey("m", "M"),
+    keyboardKey(",", ",", 4, "<"), keyboardKey(".", ".", 4, ">"), keyboardKey("/", "/", 4, "?"),
+    keyboardKey("shiftright", "shift", 11)
+  ],
+  [
+    keyboardKey("fn", "fn", 4), keyboardKey("controlleft", "control", 5), keyboardKey("altleft", "option", 5),
+    keyboardKey("metaleft", "command", 6), keyboardKey("space", "", 20), keyboardKey("metaright", "command", 6),
+    keyboardKey("altright", "option", 5), keyboardKey("arrowleft", "◀", 3),
+    { type: "arrow-stack", units: 3 }, keyboardKey("arrowright", "▶", 3)
+  ]
+];
+const keyboardCodeIds = {
+  Backquote: "`", Minus: "-", Equal: "=", BracketLeft: "[", BracketRight: "]", Backslash: "\\",
+  Semicolon: ";", Quote: "'", Comma: ",", Period: ".", Slash: "/", Backspace: "backspace",
+  Tab: "tab", CapsLock: "capslock", Enter: "enter", ShiftLeft: "shiftleft", ShiftRight: "shiftright",
+  ControlLeft: "controlleft", AltLeft: "altleft", AltRight: "altright", MetaLeft: "metaleft",
+  MetaRight: "metaright", Space: "space", ArrowLeft: "arrowleft", ArrowUp: "arrowup",
+  ArrowDown: "arrowdown", ArrowRight: "arrowright", Fn: "fn"
+};
 
 const state = {
   mode: "adaptive",
@@ -236,10 +277,13 @@ function renderLetterProgress() {
       totalAttempts += stats.attempts;
       totalCorrect += stats.correct;
       const accuracy = stats.attempts ? Math.round((stats.correct / stats.attempts) * 100) : 0;
-      const strength = !stats.attempts ? "unseen" : accuracy < 80 ? "needs-work" : accuracy < 93 ? "building" : "accurate";
+      const strength = stats.attempts ? "sampled" : "unseen";
       const locked = letterOrder.indexOf(letter) >= unlockedCount ? " locked" : "";
       const detail = stats.attempts ? `${accuracy}% accuracy over ${stats.attempts} attempts` : "No samples yet";
-      return `<span class="heat-key ${strength}${locked}" title="${letter}: ${detail}">${letter}</span>`;
+      const hue = Math.round((accuracy / 100) * 120);
+      const intensity = (.42 + Math.min(1, stats.attempts / 20) * .5).toFixed(2);
+      const heatStyle = stats.attempts ? ` style="--heat-hue:${hue};--heat-intensity:${intensity}"` : "";
+      return `<span class="heat-key ${strength}${locked}"${heatStyle} title="${letter}: ${detail}">${letter}</span>`;
     }).join("");
     return `<div class="heat-row">${keys}</div>`;
   }).join("");
@@ -311,29 +355,104 @@ function bindBibleControls() {
   });
 }
 
+let keyboardElements = new Map();
+
 function renderKeyboard() {
   const unlocked = new Set(letterOrder.slice(0, prefs.practiceLetters));
   els.keyboard.className = `keyboard ${prefs.keyboardSize}`;
-  els.keyboard.innerHTML = keyboardRows.map(row => `<div class="key-row">${[...row].map(k => {
-    const zone = fingerZone(k);
-    const isLockedLetter = /^[A-Z]$/.test(k) && !unlocked.has(k);
-    const cls = ["key", zone.className, isLockedLetter ? "locked" : "", state.pressedKey === k.toLowerCase() ? "pressed" : "", state.mistakeKey === k.toLowerCase() ? "mistake" : ""].join(" ");
-    return `<span class="${cls}" data-key="${escapeHtml(k.toLowerCase())}" title="${zone.label}">${escapeHtml(k)}</span>`;
-  }).join("")}</div>`).join("") + `<div class="key-row"><span class="key thumb zone-thumb" data-key=" " title="Thumbs">Space</span></div>`;
+  els.keyboard.innerHTML = keyboardLayout.map((row, rowIndex) => {
+    const keys = row.map(key => key.type === "arrow-stack"
+      ? renderArrowStack(key)
+      : renderKeyboardKey(key, unlocked)).join("");
+    return `<div class="key-row key-row-${rowIndex + 1}">${keys}</div>`;
+  }).join("");
+  keyboardElements = new Map([...els.keyboard.querySelectorAll("[data-key]")].map(key => [key.dataset.key, key]));
 }
 
 function fingerZone(key) {
-  if ("QAZP;/".includes(key)) return { className: "zone-pinky", label: "P;/".includes(key) ? "Right pinky" : "Left pinky" };
-  if ("WSXOL.".includes(key)) return { className: "zone-ring", label: "Ring finger" };
-  if ("EDCIK,".includes(key)) return { className: "zone-middle", label: "Middle finger" };
-  if ("RFTGVB".includes(key)) return { className: "zone-left-index", label: "Left index finger" };
-  if ("YUHJNM".includes(key)) return { className: "zone-right-index", label: "Right index finger" };
-  return { className: "zone-thumb", label: "Thumb" };
+  if (["tab", "capslock", "shiftleft", "controlleft", "fn"].includes(key) || "`1qaz".includes(key)) {
+    return { className: "zone-pinky", label: "Left pinky" };
+  }
+  if ("2wsx".includes(key)) return { className: "zone-ring", label: "Left ring finger" };
+  if ("3edc".includes(key)) return { className: "zone-middle", label: "Left middle finger" };
+  if ("45rftgvb".includes(key)) return { className: "zone-left-index", label: "Left index finger" };
+  if ("67yuhjnm".includes(key)) return { className: "zone-right-index", label: "Right index finger" };
+  if ("8ik,".includes(key)) return { className: "zone-middle", label: "Right middle finger" };
+  if ("9ol.".includes(key)) return { className: "zone-ring", label: "Right ring finger" };
+  if (["0", "-", "=", "p", "[", "]", "\\", ";", "'", "/", "backspace", "enter", "shiftright"].includes(key)) {
+    return { className: "zone-pinky", label: "Right pinky" };
+  }
+  if (["space", "altleft", "altright", "metaleft", "metaright"].includes(key)) {
+    return { className: "zone-thumb", label: "Thumbs" };
+  }
+  return { className: "zone-neutral", label: "Navigation key" };
+}
+
+function keyboardStateClasses(id) {
+  return [state.pressedKey === id ? "pressed" : "", state.mistakeKey === id ? "mistake" : ""].join(" ");
+}
+
+function renderKeyboardKey(key, unlocked) {
+  const zone = fingerZone(key.id);
+  const isLetter = /^[a-z]$/.test(key.id);
+  const isLockedLetter = isLetter && !unlocked.has(key.id.toUpperCase());
+  const isModifier = !isLetter && !key.shift && !/^[`0-9\-=\[\]\\;',./]$/.test(key.id);
+  const classes = ["key", zone.className, isLockedLetter ? "locked" : "", isModifier ? "modifier" : "", key.id === "space" ? "spacebar" : "", keyboardStateClasses(key.id)].join(" ");
+  const label = key.shift
+    ? `<span class="key-symbols"><small>${escapeHtml(key.shift)}</small><span>${escapeHtml(key.label)}</span></span>`
+    : `<span>${escapeHtml(key.label)}</span>`;
+  return `<span class="${classes}" style="grid-column: span ${key.units}" data-key="${escapeHtml(key.id)}" title="${zone.label}">${label}</span>`;
+}
+
+function renderArrowStack(key) {
+  const arrows = [["arrowup", "▲"], ["arrowdown", "▼"]].map(([id, label]) =>
+    `<span class="key arrow-key zone-neutral ${keyboardStateClasses(id)}" data-key="${id}" title="Navigation key">${label}</span>`
+  ).join("");
+  return `<span class="arrow-stack" style="grid-column: span ${key.units}">${arrows}</span>`;
+}
+
+function visualKeyId(event) {
+  if (/^Key[A-Z]$/.test(event.code)) return event.code.slice(3).toLowerCase();
+  if (/^Digit[0-9]$/.test(event.code)) return event.code.slice(5);
+  return keyboardCodeIds[event.code] || event.key.toLowerCase();
+}
+
+let pressedKeyTimer;
+let mistakeKeyTimer;
+
+function setKeyboardKeyClass(key, className, isActive) {
+  keyboardElements.get(key)?.classList.toggle(className, isActive);
+}
+
+function flashPressedKey(key) {
+  clearTimeout(pressedKeyTimer);
+  if (state.pressedKey) setKeyboardKeyClass(state.pressedKey, "pressed", false);
+  state.pressedKey = key;
+  setKeyboardKeyClass(key, "pressed", true);
+  pressedKeyTimer = setTimeout(() => {
+    setKeyboardKeyClass(state.pressedKey, "pressed", false);
+    state.pressedKey = "";
+  }, 110);
+}
+
+function flashMistakeKey(key) {
+  clearTimeout(mistakeKeyTimer);
+  if (state.mistakeKey) setKeyboardKeyClass(state.mistakeKey, "mistake", false);
+  state.mistakeKey = key;
+  setKeyboardKeyClass(key, "mistake", true);
+  mistakeKeyTimer = setTimeout(() => {
+    setKeyboardKeyClass(state.mistakeKey, "mistake", false);
+    state.mistakeKey = "";
+  }, 240);
 }
 
 function handleKey(event) {
+  if (els.settingsDialog.open) return;
+  const keyId = visualKeyId(event);
+  flashPressedKey(keyId);
   if (event.metaKey || event.ctrlKey || event.altKey) return;
   if (event.key === "Backspace") {
+    event.preventDefault();
     if (state.input.length) state.input = state.input.slice(0, -1);
     renderText();
     return;
@@ -344,15 +463,11 @@ function handleKey(event) {
   const target = currentTarget();
   const key = event.key;
   const expected = target[state.input.length];
-  state.pressedKey = key.toLowerCase();
-  setTimeout(() => { state.pressedKey = ""; renderKeyboard(); }, 90);
   if (state.mode !== "free") recordLetterAttempt(expected, key === expected);
   if (state.mode !== "free" && key !== expected) {
     state.errors++;
-    state.mistakeKey = key.toLowerCase();
+    flashMistakeKey(keyId);
     if (prefs.errorSounds) playError();
-    setTimeout(() => { state.mistakeKey = ""; renderKeyboard(); }, 220);
-    renderKeyboard();
     renderLetterProgress();
     return;
   }
