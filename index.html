@@ -6,7 +6,7 @@
   <title>Keyboard Disciple</title>
   <meta name="description" content="A focused, game-feeling typing practice app with adaptive lessons, Bible reading, Bible quotes, and a live keyboard.">
   <link rel="icon" href="assets/keyboard-disciple-logo.png">
-  <link rel="stylesheet" href="styles.css?v=20260713-real-keyboard-gradient">
+  <link rel="stylesheet" href="styles.css?v=20260713-layouts-audio-light">
 </head>
 <body>
   <div class="app-shell">
@@ -137,6 +137,14 @@
             <option value="large">Large</option>
           </select>
         </label>
+        <label>Keyboard layout
+          <select id="keyboardLayout">
+            <option value="mac">Mac</option>
+            <option value="windows">Windows</option>
+            <option value="compact">Compact 60%</option>
+            <option value="typewriter">Typewriter</option>
+          </select>
+        </label>
         <label>Keyboard sound
           <select id="soundStyle">
             <option value="clicky">Clicky</option>
@@ -147,6 +155,27 @@
             <option value="marbly">Marbly</option>
             <option value="silent">Silent</option>
             <option value="typewriter">Typewriter</option>
+          </select>
+        </label>
+        <label>Reward sound
+          <select id="rewardStyle">
+            <option value="preacher">Preacher</option>
+            <option value="key-bloom">Key Bloom</option>
+            <option value="glass-keys">Glass Keys</option>
+          </select>
+        </label>
+        <label>Error sound
+          <select id="errorStyle">
+            <option value="beep">Beep</option>
+            <option value="soft-knock">Soft Knock</option>
+            <option value="digital-blip">Digital Blip</option>
+          </select>
+        </label>
+        <label>Appearance
+          <select id="theme">
+            <option value="dark">Dark</option>
+            <option value="light">Light</option>
+            <option value="system">System</option>
           </select>
         </label>
         <label>Capitalization
@@ -160,13 +189,13 @@
       </div>
       <div class="toggle-list">
         <label><input type="checkbox" id="typingSounds" checked> Typing sounds</label>
-        <label><input type="checkbox" id="errorSounds" checked> Error beep</label>
+        <label><input type="checkbox" id="errorSounds" checked> Error sound</label>
         <label><input type="checkbox" id="showKeyboard" checked> Live keyboard</label>
         <label><input type="checkbox" id="includePunctuation" checked> Punctuation</label>
       </div>
     </form>
   </dialog>
 
-  <script src="app.js?v=20260713-real-keyboard-gradient"></script>
+  <script src="app.js?v=20260713-layouts-audio-light"></script>
 </body>
 </html>

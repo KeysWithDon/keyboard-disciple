@@ -4,8 +4,11 @@ const rowsPerPage = 10;
 const STORAGE_KEY = "keyboard-disciple-web";
 const letterHeatmapRows = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
 const keyboardSoundStyles = new Set(["clicky", "clacky", "creamy", "thocky", "poppy", "marbly", "silent", "typewriter"]);
+const rewardSoundStyles = new Set(["preacher", "key-bloom", "glass-keys"]);
+const errorSoundStyles = new Set(["beep", "soft-knock", "digital-blip"]);
+const themeStyles = new Set(["dark", "light", "system"]);
 const keyboardKey = (id, label = id, units = 4, shift = "") => ({ id, label, units, shift });
-const keyboardLayout = [
+const macKeyboardLayout = [
   [
     keyboardKey("`", "`", 4, "~"), keyboardKey("1", "1", 4, "!"), keyboardKey("2", "2", 4, "@"),
     keyboardKey("3", "3", 4, "#"), keyboardKey("4", "4", 4, "$"), keyboardKey("5", "5", 4, "%"),
@@ -38,13 +41,43 @@ const keyboardLayout = [
     { type: "arrow-stack", units: 3 }, keyboardKey("arrowright", "▶", 3)
   ]
 ];
+const relabelKeyboardRows = (rows, labels) => rows.map(row => row.map(key =>
+  key.type || !labels[key.id] ? key : { ...key, label: labels[key.id] }
+));
+const windowsKeyboardLayout = [
+  ...relabelKeyboardRows(macKeyboardLayout.slice(0, 4), { backspace: "backspace", enter: "enter" }),
+  [
+    keyboardKey("controlleft", "ctrl", 4), keyboardKey("metaleft", "win", 4), keyboardKey("altleft", "alt", 5),
+    keyboardKey("space", "", 21), keyboardKey("altright", "alt", 5), keyboardKey("metaright", "win", 4),
+    keyboardKey("menu", "menu", 4), keyboardKey("controlright", "ctrl", 4), keyboardKey("arrowleft", "◀", 3),
+    { type: "arrow-stack", units: 3 }, keyboardKey("arrowright", "▶", 3)
+  ]
+];
+const compactKeyboardLayout = [
+  ...relabelKeyboardRows(macKeyboardLayout.slice(0, 4), { backspace: "backspace", enter: "enter" }),
+  [
+    keyboardKey("controlleft", "ctrl", 5), keyboardKey("metaleft", "win", 5), keyboardKey("altleft", "alt", 5),
+    keyboardKey("space", "", 30), keyboardKey("altright", "alt", 5), keyboardKey("fnright", "fn", 5),
+    keyboardKey("controlright", "ctrl", 5)
+  ]
+];
+const typewriterKeyboardLayout = [
+  ...relabelKeyboardRows(macKeyboardLayout.slice(0, 4), { backspace: "backspace", capslock: "shift lock" }),
+  [{ type: "spacer", units: 12 }, keyboardKey("space", "", 36), { type: "spacer", units: 12 }]
+];
+const keyboardLayouts = {
+  mac: macKeyboardLayout,
+  windows: windowsKeyboardLayout,
+  compact: compactKeyboardLayout,
+  typewriter: typewriterKeyboardLayout
+};
 const keyboardCodeIds = {
   Backquote: "`", Minus: "-", Equal: "=", BracketLeft: "[", BracketRight: "]", Backslash: "\\",
   Semicolon: ";", Quote: "'", Comma: ",", Period: ".", Slash: "/", Backspace: "backspace",
   Tab: "tab", CapsLock: "capslock", Enter: "enter", ShiftLeft: "shiftleft", ShiftRight: "shiftright",
-  ControlLeft: "controlleft", AltLeft: "altleft", AltRight: "altright", MetaLeft: "metaleft",
+  ControlLeft: "controlleft", ControlRight: "controlright", AltLeft: "altleft", AltRight: "altright", MetaLeft: "metaleft",
   MetaRight: "metaright", Space: "space", ArrowLeft: "arrowleft", ArrowUp: "arrowup",
-  ArrowDown: "arrowdown", ArrowRight: "arrowright", Fn: "fn"
+  ArrowDown: "arrowdown", ArrowRight: "arrowright", ContextMenu: "menu", Fn: "fn"
 };
 
 const state = {
@@ -58,6 +91,7 @@ const state = {
   rowsCleared: 0,
   charsTyped: 0,
   errors: 0,
+  characterErrors: 0,
   lastWpm: 0,
   lastAccuracy: 100,
   kjv: null,
@@ -72,8 +106,12 @@ const defaultPrefs = {
   practiceLetters: startLetters,
   wordsPerRow: 10,
   currentCue: "highlight",
+  keyboardLayout: "mac",
   keyboardSize: "standard",
   soundStyle: "clicky",
+  rewardStyle: "preacher",
+  errorStyle: "beep",
+  theme: "dark",
   typingSounds: true,
   errorSounds: true,
   showKeyboard: true,
@@ -91,6 +129,24 @@ const prefs = Object.fromEntries(Object.keys(defaultPrefs).map(key => [
 ]));
 prefs.practiceLetters = Math.max(startLetters, Math.min(letterOrder.length, Number(prefs.practiceLetters) || startLetters));
 if (!keyboardSoundStyles.has(prefs.soundStyle)) prefs.soundStyle = defaultPrefs.soundStyle;
+if (!keyboardLayouts[prefs.keyboardLayout]) prefs.keyboardLayout = defaultPrefs.keyboardLayout;
+if (!rewardSoundStyles.has(prefs.rewardStyle)) prefs.rewardStyle = defaultPrefs.rewardStyle;
+if (!errorSoundStyles.has(prefs.errorStyle)) prefs.errorStyle = defaultPrefs.errorStyle;
+if (!themeStyles.has(prefs.theme)) prefs.theme = defaultPrefs.theme;
+
+const systemThemeQuery = window.matchMedia("(prefers-color-scheme: light)");
+
+function applyTheme() {
+  const theme = prefs.theme === "system"
+    ? (systemThemeQuery.matches ? "light" : "dark")
+    : prefs.theme;
+  document.documentElement.dataset.theme = theme;
+}
+
+systemThemeQuery.addEventListener("change", () => {
+  if (prefs.theme === "system") applyTheme();
+});
+applyTheme();
 
 const progress = Object.assign({
   rowsCleared: 0,
@@ -213,6 +269,7 @@ async function restart() {
   state.startedAt = null;
   state.charsTyped = 0;
   state.errors = 0;
+  state.characterErrors = 0;
   state.completion = false;
   els.completionBanner.classList.add("hidden");
   if (state.mode === "adaptive") {
@@ -260,6 +317,7 @@ function renderLetterProgress() {
   if (!isAdaptive) return;
 
   const unlockedCount = Number(prefs.practiceLetters);
+  const earnedLetters = new Set(letterOrder.slice(0, unlockedCount));
   const nextLetter = letterOrder[unlockedCount];
   els.unlockCount.textContent = `${unlockedCount} / ${letterOrder.length}`;
   els.unlockNext.textContent = nextLetter ? `Next: ${nextLetter}` : "All letters unlocked";
@@ -272,20 +330,19 @@ function renderLetterProgress() {
   let totalAttempts = 0;
   let totalCorrect = 0;
   els.letterHeatmap.innerHTML = letterHeatmapRows.map(row => {
-    const keys = [...row].map(letter => {
+    const keys = [...row].filter(letter => earnedLetters.has(letter)).map(letter => {
       const stats = progress.letterStats[letter.toLowerCase()] || { attempts: 0, correct: 0 };
       totalAttempts += stats.attempts;
       totalCorrect += stats.correct;
       const accuracy = stats.attempts ? Math.round((stats.correct / stats.attempts) * 100) : 0;
       const strength = stats.attempts ? "sampled" : "unseen";
-      const locked = letterOrder.indexOf(letter) >= unlockedCount ? " locked" : "";
       const detail = stats.attempts ? `${accuracy}% accuracy over ${stats.attempts} attempts` : "No samples yet";
       const hue = Math.round((accuracy / 100) * 120);
       const intensity = (.42 + Math.min(1, stats.attempts / 20) * .5).toFixed(2);
       const heatStyle = stats.attempts ? ` style="--heat-hue:${hue};--heat-intensity:${intensity}"` : "";
-      return `<span class="heat-key ${strength}${locked}"${heatStyle} title="${letter}: ${detail}">${letter}</span>`;
+      return `<span class="heat-key ${strength}"${heatStyle} title="${letter}: ${detail}">${letter}</span>`;
     }).join("");
-    return `<div class="heat-row">${keys}</div>`;
+    return keys ? `<div class="heat-row">${keys}</div>` : "";
   }).join("");
   els.heatmapSummary.textContent = totalAttempts
     ? `${Math.round((totalCorrect / totalAttempts) * 100)}% overall`
@@ -359,11 +416,14 @@ let keyboardElements = new Map();
 
 function renderKeyboard() {
   const unlocked = new Set(letterOrder.slice(0, prefs.practiceLetters));
-  els.keyboard.className = `keyboard ${prefs.keyboardSize}`;
-  els.keyboard.innerHTML = keyboardLayout.map((row, rowIndex) => {
-    const keys = row.map(key => key.type === "arrow-stack"
-      ? renderArrowStack(key)
-      : renderKeyboardKey(key, unlocked)).join("");
+  const layout = keyboardLayouts[prefs.keyboardLayout] || keyboardLayouts.mac;
+  els.keyboard.className = `keyboard ${prefs.keyboardSize} layout-${prefs.keyboardLayout}`;
+  els.keyboard.innerHTML = layout.map((row, rowIndex) => {
+    const keys = row.map(key => {
+      if (key.type === "arrow-stack") return renderArrowStack(key);
+      if (key.type === "spacer") return `<span class="keyboard-spacer" style="grid-column: span ${key.units}"></span>`;
+      return renderKeyboardKey(key, unlocked);
+    }).join("");
     return `<div class="key-row key-row-${rowIndex + 1}">${keys}</div>`;
   }).join("");
   keyboardElements = new Map([...els.keyboard.querySelectorAll("[data-key]")].map(key => [key.dataset.key, key]));
@@ -379,10 +439,10 @@ function fingerZone(key) {
   if ("67yuhjnm".includes(key)) return { className: "zone-right-index", label: "Right index finger" };
   if ("8ik,".includes(key)) return { className: "zone-middle", label: "Right middle finger" };
   if ("9ol.".includes(key)) return { className: "zone-ring", label: "Right ring finger" };
-  if (["0", "-", "=", "p", "[", "]", "\\", ";", "'", "/", "backspace", "enter", "shiftright"].includes(key)) {
+  if (["0", "-", "=", "p", "[", "]", "\\", ";", "'", "/", "backspace", "enter", "shiftright", "controlright"].includes(key)) {
     return { className: "zone-pinky", label: "Right pinky" };
   }
-  if (["space", "altleft", "altright", "metaleft", "metaright"].includes(key)) {
+  if (["space", "altleft", "altright", "metaleft", "metaright", "menu", "fnright"].includes(key)) {
     return { className: "zone-thumb", label: "Thumbs" };
   }
   return { className: "zone-neutral", label: "Navigation key" };
@@ -414,11 +474,13 @@ function renderArrowStack(key) {
 function visualKeyId(event) {
   if (/^Key[A-Z]$/.test(event.code)) return event.code.slice(3).toLowerCase();
   if (/^Digit[0-9]$/.test(event.code)) return event.code.slice(5);
+  if (event.code === "Fn" && prefs.keyboardLayout === "compact") return "fnright";
   return keyboardCodeIds[event.code] || event.key.toLowerCase();
 }
 
 let pressedKeyTimer;
 let mistakeKeyTimer;
+let lastErrorSoundAt = 0;
 
 function setKeyboardKeyClass(key, className, isActive) {
   keyboardElements.get(key)?.classList.toggle(className, isActive);
@@ -451,9 +513,16 @@ function handleKey(event) {
   const keyId = visualKeyId(event);
   flashPressedKey(keyId);
   if (event.metaKey || event.ctrlKey || event.altKey) return;
+  if (event.repeat && state.mode !== "free") {
+    event.preventDefault();
+    return;
+  }
   if (event.key === "Backspace") {
     event.preventDefault();
-    if (state.input.length) state.input = state.input.slice(0, -1);
+    if (state.input.length) {
+      state.input = state.input.slice(0, -1);
+      state.characterErrors = 0;
+    }
     renderText();
     return;
   }
@@ -463,14 +532,23 @@ function handleKey(event) {
   const target = currentTarget();
   const key = event.key;
   const expected = target[state.input.length];
-  if (state.mode !== "free") recordLetterAttempt(expected, key === expected);
   if (state.mode !== "free" && key !== expected) {
-    state.errors++;
+    if (state.characterErrors < 3) {
+      state.errors++;
+      state.characterErrors++;
+      recordLetterAttempt(expected, false);
+    }
     flashMistakeKey(keyId);
-    if (prefs.errorSounds) playError();
+    const now = performance.now();
+    if (prefs.errorSounds && now - lastErrorSoundAt > 90) {
+      playError();
+      lastErrorSoundAt = now;
+    }
     renderLetterProgress();
     return;
   }
+  if (state.mode !== "free") recordLetterAttempt(expected, true);
+  state.characterErrors = 0;
   state.input += key;
   state.charsTyped++;
   if (prefs.typingSounds) playKey();
@@ -522,7 +600,7 @@ function finishLine() {
       if (state.pageIndex >= state.scripturePages.length) state.pageIndex = 0;
     }
     render();
-  }, 160);
+  }, 100);
 }
 
 let audioCtx;
@@ -530,17 +608,19 @@ function ctx() {
   audioCtx ||= new (window.AudioContext || window.webkitAudioContext)();
   return audioCtx;
 }
-function tone(freq, dur, type = "square", gain = .045) {
+function tone(freq, dur, type = "square", gain = .045, delay = 0) {
   const c = ctx();
+  if (c.state === "suspended") c.resume().catch(() => {});
+  const start = c.currentTime + delay;
   const osc = c.createOscillator();
   const g = c.createGain();
   osc.type = type;
   osc.frequency.value = freq;
-  g.gain.setValueAtTime(gain, c.currentTime);
-  g.gain.exponentialRampToValueAtTime(.0001, c.currentTime + dur);
+  g.gain.setValueAtTime(gain, start);
+  g.gain.exponentialRampToValueAtTime(.0001, start + dur);
   osc.connect(g).connect(c.destination);
-  osc.start();
-  osc.stop(c.currentTime + dur);
+  osc.start(start);
+  osc.stop(start + dur);
 }
 function playKey() {
   if (prefs.soundStyle === "silent") return;
@@ -559,7 +639,19 @@ function playKey() {
   source.connect(gain).connect(c.destination);
   source.start();
 }
-function playError() { tone(420, .11, "square", .08); }
+function playError() {
+  if (prefs.errorStyle === "soft-knock") {
+    tone(190, .07, "triangle", .075);
+    tone(125, .09, "sine", .045, .025);
+    return;
+  }
+  if (prefs.errorStyle === "digital-blip") {
+    tone(560, .045, "square", .055);
+    tone(280, .07, "square", .04, .045);
+    return;
+  }
+  tone(420, .11, "square", .08);
+}
 
 const keyboardSoundFiles = {
   clicky: Array.from({ length: 5 }, (_, index) => `assets/key-sounds/clicky/key-${index + 1}.mp3`),
@@ -596,40 +688,105 @@ async function preloadKeySounds() {
 
 const rowRewardFiles = Array.from({ length: 9 }, (_, index) => `assets/Shout_${index + 1}.wav`);
 const specialRewardFile = "assets/Shout_Special.wav";
-const rowRewardSounds = [];
-let specialRewardSound;
-let activeRewardSound;
+const rowRewardBuffers = [];
+const activeRewardNodes = new Set();
+let specialRewardBuffer;
 
-function makeRewardAudio(file) {
-  const audio = new Audio(new URL(file, document.baseURI).href);
-  audio.preload = "auto";
-  audio.playsInline = true;
-  audio.load();
-  return audio;
+async function decodeAudioFile(file) {
+  const response = await fetch(new URL(file, document.baseURI));
+  if (!response.ok) throw new Error(`Could not load ${file}`);
+  return ctx().decodeAudioData(await response.arrayBuffer());
 }
 
-function preloadRewardSounds() {
-  rowRewardSounds.push(...rowRewardFiles.map(makeRewardAudio));
-  specialRewardSound = makeRewardAudio(specialRewardFile);
+async function preloadRewardSounds() {
+  try {
+    const buffers = await Promise.all([...rowRewardFiles, specialRewardFile].map(decodeAudioFile));
+    rowRewardBuffers.push(...buffers.slice(0, rowRewardFiles.length));
+    specialRewardBuffer = buffers.at(-1);
+  } catch (error) {
+    console.warn("Reward sounds could not be preloaded.", error);
+  }
+}
+
+function trackRewardNode(node) {
+  activeRewardNodes.add(node);
+  node.addEventListener("ended", () => activeRewardNodes.delete(node), { once: true });
+  return node;
 }
 
 function stopRewardSound() {
-  if (!activeRewardSound) return;
-  activeRewardSound.pause();
-  try { activeRewardSound.currentTime = 0; } catch (_) {}
-  activeRewardSound = undefined;
+  [...activeRewardNodes].forEach(node => {
+    try { node.stop(); } catch (_) {}
+  });
+  activeRewardNodes.clear();
+}
+
+function playRewardBuffer(buffer, gainValue = .75, delay = 0, rate = 1) {
+  if (!buffer) return false;
+  const c = ctx();
+  if (c.state === "suspended") c.resume().catch(() => {});
+  const source = trackRewardNode(c.createBufferSource());
+  const gain = c.createGain();
+  source.buffer = buffer;
+  source.playbackRate.value = rate;
+  gain.gain.value = gainValue;
+  source.connect(gain).connect(c.destination);
+  source.start(c.currentTime + delay);
+  return true;
+}
+
+function rewardTone(freq, dur, type, gainValue, delay = 0) {
+  const c = ctx();
+  if (c.state === "suspended") c.resume().catch(() => {});
+  const start = c.currentTime + delay;
+  const osc = trackRewardNode(c.createOscillator());
+  const gain = c.createGain();
+  osc.type = type;
+  osc.frequency.value = freq;
+  gain.gain.setValueAtTime(gainValue, start);
+  gain.gain.exponentialRampToValueAtTime(.0001, start + dur);
+  osc.connect(gain).connect(c.destination);
+  osc.start(start);
+  osc.stop(start + dur);
+}
+
+function rewardKeySamples() {
+  const preferred = prefs.soundStyle === "silent" ? "creamy" : prefs.soundStyle;
+  return keyboardSoundBuffers[preferred] || keyboardSoundBuffers.creamy || keyboardSoundBuffers.clicky || [];
+}
+
+function playKeyBloom(isSection) {
+  const samples = rewardKeySamples();
+  const taps = isSection
+    ? [[0, 1, .42], [.045, 1.12, .38], [.09, 1.28, .34], [.135, 1.5, .3]]
+    : [[0, 1, .42], [.055, 1.2, .32]];
+  taps.forEach(([delay, rate, gain], index) => playRewardBuffer(samples[index % samples.length], gain, delay, rate));
+  const notes = isSection
+    ? [[523.25, 0], [659.25, .055], [783.99, .11], [1046.5, .165]]
+    : [[659.25, .015], [987.77, .065]];
+  notes.forEach(([freq, delay], index) => rewardTone(freq, isSection ? .28 : .16, "sine", isSection ? .027 : .021 - index * .004, delay));
+}
+
+function playGlassKeys(isSection) {
+  const notes = isSection
+    ? [[523.25, 0, .032], [659.25, .065, .028], [783.99, .13, .025], [1046.5, .195, .022]]
+    : [[783.99, 0, .027], [1174.66, .065, .019]];
+  notes.forEach(([freq, delay, gain]) => rewardTone(freq, isSection ? .38 : .22, "sine", gain, delay));
 }
 
 function playReward(completedRow) {
-  const reward = completedRow === rowsPerPage
-    ? specialRewardSound
-    : rowRewardSounds[completedRow - 1];
-  if (!reward) return;
   stopRewardSound();
-  activeRewardSound = reward;
-  try { reward.currentTime = 0; } catch (_) {}
-  const playback = reward.play();
-  if (playback) playback.catch(() => {});
+  const isSection = completedRow === rowsPerPage;
+  if (prefs.rewardStyle === "key-bloom") {
+    playKeyBloom(isSection);
+    return;
+  }
+  if (prefs.rewardStyle === "glass-keys") {
+    playGlassKeys(isSection);
+    return;
+  }
+  const preacherReward = isSection ? specialRewardBuffer : rowRewardBuffers[completedRow - 1];
+  if (!playRewardBuffer(preacherReward, .82)) playKeyBloom(isSection);
 }
 
 function escapeHtml(text) {
@@ -644,18 +801,77 @@ function setupSettings() {
     if (i === Number(prefs.practiceLetters)) opt.selected = true;
     document.getElementById("practiceLetters").appendChild(opt);
   }
-  ["wordsPerRow","currentCue","keyboardSize","soundStyle","capitalization"].forEach(id => {
+  ["wordsPerRow", "currentCue", "keyboardLayout", "keyboardSize", "soundStyle", "rewardStyle", "errorStyle", "theme", "capitalization"].forEach(id => {
     const el = document.getElementById(id);
     el.value = prefs[id];
-    el.addEventListener("change", e => { prefs[id] = e.target.value; save(); restart(); });
   });
-  ["practiceLetters"].forEach(id => {
-    document.getElementById(id).addEventListener("change", e => { prefs[id] = Number(e.target.value); save(); restart(); });
+
+  ["wordsPerRow", "capitalization"].forEach(id => {
+    document.getElementById(id).addEventListener("change", e => {
+      prefs[id] = e.target.value;
+      save();
+      restart();
+    });
   });
-  ["typingSounds","errorSounds","showKeyboard","includePunctuation"].forEach(id => {
+  document.getElementById("practiceLetters").addEventListener("change", e => {
+    prefs.practiceLetters = Number(e.target.value);
+    save();
+    restart();
+  });
+  document.getElementById("currentCue").addEventListener("change", e => {
+    prefs.currentCue = e.target.value;
+    save();
+    renderText();
+  });
+  ["keyboardLayout", "keyboardSize"].forEach(id => {
+    document.getElementById(id).addEventListener("change", e => {
+      prefs[id] = e.target.value;
+      save();
+      renderKeyboard();
+    });
+  });
+  document.getElementById("soundStyle").addEventListener("change", e => {
+    prefs.soundStyle = e.target.value;
+    save();
+    if (prefs.typingSounds) playKey();
+  });
+  document.getElementById("rewardStyle").addEventListener("change", e => {
+    prefs.rewardStyle = e.target.value;
+    save();
+    stopRewardSound();
+    playReward(1);
+  });
+  document.getElementById("errorStyle").addEventListener("change", e => {
+    prefs.errorStyle = e.target.value;
+    save();
+    if (prefs.errorSounds) playError();
+  });
+  document.getElementById("theme").addEventListener("change", e => {
+    prefs.theme = e.target.value;
+    save();
+    applyTheme();
+  });
+  ["typingSounds", "errorSounds"].forEach(id => {
     const el = document.getElementById(id);
     el.checked = !!prefs[id];
-    el.addEventListener("change", e => { prefs[id] = e.target.checked; save(); restart(); });
+    el.addEventListener("change", e => {
+      prefs[id] = e.target.checked;
+      save();
+    });
+  });
+  const showKeyboard = document.getElementById("showKeyboard");
+  showKeyboard.checked = !!prefs.showKeyboard;
+  showKeyboard.addEventListener("change", e => {
+    prefs.showKeyboard = e.target.checked;
+    save();
+    els.keyboardWrap.classList.toggle("hidden", !prefs.showKeyboard);
+  });
+  const includePunctuation = document.getElementById("includePunctuation");
+  includePunctuation.checked = !!prefs.includePunctuation;
+  includePunctuation.addEventListener("change", e => {
+    prefs.includePunctuation = e.target.checked;
+    save();
+    restart();
   });
   els.settingsBtn.addEventListener("click", () => els.settingsDialog.showModal());
 }
@@ -670,6 +886,10 @@ document.querySelectorAll(".mode-button").forEach(btn => {
 });
 els.restartBtn.addEventListener("click", restart);
 document.addEventListener("keydown", handleKey);
+window.addEventListener("pagehide", save);
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") save();
+});
 preloadRewardSounds();
 preloadKeySounds();
 setupSettings();
