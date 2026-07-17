@@ -1,12 +1,20 @@
 const letterOrder = "ENIARLTOSUDYCGHPMKBWFZVXQJ".split("");
 const startLetters = 6;
 const rowsPerPage = 10;
+const masteryRequiredPages = 9;
+const masteryRequiredAttempts = 180;
 const STORAGE_KEY = "keyboard-disciple-web";
 const letterHeatmapRows = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
-const keyboardSoundStyles = new Set(["clicky", "clacky", "creamy", "thocky", "poppy", "marbly", "silent", "typewriter"]);
+const keyboardSoundStyles = new Set([
+  "clicky", "clacky", "creamy", "thocky", "poppy", "marbly", "typewriter", "soft-tap", "sharp-tap",
+  "wooden", "bubble", "metallic", "glass", "deep", "crisp", "arcade-key", "retro", "stone", "paper",
+  "muted", "spring", "sine", "square", "triangle", "pentatonic", "blues", "silent"
+]);
 const rewardSoundStyles = new Set(["preacher", "key-bloom", "glass-keys"]);
-const errorSoundStyles = new Set(["beep", "soft-knock", "digital-blip"]);
-const themeStyles = new Set(["dark", "light"]);
+const errorSoundStyles = new Set(["beep", "soft-knock", "digital-blip", "bass-buzz"]);
+const themeStyles = new Set(["dark", "light", "arcade", "chapel", "midnight", "high-contrast"]);
+const testModes = new Set(["time", "words", "quote", "custom"]);
+const scoredModes = new Set(["adaptive", "time", "words", "quote", "custom", "bible", "bibleQuotes"]);
 const keyboardKey = (id, label = id, units = 4, shift = "") => ({ id, label, units, shift });
 const macKeyboardLayout = [
   [
@@ -90,11 +98,21 @@ const state = {
   startedAt: null,
   rowsCleared: 0,
   charsTyped: 0,
+  rawTyped: 0,
   errors: 0,
   characterErrors: 0,
   lessonLetterStats: {},
   lastAcceptedAt: null,
   lastActivityAt: null,
+  lastKeyAt: null,
+  keyIntervals: [],
+  timerId: null,
+  deadline: null,
+  timeRemaining: 0,
+  warningPlayed: false,
+  testCompleted: false,
+  result: null,
+  capsLock: false,
   lastWpm: 0,
   lastAccuracy: 100,
   kjv: null,
@@ -109,18 +127,50 @@ const defaultPrefs = {
   practiceLetters: startLetters,
   wordsPerRow: 10,
   dailyGoalMinutes: 15,
+  testDuration: 30,
+  testWordCount: 50,
+  quoteLength: "medium",
+  difficulty: "normal",
+  quickRestart: "off",
   currentCue: "highlight",
+  caretStyle: "highlight",
+  smoothCaret: "medium",
+  typedEffect: "keep",
+  highlightMode: "letter",
+  fontSize: "medium",
+  lineWidth: "comfortable",
+  timerStyle: "text",
+  speedUnit: "wpm",
+  showLiveWpm: true,
+  showLiveAccuracy: true,
+  showLiveRaw: false,
+  showLiveConsistency: false,
+  showProgress: true,
+  showAllLines: false,
   keyboardLayout: "mac",
   keyboardSize: "standard",
+  keymapMode: "react",
+  keymapStyle: "staggered",
+  keymapLegend: "uppercase",
   soundStyle: "clicky",
+  soundVolume: .5,
   rewardStyle: "preacher",
   errorStyle: "beep",
+  timeWarning: "off",
   theme: "dark",
   typingSounds: true,
   errorSounds: true,
   showKeyboard: true,
   includePunctuation: true,
+  includeNumbers: false,
+  confidenceMode: "off",
+  errorLimit: 3,
+  blindMode: false,
+  quickEnd: false,
+  capsLockWarning: true,
+  focusMode: false,
   capitalization: "source",
+  customText: "Practice with purpose and let steady hands build lasting skill.",
   bibleBook: "John",
   bibleChapter: 3,
   bibleStart: 16,
@@ -132,11 +182,16 @@ const prefs = Object.fromEntries(Object.keys(defaultPrefs).map(key => [
   storedPrefs[key] ?? defaultPrefs[key]
 ]));
 prefs.practiceLetters = Math.max(startLetters, Math.min(letterOrder.length, Number(prefs.practiceLetters) || startLetters));
+prefs.testDuration = Math.max(5, Math.min(600, Number(prefs.testDuration) || defaultPrefs.testDuration));
+prefs.testWordCount = Math.max(1, Math.min(500, Number(prefs.testWordCount) || defaultPrefs.testWordCount));
+prefs.errorLimit = Math.max(1, Math.min(8, Number(prefs.errorLimit) || defaultPrefs.errorLimit));
+prefs.soundVolume = Math.max(0, Math.min(1, Number(prefs.soundVolume) || defaultPrefs.soundVolume));
 if (!keyboardSoundStyles.has(prefs.soundStyle)) prefs.soundStyle = defaultPrefs.soundStyle;
 if (!keyboardLayouts[prefs.keyboardLayout]) prefs.keyboardLayout = defaultPrefs.keyboardLayout;
 if (!rewardSoundStyles.has(prefs.rewardStyle)) prefs.rewardStyle = defaultPrefs.rewardStyle;
 if (!errorSoundStyles.has(prefs.errorStyle)) prefs.errorStyle = defaultPrefs.errorStyle;
 if (!themeStyles.has(prefs.theme)) prefs.theme = defaultPrefs.theme;
+if (storedPrefs.showKeyboard === false && storedPrefs.keymapMode === undefined) prefs.keymapMode = "off";
 prefs.dailyGoalMinutes = Math.max(5, Math.min(60, Number(prefs.dailyGoalMinutes) || defaultPrefs.dailyGoalMinutes));
 
 function applyTheme() {
@@ -163,6 +218,13 @@ const commonWords = `a able about act add after again air all also always am an 
 const moderateWords = `abide accent active admire adore advice alert anchor answer arena arise attend balance banner beacon belong better border borrow branch calmly captain careful center chance chosen circle comfort common corner courage custom daily decide delight detail direct divide double eager earnest effect effort either enable ending energy engine entire escape estate expand expect fabric faith family favor fellow figure filter finish flower follow future gather gentle glory golden handle harbor honest humble improve indeed inside intent island joyful keeper kingdom ladder leader lesson letter linger listen living matter memory middle modern moment motion notice number office origin palace patient pattern period phrase planet plenty polish ponder proper public quiet reason record remain rescue rhythm sample season second secret signal simple single smooth steady stream strength summer supply surely temple tender thread travel useful valley virtue window wonder worthy`.split(" ");
 const rareWords = `abeyance acumen adroit aegis alacrity amity apprise ardor askance behoove benison bereft blithe boon celerity comely cordial doughty dulcet efface emprise erstwhile fallow fervor forbear forthright gallant halcyon inure lissome morrow obeisance pensive prudent quaint quell redolent resolute sagacity sallow sojourn stately succor sundry verdant winsome`.split(" ");
 const dictionaryExtra = `ability absence account address advance advice affair agency agreement animal answer appeal arrival article artist aspect attempt balance beauty benefit brother budget camera career ceiling channel chapter charity choice church citizen comfort command company concern conduct courage cousin culture damage danger dealer debate degree demand desire detail device dinner doctor effort energy engine estate evening event family father figure flower garden glory habit harbor heaven history honor income island journey kingdom ladder leader lesson letter liberty member memory mercy minute modern moment morning motion mother nation notice number office option palace parent pastor patient pattern period person phrase planet player plenty prayer promise public purpose reason record refuge return rhythm river safety season second secret servant service signal sister spirit station story student summer supply teacher temple tender theory thread travel valley virtue vision window wisdom wonder worker worship writer`.split(" ");
+const rareLetterFocusWords = {
+  q: `quick quiet quite queen quest query quote quality equal square quarter require unique liquid sequence acquire frequent equipment question`.split(" "),
+  z: `size zero zone maze lazy dozen crazy amaze breeze freeze prize zebra cozy zoom dizzy fuzzy buzz blaze bronze realize organize recognize puzzle`.split(" "),
+  x: `next text box six fix mix exit exact extra example expect expand expert exist explain index relax complex context exercise explore flexible maximum`.split(" "),
+  v: `very view voice love give have save move live river seven leave drive avoid event value cover never over even visit valid verse victory vital vivid velvet vessel venture volume improve discover develop favorite available`.split(" ")
+};
+const rareLetterFocusPool = [...new Set(Object.values(rareLetterFocusWords).flat())];
 
 const kjvQuotes = [
   ["Psalm 23:1 KJV", "The Lord is my shepherd; I shall not want."],
@@ -179,9 +241,43 @@ const kjvQuotes = [
   ["1 Peter 5:7 KJV", "Casting all your care upon him; for he careth for you."]
 ];
 
+const generalQuotes = [
+  ["William Shakespeare", "To thine own self be true, and it must follow, as the night the day, thou canst not then be false to any man."],
+  ["Jane Austen", "There is no charm equal to tenderness of heart."],
+  ["Frederick Douglass", "If there is no struggle, there is no progress."],
+  ["Ralph Waldo Emerson", "What lies behind us and what lies before us are tiny matters compared to what lies within us."],
+  ["Booker T. Washington", "Success is to be measured not so much by the position that one has reached in life as by the obstacles which he has overcome."],
+  ["Helen Keller", "Optimism is the faith that leads to achievement. Nothing can be done without hope and confidence."],
+  ["Abraham Lincoln", "I will prepare and someday my chance will come."],
+  ["Theodore Roosevelt", "Believe you can and you are halfway there."],
+  ["Maya Angelou", "Nothing will work unless you do."],
+  ["Marcus Aurelius", "The happiness of your life depends upon the quality of your thoughts."],
+  ["Epictetus", "No great thing is created suddenly."],
+  ["Seneca", "Luck is what happens when preparation meets opportunity."],
+  ["Charles Dickens", "No one is useless in this world who lightens the burdens of another."],
+  ["Louisa May Alcott", "I am not afraid of storms, for I am learning how to sail my ship."],
+  ["Henry David Thoreau", "Go confidently in the direction of your dreams. Live the life you have imagined."],
+  ["Harriet Tubman", "Every great dream begins with a dreamer. Always remember, you have within you the strength, the patience, and the passion to reach for the stars to change the world."],
+  ["W. E. B. Du Bois", "The cost of liberty is less than the price of repression."],
+  ["Sojourner Truth", "Truth is powerful and it prevails."],
+  ["George Washington Carver", "When you can do the common things of life in an uncommon way, you will command the attention of the world."],
+  ["Anna Julia Cooper", "The cause of freedom is not the cause of a race or a sect, a party or a class; it is the cause of humankind, the very birthright of humanity."]
+];
+
 const books = ["Genesis","Exodus","Leviticus","Numbers","Deuteronomy","Joshua","Judges","Ruth","1 Samuel","2 Samuel","1 Kings","2 Kings","1 Chronicles","2 Chronicles","Ezra","Nehemiah","Esther","Job","Psalm","Proverbs","Ecclesiastes","Song of Solomon","Isaiah","Jeremiah","Lamentations","Ezekiel","Daniel","Hosea","Joel","Amos","Obadiah","Jonah","Micah","Nahum","Habakkuk","Zephaniah","Haggai","Zechariah","Malachi","Matthew","Mark","Luke","John","Acts","Romans","1 Corinthians","2 Corinthians","Galatians","Ephesians","Philippians","Colossians","1 Thessalonians","2 Thessalonians","1 Timothy","2 Timothy","Titus","Philemon","Hebrews","James","1 Peter","2 Peter","1 John","2 John","3 John","Jude","Revelation"];
 
-const els = Object.fromEntries(["modeEyebrow","lessonTitle","modeControls","typingText","rowLabel","charLabel","scriptureStrip","scriptureRef","completionBanner","keyboard","keyboardWrap","lessonScore","lastWpm","lastAccuracy","topWpm","learningRate","dailyGoalText","dailyGoalFill","settingsDialog","settingsBtn","restartBtn","letterHud","unlockNext","unlockCount","unlockMeterFill","unlockTrack","letterHeatmap","heatmapSummary","letterDialog","letterDetailBadge","letterDetailTitle","letterLastSpeed","letterTopSpeed","letterAccuracy","letterLearningRate","letterLessons","letterCurveCaption","letterChart"].map(id => [id, document.getElementById(id)]));
+const els = Object.fromEntries([
+  "modeEyebrow", "lessonTitle", "modeControls", "liveMetrics", "liveWpmWrap", "liveWpm", "liveAccWrap", "liveAcc",
+  "liveRawWrap", "liveRaw", "liveConsistencyWrap", "liveConsistency", "liveProgressWrap", "liveProgress", "timerMeter",
+  "timerFill", "typingCard", "typingText", "rowLabel", "charLabel", "scriptureStrip", "scriptureRef", "completionBanner",
+  "keyboard", "keyboardWrap", "lessonScore", "lastWpm", "lastAccuracy", "topWpm", "learningRate", "dailyGoalText",
+  "dailyGoalFill", "resultPanel", "resultEyebrow", "resultTitle", "resultScore", "resultWpm", "resultRaw",
+  "resultAccuracy", "resultConsistency", "resultCharacters", "resultTime", "resultRestartBtn", "settingsDialog", "settingsBtn",
+  "restartBtn", "customTextDialog", "customTextInput", "saveCustomText", "letterHud", "unlockNext", "unlockCount",
+  "unlockMeterFill", "unlockTrack", "letterHeatmap", "heatmapSummary", "letterDialog", "letterDetailBadge", "letterDetailTitle",
+  "letterMastery", "letterLastSpeed", "letterTopSpeed", "letterAccuracy", "letterLearningRate", "letterLessons",
+  "letterCurveCaption", "letterChart"
+].map(id => [id, document.getElementById(id)]));
 
 let saveTimer;
 
@@ -256,37 +352,125 @@ function renderPerformance() {
   els.dailyGoalFill.parentElement.classList.toggle("complete", goalRatio >= 1);
 }
 
+function currentMetrics(now = performance.now()) {
+  const elapsedMs = state.startedAt ? Math.max(1000, now - state.startedAt) : 1000;
+  const elapsedMinutes = elapsedMs / 60000;
+  const attempts = state.rawTyped + state.errors;
+  const wpm = (state.charsTyped / 5) / elapsedMinutes;
+  const raw = (attempts / 5) / elapsedMinutes;
+  const accuracy = attempts ? (state.charsTyped / attempts) * 100 : 100;
+  let consistency = 100;
+  if (state.keyIntervals.length > 2) {
+    const mean = state.keyIntervals.reduce((sum, value) => sum + value, 0) / state.keyIntervals.length;
+    const variance = state.keyIntervals.reduce((sum, value) => sum + (value - mean) ** 2, 0) / state.keyIntervals.length;
+    consistency = Math.max(0, Math.min(100, 100 - (Math.sqrt(variance) / mean) * 100));
+  }
+  return { elapsedMs, wpm, raw, accuracy, consistency, attempts };
+}
+
+function formattedSpeed(wpm) {
+  if (prefs.speedUnit === "cpm") return `${Math.round(wpm * 5)} CPM`;
+  if (prefs.speedUnit === "wps") return `${(wpm / 60).toFixed(1)} WPS`;
+  return `${Math.round(wpm)} WPM`;
+}
+
+function currentProgress() {
+  const target = currentTarget();
+  if (state.mode === "time") return Math.max(0, Math.min(1, 1 - state.timeRemaining / Number(prefs.testDuration)));
+  if (state.mode === "adaptive") return Math.max(0, Math.min(1, (state.rowIndex + (target.length ? state.input.length / target.length : 0)) / rowsPerPage));
+  if (state.mode === "zen") return 0;
+  return target.length ? Math.max(0, Math.min(1, state.input.length / target.length)) : 0;
+}
+
+function renderLiveMetrics() {
+  const metrics = currentMetrics();
+  const progressRatio = currentProgress();
+  const visible = state.mode !== "zen" && !state.testCompleted;
+  els.liveMetrics.classList.toggle("hidden", !visible);
+  if (!visible) return;
+  els.liveWpm.textContent = formattedSpeed(metrics.wpm);
+  els.liveAcc.textContent = `${Math.round(metrics.accuracy)}%`;
+  els.liveRaw.textContent = formattedSpeed(metrics.raw);
+  els.liveConsistency.textContent = `${Math.round(metrics.consistency)}%`;
+  els.liveProgress.textContent = state.mode === "time" && ["text", "both"].includes(prefs.timerStyle)
+    ? `${Math.max(0, Math.ceil(state.timeRemaining))}s`
+    : `${Math.round(progressRatio * 100)}%`;
+  els.liveWpmWrap.classList.toggle("hidden", !prefs.showLiveWpm);
+  els.liveAccWrap.classList.toggle("hidden", !prefs.showLiveAccuracy);
+  els.liveRawWrap.classList.toggle("hidden", !prefs.showLiveRaw);
+  els.liveConsistencyWrap.classList.toggle("hidden", !prefs.showLiveConsistency);
+  els.liveProgressWrap.classList.toggle("hidden", !prefs.showProgress || prefs.timerStyle === "off");
+  const showBar = state.mode === "time" && ["bar", "both"].includes(prefs.timerStyle);
+  els.timerMeter.classList.toggle("hidden", !showBar);
+  els.timerFill.style.width = `${progressRatio * 100}%`;
+}
+
+function renderResult() {
+  const result = state.result;
+  if (!result) return;
+  els.resultEyebrow.textContent = `${modeCopy()[0]} complete`;
+  els.resultTitle.textContent = result.personalBest ? "New personal best" : "Results";
+  els.resultScore.textContent = Number(result.score).toLocaleString();
+  els.resultWpm.textContent = Math.round(result.wpm);
+  els.resultRaw.textContent = Math.round(result.raw);
+  els.resultAccuracy.textContent = `${Math.round(result.accuracy)}%`;
+  els.resultConsistency.textContent = `${Math.round(result.consistency)}%`;
+  els.resultCharacters.textContent = String(state.charsTyped);
+  els.resultTime.textContent = `${(result.elapsedMs / 1000).toFixed(1)}s`;
+}
+
+function letterMastery(letter) {
+  const key = String(letter || "").toLowerCase();
+  const stats = progress.letterStats[key] || { attempts: 0, correct: 0 };
+  const history = Array.isArray(progress.letterHistory[key]) ? progress.letterHistory[key] : [];
+  const accuracy = stats.attempts ? stats.correct / stats.attempts : 0;
+  const evidence = Math.min(1, stats.attempts / masteryRequiredAttempts, history.length / masteryRequiredPages);
+  const score = Math.max(0, Math.min(1, evidence * accuracy));
+  return {
+    score,
+    percent: Math.round(score * 100),
+    pages: history.length,
+    attempts: Number(stats.attempts) || 0,
+    pagesRemaining: Math.max(0, masteryRequiredPages - history.length),
+    attemptsRemaining: Math.max(0, masteryRequiredAttempts - (Number(stats.attempts) || 0))
+  };
+}
+
 function shuffle(items) {
-  return items.slice().sort(() => Math.random() - 0.5);
+  const output = items.slice();
+  for (let index = output.length - 1; index > 0; index--) {
+    const swapIndex = Math.floor(Math.random() * (index + 1));
+    [output[index], output[swapIndex]] = [output[swapIndex], output[index]];
+  }
+  return output;
 }
 
 function allowedSet() {
   return new Set(letterOrder.slice(0, prefs.practiceLetters).map(x => x.toLowerCase()));
 }
 
-function allowed(word) {
-  const set = allowedSet();
-  return [...word.toLowerCase()].every(ch => !/[a-z]/.test(ch) || set.has(ch));
-}
-
 function wordDeck() {
-  const common = shuffle(commonWords.concat(dictionaryExtra.filter(w => w.length <= 6)).filter(allowed));
-  const moderate = shuffle(moderateWords.concat(dictionaryExtra.filter(w => w.length >= 6 && w.length <= 9)).filter(allowed));
-  const rare = shuffle(rareWords.concat(dictionaryExtra.filter(w => w.length >= 9)).filter(allowed));
-  return { common, moderate, rare };
+  const unlocked = allowedSet();
+  const isAllowed = word => [...word.toLowerCase()].every(ch => !/[a-z]/.test(ch) || unlocked.has(ch));
+  const common = shuffle(commonWords.concat(dictionaryExtra.filter(w => w.length <= 6)).filter(isAllowed));
+  const moderate = shuffle(moderateWords.concat(dictionaryExtra.filter(w => w.length >= 6 && w.length <= 9)).filter(isAllowed));
+  const rare = shuffle(rareWords.concat(dictionaryExtra.filter(w => w.length >= 9)).filter(isAllowed));
+  const focus = shuffle(rareLetterFocusPool.filter(isAllowed));
+  return { common, moderate, rare, focus };
 }
 
 function makeAdaptiveRows() {
   const deck = wordDeck();
   const rows = [];
-  let ci = 0, mi = 0, ri = 0;
+  let ci = 0, mi = 0, ri = 0, fi = 0;
   for (let r = 0; r < rowsPerPage; r++) {
     const words = [];
     for (let i = 0; i < Number(prefs.wordsPerRow); i++) {
       const pos = r * Number(prefs.wordsPerRow) + i + 1;
       let list = deck.common;
       let index = ci++;
-      if (pos % 100 === 0 && deck.rare.length) { list = deck.rare; index = ri++; }
+      if (pos % 4 === 0 && deck.focus.length) { list = deck.focus; index = fi++; }
+      else if (pos % 100 === 0 && deck.rare.length) { list = deck.rare; index = ri++; }
       else if (pos % 20 === 0 && deck.moderate.length) { list = deck.moderate; index = mi++; }
       if (!list.length) list = deck.common.length ? deck.common : ["lean", "real", "line"];
       words.push(list[index % list.length]);
@@ -294,6 +478,67 @@ function makeAdaptiveRows() {
     rows.push(transformText(words.join(" ")));
   }
   return rows;
+}
+
+function testWordPool() {
+  if (prefs.difficulty === "master") return commonWords.concat(moderateWords, rareWords, dictionaryExtra);
+  if (prefs.difficulty === "expert") return commonWords.concat(moderateWords, dictionaryExtra);
+  return commonWords.concat(dictionaryExtra.filter(word => word.length <= 8));
+}
+
+function decorateTestWords(words) {
+  const output = words.slice();
+  if (prefs.includeNumbers) {
+    for (let index = 8; index < output.length; index += 11) {
+      output[index] = String(10 + Math.floor(Math.random() * 990));
+    }
+  }
+  if (prefs.includePunctuation) {
+    for (let index = 0; index < output.length; index++) {
+      if (index % 10 === 0 && /^[a-z]/.test(output[index])) {
+        output[index] = output[index][0].toUpperCase() + output[index].slice(1);
+      }
+      if (index % 10 === 9 || index === output.length - 1) output[index] += index % 20 === 19 ? "?" : ".";
+      else if (index % 10 === 5) output[index] += ",";
+    }
+  }
+  return output;
+}
+
+function makeTestWords(count) {
+  const pool = shuffle(testWordPool());
+  const focus = shuffle(rareLetterFocusPool);
+  let focusIndex = 0;
+  const words = Array.from({ length: count }, (_, index) => {
+    if ((index + 1) % 5 === 0 && focus.length) return focus[focusIndex++ % focus.length];
+    return pool[index % pool.length] || "practice";
+  });
+  return decorateTestWords(words);
+}
+
+function makeTimedRows() {
+  const words = makeTestWords(600);
+  const size = Math.max(4, Number(prefs.wordsPerRow) || 10);
+  const rows = [];
+  for (let index = 0; index < words.length; index += size) {
+    rows.push(transformText(words.slice(index, index + size).join(" ")));
+  }
+  return rows;
+}
+
+function quoteForLength() {
+  const ranges = {
+    short: [0, 11],
+    medium: [12, 20],
+    long: [21, 32],
+    epic: [33, Infinity]
+  };
+  const [min, max] = ranges[prefs.quoteLength] || ranges.medium;
+  const matches = generalQuotes.filter(([, text]) => {
+    const count = text.split(/\s+/).length;
+    return count >= min && count <= max;
+  });
+  return shuffle(matches.length ? matches : generalQuotes)[0];
 }
 
 function transformText(text) {
@@ -326,27 +571,56 @@ function cleanVerse(text) {
   return text.replace(/[#\[\]]/g, "").replace(/\s+/g, " ").trim();
 }
 
+function clearTestTimer() {
+  if (state.timerId) clearInterval(state.timerId);
+  state.timerId = null;
+  state.deadline = null;
+}
+
 async function restart() {
+  clearTestTimer();
   stopRewardSound();
   state.input = "";
   state.rowIndex = 0;
   state.pageIndex = 0;
   state.startedAt = null;
   state.charsTyped = 0;
+  state.rawTyped = 0;
   state.errors = 0;
   state.characterErrors = 0;
   state.lessonLetterStats = {};
   state.lastAcceptedAt = null;
   state.lastActivityAt = null;
+  state.lastKeyAt = null;
+  state.keyIntervals = [];
+  state.timeRemaining = Number(prefs.testDuration);
+  state.warningPlayed = false;
+  state.testCompleted = false;
+  state.result = null;
   state.completion = false;
   els.completionBanner.classList.add("hidden");
   if (state.mode === "adaptive") {
     state.targetRows = makeAdaptiveRows();
     state.scripturePages = [];
-  } else if (state.mode === "quotes") {
+  } else if (state.mode === "time") {
+    state.targetRows = makeTimedRows();
+    state.scripturePages = [];
+  } else if (state.mode === "words") {
+    state.targetRows = [transformText(makeTestWords(Number(prefs.testWordCount)).join(" "))];
+    state.scripturePages = [];
+  } else if (state.mode === "quote") {
+    const quote = quoteForLength();
+    state.scripturePages = [[quote[0], transformText(quote[1])]];
+    state.targetRows = [];
+  } else if (state.mode === "custom") {
+    state.targetRows = [transformText(prefs.customText || defaultPrefs.customText)];
+    state.scripturePages = [];
+  } else if (state.mode === "bibleQuotes") {
     state.scripturePages = shuffle(kjvQuotes).slice(0, 12);
+    state.targetRows = [];
   } else if (state.mode === "bible") {
     state.scripturePages = await makeBiblePages();
+    state.targetRows = [];
   } else {
     state.targetRows = [""];
     state.scripturePages = [];
@@ -355,25 +629,55 @@ async function restart() {
 }
 
 function currentTarget() {
-  if (state.mode === "bible" || state.mode === "quotes") return state.scripturePages[state.pageIndex]?.[1] || "";
-  if (state.mode === "free") return "";
+  if (["bible", "bibleQuotes", "quote"].includes(state.mode)) return state.scripturePages[state.pageIndex]?.[1] || "";
+  if (state.mode === "zen") return "";
   return state.targetRows[state.rowIndex] || "";
 }
 
 function currentReference() {
-  if (state.mode === "bible" || state.mode === "quotes") return state.scripturePages[state.pageIndex]?.[0] || "";
+  if (["bible", "bibleQuotes", "quote"].includes(state.mode)) return state.scripturePages[state.pageIndex]?.[0] || "";
   return "";
 }
 
+function modeCopy() {
+  const copy = {
+    adaptive: ["Adaptive Lesson", "Unlock letters. Keep the flow."],
+    time: ["Timed Test", `${prefs.testDuration} second sprint`],
+    words: ["Word Test", `${prefs.testWordCount} word challenge`],
+    quote: ["Quote Test", "Complete the quote"],
+    zen: ["Zen Mode", "Type without limits"],
+    custom: ["Custom Test", "Your text, your pace"],
+    bible: ["Scripture Reading", "Bible Reading"],
+    bibleQuotes: ["Bible Quotes", "Complete Quotes"]
+  };
+  return copy[state.mode] || copy.adaptive;
+}
+
+function applyDisplayPreferences() {
+  els.typingText.dataset.caret = prefs.caretStyle;
+  els.typingText.dataset.smooth = prefs.smoothCaret;
+  els.typingText.dataset.typed = prefs.typedEffect;
+  els.typingText.dataset.highlight = prefs.highlightMode;
+  els.typingCard.dataset.size = prefs.fontSize;
+  els.typingCard.dataset.width = prefs.lineWidth;
+  document.body.classList.toggle("focus-mode", prefs.focusMode && !!state.startedAt && !state.testCompleted);
+}
+
 function render() {
-  els.modeEyebrow.textContent = state.mode === "adaptive" ? "Adaptive Lesson" : state.mode === "bible" ? "Scripture Reading" : state.mode === "quotes" ? "Bible Quotes" : "Free Typing";
-  els.lessonTitle.textContent = state.mode === "adaptive" ? "Unlock letters. Keep the flow." : state.mode === "bible" ? "Bible Reading" : state.mode === "quotes" ? "Complete Quotes" : "Free Typing";
+  const [eyebrow, title] = modeCopy();
+  els.modeEyebrow.textContent = eyebrow;
+  els.lessonTitle.textContent = title;
   renderControls();
   renderText();
   renderKeyboard();
   renderLetterProgress();
   renderPerformance();
-  els.keyboardWrap.classList.toggle("hidden", !prefs.showKeyboard);
+  renderLiveMetrics();
+  renderResult();
+  applyDisplayPreferences();
+  els.typingCard.classList.toggle("hidden", state.testCompleted);
+  els.resultPanel.classList.toggle("hidden", !state.testCompleted);
+  els.keyboardWrap.classList.toggle("hidden", prefs.keymapMode === "off" || state.testCompleted);
 }
 
 function renderLetterProgress() {
@@ -394,22 +698,29 @@ function renderLetterProgress() {
 
   let totalAttempts = 0;
   let totalCorrect = 0;
+  let totalMastery = 0;
+  let sampledLetters = 0;
   els.letterHeatmap.innerHTML = letterHeatmapRows.map(row => {
     const keys = [...row].map(letter => {
       const isEarned = earnedLetters.has(letter);
       const stats = progress.letterStats[letter.toLowerCase()] || { attempts: 0, correct: 0 };
+      const mastery = letterMastery(letter);
       if (isEarned) {
         totalAttempts += stats.attempts;
         totalCorrect += stats.correct;
+        if (stats.attempts) {
+          totalMastery += mastery.score;
+          sampledLetters++;
+        }
       }
       const accuracy = stats.attempts ? Math.round((stats.correct / stats.attempts) * 100) : 0;
       const strength = isEarned && stats.attempts ? "sampled" : "unseen";
       const locked = isEarned ? "" : " locked";
       const detail = !isEarned
         ? "Locked"
-        : stats.attempts ? `${accuracy}% accuracy over ${stats.attempts} attempts` : "No samples yet";
-      const hue = Math.round((accuracy / 100) * 120);
-      const intensity = (.42 + Math.min(1, stats.attempts / 20) * .5).toFixed(2);
+        : stats.attempts ? `${mastery.percent}% mastery, ${accuracy}% accuracy, ${mastery.pages} of ${masteryRequiredPages} pages` : "No samples yet";
+      const hue = Math.round(mastery.score * 120);
+      const intensity = (.36 + mastery.score * .56).toFixed(2);
       const heatStyle = isEarned && stats.attempts ? ` style="--heat-hue:${hue};--heat-intensity:${intensity}"` : "";
       const disabled = isEarned ? "" : " disabled";
       return `<button type="button" class="heat-key ${strength}${locked}" data-letter="${letter}"${heatStyle}${disabled} title="${letter}: ${detail}" aria-label="${letter}: ${detail}">${letter}</button>`;
@@ -417,7 +728,7 @@ function renderLetterProgress() {
     return `<div class="heat-row">${keys}</div>`;
   }).join("");
   els.heatmapSummary.textContent = totalAttempts
-    ? `${Math.round((totalCorrect / totalAttempts) * 100)}% overall`
+    ? `${Math.round((totalMastery / Math.max(1, sampledLetters)) * 100)}% mastery / ${Math.round((totalCorrect / totalAttempts) * 100)}% accuracy`
     : "No samples yet";
 }
 
@@ -508,14 +819,18 @@ function openLetterDetails(letter) {
   const latest = history.at(-1);
   const topSpeed = history.reduce((best, item) => Math.max(best, Number(item.wpm) || 0), 0);
   const accuracy = lifetimeStats.attempts ? Math.round((lifetimeStats.correct / lifetimeStats.attempts) * 100) : null;
+  const mastery = letterMastery(upperLetter);
   els.letterDetailBadge.textContent = upperLetter;
   els.letterDetailTitle.textContent = `${upperLetter} progress`;
+  els.letterMastery.textContent = `${mastery.percent}%`;
   els.letterLastSpeed.textContent = latest ? `${Math.round(latest.wpm)} WPM` : "--";
   els.letterTopSpeed.textContent = history.length ? `${Math.round(topSpeed)} WPM` : "--";
   els.letterAccuracy.textContent = accuracy === null ? "--" : `${accuracy}%`;
   els.letterLearningRate.textContent = formatLearningRate(history);
-  els.letterLessons.textContent = String(history.length);
-  els.letterCurveCaption.textContent = history.length ? `${history.length} completed ${history.length === 1 ? "page" : "pages"}` : "No completed pages";
+  els.letterLessons.textContent = `${history.length} / ${masteryRequiredPages}`;
+  els.letterCurveCaption.textContent = mastery.score >= .95
+    ? "Mastery earned"
+    : `${mastery.pagesRemaining} pages / ${mastery.attemptsRemaining} attempts remaining`;
   renderLetterChart(upperLetter, history, lifetimeStats);
   if (!els.letterDialog.open) els.letterDialog.showModal();
 }
@@ -524,23 +839,54 @@ function renderText() {
   const target = currentTarget();
   els.scriptureStrip.classList.toggle("hidden", !currentReference());
   els.scriptureRef.textContent = currentReference();
-  els.rowLabel.textContent = state.mode === "adaptive" ? `Row ${state.rowIndex + 1} of ${rowsPerPage}` : state.mode === "free" ? "Free Typing" : `Scripture ${state.pageIndex + 1} of ${state.scripturePages.length}`;
-  els.charLabel.textContent = state.mode === "free" ? `${state.input.length}` : `${state.input.length} / ${target.length}`;
-  if (state.mode === "free") {
-    els.typingText.textContent = state.input || "Start typing freely.";
+  const rowLabels = {
+    adaptive: `Row ${state.rowIndex + 1} of ${rowsPerPage}`,
+    time: `${Math.max(0, Math.ceil(state.timeRemaining))} seconds`,
+    words: `${prefs.testWordCount} words`,
+    quote: "Quote",
+    zen: "Zen",
+    custom: "Custom text",
+    bible: `Scripture ${state.pageIndex + 1} of ${state.scripturePages.length}`,
+    bibleQuotes: `Quote ${state.pageIndex + 1} of ${state.scripturePages.length}`
+  };
+  els.rowLabel.textContent = rowLabels[state.mode] || "Practice";
+  els.charLabel.textContent = state.mode === "zen" ? `${state.input.length}` : `${state.input.length} / ${target.length}`;
+  if (state.mode === "zen") {
+    els.typingText.textContent = state.input || "\u00a0";
     return;
   }
   let characterIndex = 0;
+  let nextWordMarked = false;
   const wordGroups = target.match(/\S+|\s+/g) || [];
   els.typingText.innerHTML = wordGroups.map(group => {
+    const groupStart = characterIndex;
     const characters = [...group].map(ch => {
       const index = characterIndex++;
-      const cls = index < state.input.length ? "done" : index === state.input.length ? `current ${prefs.currentCue}` : "pending";
-      return `<span class="${cls}">${escapeHtml(ch)}</span>`;
+      const cls = index < state.input.length
+        ? `done${prefs.blindMode ? " blind" : ""}`
+        : index === state.input.length ? `current ${prefs.currentCue}` : "pending";
+      const shownCharacter = prefs.typedEffect === "dots" && index < state.input.length && !/\s/.test(ch) ? "•" : ch;
+      return `<span class="${cls}">${escapeHtml(shownCharacter)}</span>`;
     }).join("");
-    const groupClass = /^\s+$/.test(group) ? "typing-space" : "typing-word";
+    const isSpace = /^\s+$/.test(group);
+    const groupEnd = characterIndex;
+    let wordState = "";
+    if (!isSpace) {
+      if (state.input.length >= groupStart && state.input.length < groupEnd) wordState = " active-word";
+      else if (!nextWordMarked && groupStart > state.input.length) {
+        wordState = " next-word";
+        nextWordMarked = true;
+      }
+    }
+    const groupClass = isSpace ? "typing-space" : `typing-word${wordState}`;
     return `<span class="${groupClass}">${characters}</span>`;
   }).join("");
+  if (prefs.showAllLines && ["adaptive", "time"].includes(state.mode)) {
+    const upcoming = state.targetRows.slice(state.rowIndex + 1, state.rowIndex + 3);
+    if (upcoming.length) {
+      els.typingText.insertAdjacentHTML("beforeend", upcoming.map(line => `<span class="typing-preview-line">${escapeHtml(line)}</span>`).join(""));
+    }
+  }
 }
 
 function renderControls() {
@@ -552,13 +898,34 @@ function renderControls() {
       <label>Start<input id="bibleStart" type="number" min="1" max="176" value="${prefs.bibleStart}"></label>
       <label>End<input id="bibleEnd" type="number" min="${prefs.bibleStart}" max="176" value="${prefs.bibleEnd}"></label>`;
     bindBibleControls();
-  } else if (state.mode === "quotes") {
+  } else if (state.mode === "bibleQuotes") {
     els.modeControls.innerHTML = `<strong>KJV</strong>`;
   } else if (state.mode === "adaptive") {
-    els.modeControls.innerHTML = `<strong>Unlocked:</strong> ${letterOrder.slice(0, prefs.practiceLetters).join(" ")}`;
-  } else {
-    els.modeControls.innerHTML = `<span>Type anything. Progress is not scored here.</span>`;
+    els.modeControls.innerHTML = `<strong>Unlocked</strong><span class="unlocked-list">${letterOrder.slice(0, prefs.practiceLetters).join(" ")}</span>`;
+  } else if (state.mode === "time") {
+    els.modeControls.innerHTML = controlOptions("testDuration", [15, 30, 60, 120], value => String(value));
+  } else if (state.mode === "words") {
+    els.modeControls.innerHTML = controlOptions("testWordCount", [10, 25, 50, 100], value => String(value));
+  } else if (state.mode === "quote") {
+    els.modeControls.innerHTML = controlOptions("quoteLength", ["short", "medium", "long", "epic"], value => value);
+  } else if (state.mode === "custom") {
+    els.modeControls.innerHTML = `<button type="button" class="control-option active" data-action="custom-text">Change text</button>`;
+  } else if (state.mode === "zen") {
+    els.modeControls.innerHTML = `<strong>Endless</strong>`;
   }
+
+  if (["time", "words", "custom"].includes(state.mode)) {
+    els.modeControls.insertAdjacentHTML("afterbegin", `
+      <div class="control-segment">
+        <button type="button" class="control-option ${prefs.includePunctuation ? "active" : ""}" data-toggle-pref="includePunctuation">Punctuation</button>
+        <button type="button" class="control-option ${prefs.includeNumbers ? "active" : ""}" data-toggle-pref="includeNumbers">Numbers</button>
+      </div>`);
+  }
+}
+
+function controlOptions(prefKey, values, labelFor) {
+  return `<div class="control-segment">${values.map(value => `
+    <button type="button" class="control-option ${String(prefs[prefKey]) === String(value) ? "active" : ""}" data-pref="${prefKey}" data-value="${value}">${labelFor(value)}</button>`).join("")}</div>`;
 }
 
 function bindBibleControls() {
@@ -579,7 +946,7 @@ let keyboardElements = new Map();
 function renderKeyboard() {
   const unlocked = new Set(letterOrder.slice(0, prefs.practiceLetters));
   const layout = keyboardLayouts[prefs.keyboardLayout] || keyboardLayouts.mac;
-  els.keyboard.className = `keyboard ${prefs.keyboardSize} layout-${prefs.keyboardLayout}`;
+  els.keyboard.className = `keyboard ${prefs.keyboardSize} layout-${prefs.keyboardLayout} style-${prefs.keymapStyle}`;
   els.keyboard.innerHTML = layout.map((row, rowIndex) => {
     const keys = row.map(key => {
       if (key.type === "arrow-stack") return renderArrowStack(key);
@@ -617,12 +984,19 @@ function keyboardStateClasses(id) {
 function renderKeyboardKey(key, unlocked) {
   const zone = fingerZone(key.id);
   const isLetter = /^[a-z]$/.test(key.id);
-  const isLockedLetter = isLetter && !unlocked.has(key.id.toUpperCase());
+  const isLockedLetter = state.mode === "adaptive" && isLetter && !unlocked.has(key.id.toUpperCase());
   const isModifier = !isLetter && !key.shift && !/^[`0-9\-=\[\]\\;',./]$/.test(key.id);
-  const classes = ["key", zone.className, isLockedLetter ? "locked" : "", isModifier ? "modifier" : "", key.id === "space" ? "spacebar" : "", keyboardStateClasses(key.id)].join(" ");
+  const expectedKey = currentTarget()[state.input.length]?.toLowerCase() === " " ? "space" : currentTarget()[state.input.length]?.toLowerCase();
+  const isNext = prefs.keymapMode === "next" && expectedKey === key.id;
+  const classes = ["key", zone.className, isLockedLetter ? "locked" : "", isModifier ? "modifier" : "", key.id === "space" ? "spacebar" : "", isNext ? "next-key" : "", keyboardStateClasses(key.id)].join(" ");
+  let displayLabel = key.label;
+  if (isLetter) {
+    if (prefs.keymapLegend === "blank") displayLabel = "";
+    else displayLabel = prefs.keymapLegend === "lowercase" ? key.id : key.id.toUpperCase();
+  }
   const label = key.shift
-    ? `<span class="key-symbols"><small>${escapeHtml(key.shift)}</small><span>${escapeHtml(key.label)}</span></span>`
-    : `<span>${escapeHtml(key.label)}</span>`;
+    ? `<span class="key-symbols"><small>${escapeHtml(key.shift)}</small><span>${escapeHtml(displayLabel)}</span></span>`
+    : `<span>${escapeHtml(displayLabel)}</span>`;
   return `<span class="${classes}" style="grid-column: span ${key.units}" data-key="${escapeHtml(key.id)}" title="${zone.label}">${label}</span>`;
 }
 
@@ -649,6 +1023,7 @@ function setKeyboardKeyClass(key, className, isActive) {
 }
 
 function flashPressedKey(key) {
+  if (prefs.keymapMode === "static" || prefs.keymapMode === "off") return;
   clearTimeout(pressedKeyTimer);
   if (state.pressedKey) setKeyboardKeyClass(state.pressedKey, "pressed", false);
   state.pressedKey = key;
@@ -671,33 +1046,61 @@ function flashMistakeKey(key) {
 }
 
 function handleKey(event) {
-  if (els.settingsDialog.open || els.letterDialog.open) return;
+  if (els.settingsDialog.open || els.letterDialog.open || els.customTextDialog.open) return;
+  const restartKey = { escape: "Escape", tab: "Tab", enter: "Enter" }[prefs.quickRestart];
+  if (restartKey && event.key === restartKey) {
+    event.preventDefault();
+    restart();
+    return;
+  }
+  if (state.testCompleted) return;
+  state.capsLock = !!event.getModifierState?.("CapsLock");
+  els.typingCard.classList.toggle("caps-on", prefs.capsLockWarning && state.capsLock);
   const keyId = visualKeyId(event);
   flashPressedKey(keyId);
   if (event.metaKey || event.ctrlKey || event.altKey) return;
-  if (event.repeat && state.mode !== "free") {
+  if (event.repeat && state.mode !== "zen") {
     event.preventDefault();
     return;
   }
   if (event.key === "Backspace") {
     event.preventDefault();
-    if (state.input.length) {
+    const wordStart = state.input.lastIndexOf(" ") + 1;
+    const backspaceAllowed = prefs.confidenceMode !== "max" && (prefs.confidenceMode !== "word" || state.input.length > wordStart);
+    if (state.input.length && backspaceAllowed) {
       state.input = state.input.slice(0, -1);
+      state.charsTyped = Math.max(0, state.charsTyped - 1);
       state.characterErrors = 0;
     }
     renderText();
+    renderLiveMetrics();
+    if (prefs.keymapMode === "next") renderKeyboard();
+    return;
+  }
+  if (event.key === "Enter" && prefs.quickEnd && testModes.has(state.mode) && state.startedAt && state.charsTyped) {
+    event.preventDefault();
+    finishTest();
     return;
   }
   if (event.key.length !== 1) return;
   event.preventDefault();
   const recordedAt = performance.now();
-  if (!state.startedAt) state.startedAt = recordedAt;
+  if (!state.startedAt) {
+    state.startedAt = recordedAt;
+    if (state.mode === "time") startTimedTest();
+  }
+  if (state.lastKeyAt) {
+    const interval = recordedAt - state.lastKeyAt;
+    if (interval > 0 && interval < 5000) state.keyIntervals.push(interval);
+    if (state.keyIntervals.length > 300) state.keyIntervals.shift();
+  }
+  state.lastKeyAt = recordedAt;
   trackDailyActivity(recordedAt);
   const target = currentTarget();
   const key = event.key;
   const expected = target[state.input.length];
-  if (state.mode !== "free" && key !== expected) {
-    if (state.characterErrors < 3) {
+  if (state.mode !== "zen" && key !== expected) {
+    if (state.characterErrors < Number(prefs.errorLimit)) {
       state.errors++;
       state.characterErrors++;
       recordLetterAttempt(expected, false, recordedAt);
@@ -709,15 +1112,41 @@ function handleKey(event) {
     }
     renderLetterProgress();
     renderPerformance();
+    renderLiveMetrics();
     return;
   }
-  if (state.mode !== "free") recordLetterAttempt(expected, true, recordedAt);
+  if (state.mode !== "zen") recordLetterAttempt(expected, true, recordedAt);
   state.characterErrors = 0;
   state.input += key;
   state.charsTyped++;
+  state.rawTyped++;
   if (prefs.typingSounds) playKey();
-  if (state.mode !== "free" && state.input.length >= target.length) finishLine();
-  render();
+  if (state.mode !== "zen" && state.input.length >= target.length) {
+    finishLine();
+    return;
+  }
+  renderText();
+  renderLiveMetrics();
+  renderPerformance();
+  applyDisplayPreferences();
+  if (prefs.keymapMode === "next") renderKeyboard();
+}
+
+function startTimedTest() {
+  clearTestTimer();
+  state.timeRemaining = Number(prefs.testDuration);
+  state.deadline = performance.now() + state.timeRemaining * 1000;
+  state.timerId = setInterval(() => {
+    state.timeRemaining = Math.max(0, (state.deadline - performance.now()) / 1000);
+    const warningAt = Number(prefs.timeWarning);
+    if (!state.warningPlayed && Number.isFinite(warningAt) && warningAt > 0 && state.timeRemaining <= warningAt) {
+      state.warningPlayed = true;
+      playTimeWarning();
+    }
+    renderText();
+    renderLiveMetrics();
+    if (state.timeRemaining <= 0) finishTest();
+  }, 100);
 }
 
 function recordLetterLessonResults(pageWpm, completedAt) {
@@ -741,14 +1170,15 @@ function recordLetterLessonResults(pageWpm, completedAt) {
   });
 }
 
-function recordCompletedLesson(wpm, accuracy) {
+function recordCompletedLesson(wpm, accuracy, extra = {}) {
   const completedAt = Date.now();
   const result = {
     at: completedAt,
     mode: state.mode,
     wpm: Number(wpm.toFixed(1)),
     accuracy: Number(accuracy.toFixed(1)),
-    score: lessonScore(wpm, accuracy)
+    score: lessonScore(wpm, accuracy),
+    ...extra
   };
   progress.lessonHistory.push(result);
   if (progress.lessonHistory.length > 120) progress.lessonHistory = progress.lessonHistory.slice(-120);
@@ -759,53 +1189,117 @@ function recordCompletedLesson(wpm, accuracy) {
 }
 
 function finishLine() {
-  const completedAdaptiveRow = state.mode === "adaptive" ? state.rowIndex + 1 : 0;
-  const completedPage = state.mode !== "adaptive" || completedAdaptiveRow === rowsPerPage;
-  const newlyUnlocked = completedAdaptiveRow === rowsPerPage && prefs.practiceLetters < letterOrder.length
-    ? letterOrder[prefs.practiceLetters]
-    : "";
+  if (state.mode === "adaptive") finishAdaptiveLine();
+  else if (state.mode === "time") finishTimedLine();
+  else if (["words", "quote", "custom"].includes(state.mode)) finishTest();
+  else if (["bible", "bibleQuotes"].includes(state.mode)) finishScripture();
+}
+
+function updateLifetimeAverages(metrics) {
+  progress.avgWpm = progress.avgWpm ? (progress.avgWpm * .75 + metrics.wpm * .25) : metrics.wpm;
+  progress.avgAccuracy = progress.avgAccuracy ? (progress.avgAccuracy * .8 + metrics.accuracy * .2) : metrics.accuracy;
+}
+
+function finishAdaptiveLine() {
+  const completedRow = state.rowIndex + 1;
+  const completedPage = completedRow === rowsPerPage;
+  const newlyUnlocked = completedPage && prefs.practiceLetters < letterOrder.length ? letterOrder[prefs.practiceLetters] : "";
   if (completedPage) {
-    const elapsedMin = Math.max(.02, (performance.now() - state.startedAt) / 60000);
-    const wpm = (state.charsTyped / 5) / elapsedMin;
-    const attempts = state.charsTyped + state.errors;
-    const accuracy = attempts ? (state.charsTyped / attempts) * 100 : 100;
-    progress.avgWpm = progress.avgWpm ? (progress.avgWpm * .75 + wpm * .25) : wpm;
-    progress.avgAccuracy = progress.avgAccuracy ? (progress.avgAccuracy * .8 + accuracy * .2) : accuracy;
-    recordCompletedLesson(wpm, accuracy);
+    const metrics = currentMetrics();
+    updateLifetimeAverages(metrics);
+    recordCompletedLesson(metrics.wpm, metrics.accuracy, { raw: metrics.raw, consistency: metrics.consistency, elapsedMs: metrics.elapsedMs });
   }
   progress.rowsCleared++;
   save();
-  els.completionBanner.textContent = newlyUnlocked ? `${newlyUnlocked} unlocked` : state.mode === "adaptive" ? "Line cleared" : "Scripture cleared";
+  els.completionBanner.textContent = newlyUnlocked ? `${newlyUnlocked} unlocked` : "Line cleared";
   els.completionBanner.classList.remove("hidden");
-  if (completedAdaptiveRow) playReward(completedAdaptiveRow);
+  playReward(completedRow);
   setTimeout(() => {
     els.completionBanner.classList.add("hidden");
     state.input = "";
     if (completedPage) {
       state.startedAt = null;
       state.charsTyped = 0;
+      state.rawTyped = 0;
       state.errors = 0;
+      state.keyIntervals = [];
+      state.lastKeyAt = null;
       state.lessonLetterStats = {};
     }
     state.lastAcceptedAt = null;
-    if (state.mode === "adaptive") {
-      state.rowIndex++;
-      if (state.rowIndex >= rowsPerPage) {
-        state.pageIndex++;
-        state.rowIndex = 0;
-        if (prefs.practiceLetters < letterOrder.length) {
-          prefs.practiceLetters++;
-          document.getElementById("practiceLetters").value = String(prefs.practiceLetters);
-          save();
-        }
-        state.targetRows = makeAdaptiveRows();
-      }
-    } else {
+    state.rowIndex++;
+    if (state.rowIndex >= rowsPerPage) {
       state.pageIndex++;
-      if (state.pageIndex >= state.scripturePages.length) state.pageIndex = 0;
+      state.rowIndex = 0;
+      if (prefs.practiceLetters < letterOrder.length) {
+        prefs.practiceLetters++;
+        document.getElementById("practiceLetters").value = String(prefs.practiceLetters);
+        save();
+      }
+      state.targetRows = makeAdaptiveRows();
     }
     render();
   }, 100);
+}
+
+function finishTimedLine() {
+  progress.rowsCleared++;
+  save();
+  els.completionBanner.textContent = "Line cleared";
+  els.completionBanner.classList.remove("hidden");
+  playReward((state.rowIndex % 9) + 1);
+  setTimeout(() => {
+    els.completionBanner.classList.add("hidden");
+    state.input = "";
+    state.rowIndex++;
+    if (state.rowIndex >= state.targetRows.length - 2) state.targetRows.push(...makeTimedRows());
+    renderText();
+    renderLiveMetrics();
+    if (prefs.keymapMode === "next") renderKeyboard();
+  }, 70);
+}
+
+function finishScripture() {
+  const metrics = currentMetrics();
+  updateLifetimeAverages(metrics);
+  recordCompletedLesson(metrics.wpm, metrics.accuracy, { raw: metrics.raw, consistency: metrics.consistency, elapsedMs: metrics.elapsedMs });
+  progress.rowsCleared++;
+  save();
+  els.completionBanner.textContent = "Scripture cleared";
+  els.completionBanner.classList.remove("hidden");
+  setTimeout(() => {
+    els.completionBanner.classList.add("hidden");
+    state.input = "";
+    state.startedAt = null;
+    state.charsTyped = 0;
+    state.rawTyped = 0;
+    state.errors = 0;
+    state.keyIntervals = [];
+    state.lastKeyAt = null;
+    state.pageIndex = (state.pageIndex + 1) % state.scripturePages.length;
+    render();
+  }, 100);
+}
+
+function finishTest() {
+  if (state.testCompleted || !state.startedAt) return;
+  clearTestTimer();
+  if (state.mode === "time") state.timeRemaining = 0;
+  const metrics = currentMetrics();
+  const previousBest = progress.lessonHistory
+    .filter(item => item?.mode === state.mode)
+    .reduce((best, item) => Math.max(best, Number(item.wpm) || 0), 0);
+  const savedResult = recordCompletedLesson(metrics.wpm, metrics.accuracy, {
+    raw: Number(metrics.raw.toFixed(1)),
+    consistency: Number(metrics.consistency.toFixed(1)),
+    elapsedMs: Math.round(metrics.elapsedMs)
+  });
+  updateLifetimeAverages(metrics);
+  state.result = { ...savedResult, ...metrics, personalBest: metrics.wpm > previousBest };
+  state.testCompleted = true;
+  save();
+  playReward(rowsPerPage);
+  render();
 }
 
 let audioCtx;
@@ -821,7 +1315,7 @@ function tone(freq, dur, type = "square", gain = .045, delay = 0) {
   const g = c.createGain();
   osc.type = type;
   osc.frequency.value = freq;
-  g.gain.setValueAtTime(gain, start);
+  g.gain.setValueAtTime(gain * Number(prefs.soundVolume), start);
   g.gain.exponentialRampToValueAtTime(.0001, start + dur);
   osc.connect(g).connect(c.destination);
   osc.start(start);
@@ -829,8 +1323,12 @@ function tone(freq, dur, type = "square", gain = .045, delay = 0) {
 }
 function playKey() {
   if (prefs.soundStyle === "silent") return;
-  const buffers = keyboardSoundBuffers[prefs.soundStyle] || keyboardSoundBuffers.clicky;
-  if (!buffers?.length) return;
+  const buffers = keyboardSoundBuffers[prefs.soundStyle];
+  if (!buffers?.length) {
+    if (keyboardSoundFiles[prefs.soundStyle]) ensureKeySoundStyle(prefs.soundStyle);
+    playSynthKey(keyboardSoundFiles[prefs.soundStyle] ? "soft-tap" : prefs.soundStyle);
+    return;
+  }
 
   const c = ctx();
   if (c.state === "suspended") c.resume().catch(() => {});
@@ -840,7 +1338,7 @@ function playKey() {
   const source = c.createBufferSource();
   const gain = c.createGain();
   source.buffer = buffers[cursor % buffers.length];
-  gain.gain.value = keyboardSoundVolumes[prefs.soundStyle] || .5;
+  gain.gain.value = (keyboardSoundVolumes[prefs.soundStyle] || .5) * Number(prefs.soundVolume);
   source.connect(gain).connect(c.destination);
   source.start();
 }
@@ -855,7 +1353,53 @@ function playError() {
     tone(280, .07, "square", .04, .045);
     return;
   }
+  if (prefs.errorStyle === "bass-buzz") {
+    tone(110, .13, "sawtooth", .065);
+    tone(82, .16, "square", .035, .02);
+    return;
+  }
   tone(420, .11, "square", .08);
+}
+
+function playTimeWarning() {
+  tone(880, .09, "sine", .055);
+  tone(1174.66, .12, "sine", .045, .08);
+}
+
+function playSynthKey(style) {
+  const cursor = keyboardSoundCursors[style] || 0;
+  keyboardSoundCursors[style] = cursor + 1;
+  const scales = {
+    pentatonic: [261.63, 293.66, 329.63, 392, 440],
+    blues: [261.63, 311.13, 349.23, 369.99, 392, 466.16]
+  };
+  if (scales[style]) {
+    tone(scales[style][cursor % scales[style].length], .08, "sine", .025);
+    return;
+  }
+  const profiles = {
+    "soft-tap": [220, .025, "sine", .028],
+    "sharp-tap": [920, .018, "square", .025],
+    wooden: [170, .045, "triangle", .045],
+    bubble: [540 + (cursor % 3) * 45, .055, "sine", .03],
+    metallic: [1200, .04, "sawtooth", .022],
+    glass: [1568, .09, "sine", .025],
+    deep: [95, .065, "sine", .055],
+    crisp: [760, .025, "triangle", .035],
+    "arcade-key": [330 + (cursor % 4) * 55, .045, "square", .03],
+    retro: [196 + (cursor % 2) * 98, .05, "square", .03],
+    stone: [82, .075, "triangle", .07],
+    paper: [1380, .018, "sawtooth", .018],
+    muted: [135, .025, "sine", .02],
+    spring: [420 + (cursor % 3) * 70, .08, "triangle", .035],
+    sine: [440, .04, "sine", .03],
+    square: [330, .035, "square", .025],
+    triangle: [392, .045, "triangle", .03]
+  };
+  const [freq, duration, type, gain] = profiles[style] || profiles["soft-tap"];
+  tone(freq, duration, type, gain);
+  if (style === "stone") tone(61, .08, "sine", .035, .008);
+  if (style === "glass") tone(2349.32, .08, "sine", .012, .01);
 }
 
 const keyboardSoundFiles = {
@@ -878,17 +1422,24 @@ const keyboardSoundVolumes = {
 };
 const keyboardSoundBuffers = {};
 const keyboardSoundCursors = {};
+const keyboardSoundLoading = {};
 
-async function preloadKeySounds() {
+async function ensureKeySoundStyle(style) {
+  if (!keyboardSoundFiles[style] || keyboardSoundBuffers[style]) return;
+  if (keyboardSoundLoading[style]) return keyboardSoundLoading[style];
   const c = ctx();
-  await Promise.all(Object.entries(keyboardSoundFiles).map(async ([style, files]) => {
-    const decoded = await Promise.all(files.map(async file => {
+  keyboardSoundLoading[style] = Promise.all(keyboardSoundFiles[style].map(async file => {
       const response = await fetch(new URL(file, document.baseURI));
       if (!response.ok) throw new Error(`Could not load ${file}`);
       return c.decodeAudioData(await response.arrayBuffer());
-    }));
+  })).then(decoded => {
     keyboardSoundBuffers[style] = decoded;
-  })).catch(error => console.warn("Keyboard sounds could not be preloaded.", error));
+  }).catch(error => console.warn(`Keyboard sound ${style} could not be loaded.`, error));
+  return keyboardSoundLoading[style];
+}
+
+async function preloadKeySounds() {
+  await Promise.all([ensureKeySoundStyle(prefs.soundStyle), ensureKeySoundStyle("creamy")]);
 }
 
 const rowRewardFiles = Array.from({ length: 9 }, (_, index) => `assets/Shout_${index + 1}.wav`);
@@ -934,7 +1485,7 @@ function playRewardBuffer(buffer, gainValue = .75, delay = 0, rate = 1) {
   const gain = c.createGain();
   source.buffer = buffer;
   source.playbackRate.value = rate;
-  gain.gain.value = gainValue;
+  gain.gain.value = gainValue * Number(prefs.soundVolume);
   source.connect(gain).connect(c.destination);
   source.start(c.currentTime + delay);
   return true;
@@ -948,7 +1499,7 @@ function rewardTone(freq, dur, type, gainValue, delay = 0) {
   const gain = c.createGain();
   osc.type = type;
   osc.frequency.value = freq;
-  gain.gain.setValueAtTime(gainValue, start);
+  gain.gain.setValueAtTime(gainValue * Number(prefs.soundVolume), start);
   gain.gain.exponentialRampToValueAtTime(.0001, start + dur);
   osc.connect(gain).connect(c.destination);
   osc.start(start);
@@ -999,91 +1550,83 @@ function escapeHtml(text) {
 }
 
 function setupSettings() {
+  const practiceLetters = document.getElementById("practiceLetters");
   for (let i = startLetters; i <= 26; i++) {
     const opt = document.createElement("option");
     opt.value = i;
     opt.textContent = `${i} letters`;
     if (i === Number(prefs.practiceLetters)) opt.selected = true;
-    document.getElementById("practiceLetters").appendChild(opt);
+    practiceLetters.appendChild(opt);
   }
-  ["wordsPerRow", "dailyGoalMinutes", "currentCue", "keyboardLayout", "keyboardSize", "soundStyle", "rewardStyle", "errorStyle", "theme", "capitalization"].forEach(id => {
+
+  const selectIds = [
+    "testDuration", "testWordCount", "quoteLength", "difficulty", "capitalization", "quickRestart", "confidenceMode",
+    "errorLimit", "theme", "currentCue", "caretStyle", "smoothCaret", "typedEffect", "highlightMode", "fontSize",
+    "lineWidth", "timerStyle", "speedUnit", "keyboardLayout", "keyboardSize", "keymapMode", "keymapStyle",
+    "keymapLegend", "soundStyle", "soundVolume", "rewardStyle", "errorStyle", "timeWarning", "practiceLetters",
+    "wordsPerRow", "dailyGoalMinutes"
+  ];
+  const numericIds = new Set(["testDuration", "testWordCount", "errorLimit", "soundVolume", "practiceLetters", "wordsPerRow", "dailyGoalMinutes"]);
+  const restartIds = new Set(["testDuration", "testWordCount", "quoteLength", "difficulty", "capitalization", "practiceLetters", "wordsPerRow"]);
+  const keyboardIds = new Set(["keyboardLayout", "keyboardSize", "keymapMode", "keymapStyle", "keymapLegend"]);
+
+  selectIds.forEach(id => {
     const el = document.getElementById(id);
     el.value = prefs[id];
+    el.addEventListener("change", event => {
+      prefs[id] = numericIds.has(id) ? Number(event.target.value) : event.target.value;
+      save();
+      if (id === "theme") applyTheme();
+      if (id === "soundStyle") {
+        ensureKeySoundStyle(prefs.soundStyle).then(() => {
+          if (prefs.typingSounds) playKey();
+        });
+      } else if (id === "rewardStyle") {
+        stopRewardSound();
+        playReward(1);
+      } else if (id === "errorStyle" && prefs.errorSounds) {
+        playError();
+      }
+      if (restartIds.has(id)) restart();
+      else if (keyboardIds.has(id)) render();
+      else {
+        renderText();
+        renderLiveMetrics();
+        renderPerformance();
+        applyDisplayPreferences();
+      }
+    });
   });
 
-  ["wordsPerRow", "capitalization"].forEach(id => {
-    document.getElementById(id).addEventListener("change", e => {
-      prefs[id] = e.target.value;
-      save();
-      restart();
-    });
-  });
-  document.getElementById("practiceLetters").addEventListener("change", e => {
-    prefs.practiceLetters = Number(e.target.value);
-    save();
-    restart();
-  });
-  document.getElementById("dailyGoalMinutes").addEventListener("change", e => {
-    prefs.dailyGoalMinutes = Number(e.target.value);
-    save();
-    renderPerformance();
-  });
-  document.getElementById("currentCue").addEventListener("change", e => {
-    prefs.currentCue = e.target.value;
-    save();
-    renderText();
-  });
-  ["keyboardLayout", "keyboardSize"].forEach(id => {
-    document.getElementById(id).addEventListener("change", e => {
-      prefs[id] = e.target.value;
-      save();
-      renderKeyboard();
-    });
-  });
-  document.getElementById("soundStyle").addEventListener("change", e => {
-    prefs.soundStyle = e.target.value;
-    save();
-    if (prefs.typingSounds) playKey();
-  });
-  document.getElementById("rewardStyle").addEventListener("change", e => {
-    prefs.rewardStyle = e.target.value;
-    save();
-    stopRewardSound();
-    playReward(1);
-  });
-  document.getElementById("errorStyle").addEventListener("change", e => {
-    prefs.errorStyle = e.target.value;
-    save();
-    if (prefs.errorSounds) playError();
-  });
-  document.getElementById("theme").addEventListener("change", e => {
-    prefs.theme = e.target.value;
-    save();
-    applyTheme();
-  });
-  ["typingSounds", "errorSounds"].forEach(id => {
+  const toggleIds = [
+    "includePunctuation", "includeNumbers", "blindMode", "quickEnd", "capsLockWarning", "focusMode", "showLiveWpm",
+    "showLiveAccuracy", "showLiveRaw", "showLiveConsistency", "showProgress", "showAllLines", "typingSounds", "errorSounds"
+  ];
+  toggleIds.forEach(id => {
     const el = document.getElementById(id);
     el.checked = !!prefs[id];
-    el.addEventListener("change", e => {
-      prefs[id] = e.target.checked;
+    el.addEventListener("change", event => {
+      prefs[id] = event.target.checked;
       save();
+      if (["includePunctuation", "includeNumbers"].includes(id)) restart();
+      else render();
     });
   });
-  const showKeyboard = document.getElementById("showKeyboard");
-  showKeyboard.checked = !!prefs.showKeyboard;
-  showKeyboard.addEventListener("change", e => {
-    prefs.showKeyboard = e.target.checked;
-    save();
-    els.keyboardWrap.classList.toggle("hidden", !prefs.showKeyboard);
-  });
-  const includePunctuation = document.getElementById("includePunctuation");
-  includePunctuation.checked = !!prefs.includePunctuation;
-  includePunctuation.addEventListener("change", e => {
-    prefs.includePunctuation = e.target.checked;
-    save();
-    restart();
+
+  document.querySelectorAll("[data-settings-tab]").forEach(button => {
+    button.addEventListener("click", () => {
+      document.querySelectorAll("[data-settings-tab]").forEach(item => item.classList.toggle("active", item === button));
+      document.querySelectorAll("[data-settings-panel]").forEach(panel => panel.classList.toggle("active", panel.dataset.settingsPanel === button.dataset.settingsTab));
+    });
   });
   els.settingsBtn.addEventListener("click", () => els.settingsDialog.showModal());
+
+  els.saveCustomText.addEventListener("click", () => {
+    const value = els.customTextInput.value.replace(/\s+/g, " ").trim();
+    if (value) prefs.customText = value;
+    save();
+    if (state.mode === "custom") restart();
+  });
 }
 
 els.letterHeatmap.addEventListener("click", event => {
@@ -1092,15 +1635,45 @@ els.letterHeatmap.addEventListener("click", event => {
   openLetterDetails(key.dataset.letter);
 });
 
+els.modeControls.addEventListener("click", event => {
+  const option = event.target.closest("[data-pref]");
+  const toggle = event.target.closest("[data-toggle-pref]");
+  const action = event.target.closest("[data-action]");
+  if (option) {
+    const key = option.dataset.pref;
+    const numeric = ["testDuration", "testWordCount"].includes(key);
+    prefs[key] = numeric ? Number(option.dataset.value) : option.dataset.value;
+    const setting = document.getElementById(key);
+    if (setting) setting.value = String(prefs[key]);
+    save();
+    restart();
+  } else if (toggle) {
+    const key = toggle.dataset.togglePref;
+    prefs[key] = !prefs[key];
+    const setting = document.getElementById(key);
+    if (setting) setting.checked = !!prefs[key];
+    save();
+    restart();
+  } else if (action?.dataset.action === "custom-text") {
+    els.customTextInput.value = prefs.customText;
+    els.customTextDialog.showModal();
+  }
+});
+
 document.querySelectorAll(".mode-button").forEach(btn => {
   btn.addEventListener("click", () => {
     document.querySelectorAll(".mode-button").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
     state.mode = btn.dataset.mode;
     restart();
+    if (state.mode === "custom") {
+      els.customTextInput.value = prefs.customText;
+      els.customTextDialog.showModal();
+    }
   });
 });
 els.restartBtn.addEventListener("click", restart);
+els.resultRestartBtn.addEventListener("click", restart);
 document.addEventListener("keydown", handleKey);
 window.addEventListener("pagehide", save);
 document.addEventListener("visibilitychange", () => {

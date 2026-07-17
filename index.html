@@ -13,7 +13,7 @@
   <link rel="canonical" href="https://keyswithdon.github.io/keyboard-disciple/">
   <link rel="sitemap" type="application/xml" href="https://keyswithdon.github.io/keyboard-disciple/sitemap.xml">
   <link rel="icon" href="assets/keyboard-disciple-logo.png">
-  <link rel="stylesheet" href="styles.css?v=20260713-learning-curve">
+  <link rel="stylesheet" href="styles.css?v=20260717-monkeytype-parity">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Keyboard Disciple">
   <meta property="og:title" content="Keyboard Disciple | Free Typing Practice Game">
@@ -67,10 +67,24 @@
       </div>
 
       <nav class="mode-list">
-        <button class="mode-button active" data-mode="adaptive">Adaptive</button>
-        <button class="mode-button" data-mode="bible">Bible Reading</button>
-        <button class="mode-button" data-mode="quotes">Bible Quotes</button>
-        <button class="mode-button" data-mode="free">Free Typing</button>
+        <div class="mode-group">
+          <span>Practice</span>
+          <div class="mode-grid">
+            <button class="mode-button active" data-mode="adaptive">Adaptive</button>
+            <button class="mode-button" data-mode="time">Time</button>
+            <button class="mode-button" data-mode="words">Words</button>
+            <button class="mode-button" data-mode="quote">Quotes</button>
+            <button class="mode-button" data-mode="zen">Zen</button>
+            <button class="mode-button" data-mode="custom">Custom</button>
+          </div>
+        </div>
+        <div class="mode-group">
+          <span>Scripture</span>
+          <div class="mode-grid">
+            <button class="mode-button" data-mode="bible">Bible Reading</button>
+            <button class="mode-button" data-mode="bibleQuotes">Bible Quotes</button>
+          </div>
+        </div>
       </nav>
 
       <section class="panel compact performance-panel" aria-labelledby="lessonScoreTitle">
@@ -118,6 +132,15 @@
 
       <section class="mode-controls" id="modeControls"></section>
 
+      <section class="live-metrics" id="liveMetrics" aria-label="Live typing statistics">
+        <span id="liveWpmWrap">Speed <strong id="liveWpm">0 WPM</strong></span>
+        <span id="liveAccWrap">Accuracy <strong id="liveAcc">100%</strong></span>
+        <span id="liveRawWrap">Raw <strong id="liveRaw">0 WPM</strong></span>
+        <span id="liveConsistencyWrap">Consistency <strong id="liveConsistency">100%</strong></span>
+        <span id="liveProgressWrap">Progress <strong id="liveProgress">0%</strong></span>
+        <div class="timer-meter hidden" id="timerMeter" aria-hidden="true"><span id="timerFill"></span></div>
+      </section>
+
       <section class="letter-hud" id="letterHud" aria-label="Letter progress">
         <div class="unlock-panel">
           <header class="hud-heading">
@@ -146,7 +169,7 @@
         </div>
       </section>
 
-      <section class="typing-card" aria-live="polite">
+      <section class="typing-card" id="typingCard" aria-live="polite">
         <div class="scripture-strip hidden" id="scriptureStrip">
           <span>Scripture</span>
           <strong id="scriptureRef"></strong>
@@ -157,6 +180,25 @@
         </div>
         <div id="typingText" class="typing-text" tabindex="0" aria-label="Typing target"></div>
         <div class="completion-banner hidden" id="completionBanner">Line cleared</div>
+      </section>
+
+      <section class="result-panel hidden" id="resultPanel" aria-labelledby="resultTitle">
+        <header>
+          <div>
+            <p id="resultEyebrow">Lesson complete</p>
+            <h2 id="resultTitle">Results</h2>
+          </div>
+          <strong id="resultScore">0</strong>
+        </header>
+        <div class="result-metrics">
+          <span>WPM <strong id="resultWpm">0</strong></span>
+          <span>Raw <strong id="resultRaw">0</strong></span>
+          <span>Accuracy <strong id="resultAccuracy">100%</strong></span>
+          <span>Consistency <strong id="resultConsistency">100%</strong></span>
+          <span>Characters <strong id="resultCharacters">0</strong></span>
+          <span>Time <strong id="resultTime">0s</strong></span>
+        </div>
+        <button class="primary-button" id="resultRestartBtn" type="button">Restart</button>
       </section>
 
       <section class="keyboard-wrap" id="keyboardWrap">
@@ -177,99 +219,345 @@
     <form method="dialog">
       <header>
         <h2>Settings</h2>
-        <button value="close" class="icon-button">×</button>
+        <button value="close" class="icon-button" aria-label="Close settings">×</button>
       </header>
-      <div class="settings-grid">
-        <label>Practice letters
-          <select id="practiceLetters"></select>
-        </label>
-        <label>Words per row
-          <select id="wordsPerRow">
-            <option>8</option>
-            <option selected>10</option>
-            <option>12</option>
-          </select>
-        </label>
-        <label>Daily goal
-          <select id="dailyGoalMinutes">
-            <option value="5">5 minutes</option>
-            <option value="10">10 minutes</option>
-            <option value="15" selected>15 minutes</option>
-            <option value="20">20 minutes</option>
-            <option value="30">30 minutes</option>
-            <option value="45">45 minutes</option>
-            <option value="60">60 minutes</option>
-          </select>
-        </label>
-        <label>Current letter
-          <select id="currentCue">
-            <option value="highlight">Highlight</option>
-            <option value="underline">Underline</option>
-            <option value="color">Color</option>
-          </select>
-        </label>
-        <label>Keyboard size
-          <select id="keyboardSize">
-            <option value="compact">Compact</option>
-            <option value="standard" selected>Standard</option>
-            <option value="large">Large</option>
-          </select>
-        </label>
-        <label>Keyboard layout
-          <select id="keyboardLayout">
-            <option value="mac">Mac</option>
-            <option value="windows">Windows</option>
-            <option value="compact">Compact 60%</option>
-            <option value="typewriter">Typewriter</option>
-          </select>
-        </label>
-        <label>Keyboard sound
-          <select id="soundStyle">
-            <option value="clicky">Clicky</option>
-            <option value="clacky">Clacky</option>
-            <option value="creamy">Creamy</option>
-            <option value="thocky">Thocky</option>
-            <option value="poppy">Poppy</option>
-            <option value="marbly">Marbly</option>
-            <option value="silent">Silent</option>
-            <option value="typewriter">Typewriter</option>
-          </select>
-        </label>
-        <label>Reward sound
-          <select id="rewardStyle">
-            <option value="preacher">Preacher</option>
-            <option value="key-bloom">Key Bloom</option>
-            <option value="glass-keys">Glass Keys</option>
-          </select>
-        </label>
-        <label>Error sound
-          <select id="errorStyle">
-            <option value="beep">Beep</option>
-            <option value="soft-knock">Soft Knock</option>
-            <option value="digital-blip">Digital Blip</option>
-          </select>
-        </label>
-        <label>Appearance
-          <select id="theme">
-            <option value="dark">Dark</option>
-            <option value="light">Light</option>
-          </select>
-        </label>
-        <label>Capitalization
-          <select id="capitalization">
-            <option value="source">Source</option>
-            <option value="lower">Lowercase only</option>
-            <option value="sentences">Sentence case</option>
-            <option value="words">Each Word</option>
-          </select>
-        </label>
+      <div class="settings-layout">
+        <nav class="settings-tabs" aria-label="Settings sections">
+          <button type="button" class="active" data-settings-tab="test">Test</button>
+          <button type="button" data-settings-tab="input">Input</button>
+          <button type="button" data-settings-tab="display">Display</button>
+          <button type="button" data-settings-tab="keyboard">Keyboard</button>
+          <button type="button" data-settings-tab="audio">Audio</button>
+          <button type="button" data-settings-tab="progress">Progress</button>
+        </nav>
+        <div class="settings-panes">
+          <section class="settings-pane active" data-settings-panel="test">
+            <div class="settings-grid">
+              <label>Default time
+                <select id="testDuration">
+                  <option value="15">15 seconds</option>
+                  <option value="30" selected>30 seconds</option>
+                  <option value="60">60 seconds</option>
+                  <option value="120">120 seconds</option>
+                </select>
+              </label>
+              <label>Default words
+                <select id="testWordCount">
+                  <option value="10">10 words</option>
+                  <option value="25">25 words</option>
+                  <option value="50" selected>50 words</option>
+                  <option value="100">100 words</option>
+                </select>
+              </label>
+              <label>Quote length
+                <select id="quoteLength">
+                  <option value="short">Short</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="long">Long</option>
+                  <option value="epic">Epic</option>
+                </select>
+              </label>
+              <label>Difficulty
+                <select id="difficulty">
+                  <option value="normal">Normal</option>
+                  <option value="expert">Expert</option>
+                  <option value="master">Master</option>
+                </select>
+              </label>
+              <label>Capitalization
+                <select id="capitalization">
+                  <option value="source">Source</option>
+                  <option value="lower">Lowercase only</option>
+                  <option value="sentences">Sentence case</option>
+                  <option value="words">Each Word</option>
+                </select>
+              </label>
+              <label>Quick restart
+                <select id="quickRestart">
+                  <option value="off">Off</option>
+                  <option value="escape">Escape</option>
+                  <option value="tab">Tab</option>
+                  <option value="enter">Enter</option>
+                </select>
+              </label>
+            </div>
+            <div class="toggle-list">
+              <label><input type="checkbox" id="includePunctuation" checked> Punctuation</label>
+              <label><input type="checkbox" id="includeNumbers"> Numbers</label>
+            </div>
+          </section>
+
+          <section class="settings-pane" data-settings-panel="input">
+            <div class="settings-grid">
+              <label>Confidence mode
+                <select id="confidenceMode">
+                  <option value="off">Off</option>
+                  <option value="word">Current word</option>
+                  <option value="max">No backspace</option>
+                </select>
+              </label>
+              <label>Error limit
+                <select id="errorLimit">
+                  <option value="3">3 per character</option>
+                  <option value="5">5 per character</option>
+                  <option value="8">8 per character</option>
+                </select>
+              </label>
+            </div>
+            <div class="toggle-list">
+              <label><input type="checkbox" id="blindMode"> Blind mode</label>
+              <label><input type="checkbox" id="quickEnd"> Enter ends test</label>
+              <label><input type="checkbox" id="capsLockWarning" checked> Caps Lock warning</label>
+              <label><input type="checkbox" id="focusMode"> Focus mode</label>
+            </div>
+          </section>
+
+          <section class="settings-pane" data-settings-panel="display">
+            <div class="settings-grid">
+              <label>Theme
+                <select id="theme">
+                  <option value="dark">Disciple Dark</option>
+                  <option value="light">Daylight</option>
+                  <option value="arcade">Arcade</option>
+                  <option value="chapel">Chapel</option>
+                  <option value="midnight">Midnight</option>
+                  <option value="high-contrast">High Contrast</option>
+                </select>
+              </label>
+              <label>Current letter
+                <select id="currentCue">
+                  <option value="highlight">Highlight</option>
+                  <option value="underline">Underline</option>
+                  <option value="color">Color</option>
+                </select>
+              </label>
+              <label>Caret
+                <select id="caretStyle">
+                  <option value="highlight">Highlight</option>
+                  <option value="bar">Bar</option>
+                  <option value="block">Block</option>
+                  <option value="outline">Outline</option>
+                  <option value="underline">Underline</option>
+                </select>
+              </label>
+              <label>Smooth caret
+                <select id="smoothCaret">
+                  <option value="off">Off</option>
+                  <option value="slow">Slow</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="fast">Fast</option>
+                </select>
+              </label>
+              <label>Typed text
+                <select id="typedEffect">
+                  <option value="keep">Keep</option>
+                  <option value="fade">Fade</option>
+                  <option value="hide">Hide</option>
+                  <option value="dots">Dots</option>
+                </select>
+              </label>
+              <label>Highlight
+                <select id="highlightMode">
+                  <option value="letter">Letter</option>
+                  <option value="word">Word</option>
+                  <option value="next-word">Next word</option>
+                  <option value="off">Off</option>
+                </select>
+              </label>
+              <label>Text size
+                <select id="fontSize">
+                  <option value="small">Small</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="large">Large</option>
+                  <option value="xlarge">Extra large</option>
+                </select>
+              </label>
+              <label>Line width
+                <select id="lineWidth">
+                  <option value="compact">Compact</option>
+                  <option value="comfortable" selected>Comfortable</option>
+                  <option value="wide">Wide</option>
+                  <option value="full">Full</option>
+                </select>
+              </label>
+              <label>Timer
+                <select id="timerStyle">
+                  <option value="text">Text</option>
+                  <option value="bar">Bar</option>
+                  <option value="both">Text and bar</option>
+                  <option value="off">Off</option>
+                </select>
+              </label>
+              <label>Speed unit
+                <select id="speedUnit">
+                  <option value="wpm">WPM</option>
+                  <option value="cpm">CPM</option>
+                  <option value="wps">WPS</option>
+                </select>
+              </label>
+            </div>
+            <div class="toggle-list">
+              <label><input type="checkbox" id="showLiveWpm" checked> Live speed</label>
+              <label><input type="checkbox" id="showLiveAccuracy" checked> Live accuracy</label>
+              <label><input type="checkbox" id="showLiveRaw"> Live raw speed</label>
+              <label><input type="checkbox" id="showLiveConsistency"> Live consistency</label>
+              <label><input type="checkbox" id="showProgress" checked> Live progress</label>
+              <label><input type="checkbox" id="showAllLines"> Show all lines</label>
+            </div>
+          </section>
+
+          <section class="settings-pane" data-settings-panel="keyboard">
+            <div class="settings-grid">
+              <label>Keyboard layout
+                <select id="keyboardLayout">
+                  <option value="mac">Mac</option>
+                  <option value="windows">Windows</option>
+                  <option value="compact">Compact 60%</option>
+                  <option value="typewriter">Typewriter</option>
+                </select>
+              </label>
+              <label>Keyboard size
+                <select id="keyboardSize">
+                  <option value="compact">Compact</option>
+                  <option value="standard" selected>Standard</option>
+                  <option value="large">Large</option>
+                </select>
+              </label>
+              <label>Keyboard view
+                <select id="keymapMode">
+                  <option value="react">Reactive</option>
+                  <option value="next">Next key</option>
+                  <option value="static">Static</option>
+                  <option value="off">Off</option>
+                </select>
+              </label>
+              <label>Keyboard shape
+                <select id="keymapStyle">
+                  <option value="staggered">Staggered</option>
+                  <option value="matrix">Matrix</option>
+                  <option value="split">Split</option>
+                </select>
+              </label>
+              <label>Key legends
+                <select id="keymapLegend">
+                  <option value="uppercase">Uppercase</option>
+                  <option value="lowercase">Lowercase</option>
+                  <option value="blank">Blank</option>
+                </select>
+              </label>
+            </div>
+          </section>
+
+          <section class="settings-pane" data-settings-panel="audio">
+            <div class="settings-grid">
+              <label>Keyboard sound
+                <select id="soundStyle">
+                  <option value="clicky">Clicky</option>
+                  <option value="clacky">Clacky</option>
+                  <option value="creamy">Creamy</option>
+                  <option value="thocky">Thocky</option>
+                  <option value="poppy">Poppy</option>
+                  <option value="marbly">Marbly</option>
+                  <option value="typewriter">Typewriter</option>
+                  <option value="soft-tap">Soft Tap</option>
+                  <option value="sharp-tap">Sharp Tap</option>
+                  <option value="wooden">Wooden</option>
+                  <option value="bubble">Bubble</option>
+                  <option value="metallic">Metallic</option>
+                  <option value="glass">Glass</option>
+                  <option value="deep">Deep</option>
+                  <option value="crisp">Crisp</option>
+                  <option value="arcade-key">Arcade</option>
+                  <option value="retro">Retro</option>
+                  <option value="stone">Stone</option>
+                  <option value="paper">Paper</option>
+                  <option value="muted">Muted</option>
+                  <option value="spring">Spring</option>
+                  <option value="sine">Sine</option>
+                  <option value="square">Square</option>
+                  <option value="triangle">Triangle</option>
+                  <option value="pentatonic">Pentatonic</option>
+                  <option value="blues">Blues</option>
+                  <option value="silent">Silent</option>
+                </select>
+              </label>
+              <label>Volume
+                <select id="soundVolume">
+                  <option value="0.25">25%</option>
+                  <option value="0.5" selected>50%</option>
+                  <option value="0.75">75%</option>
+                  <option value="1">100%</option>
+                </select>
+              </label>
+              <label>Reward sound
+                <select id="rewardStyle">
+                  <option value="preacher">Preacher</option>
+                  <option value="key-bloom">Key Bloom</option>
+                  <option value="glass-keys">Glass Keys</option>
+                </select>
+              </label>
+              <label>Error sound
+                <select id="errorStyle">
+                  <option value="beep">Beep</option>
+                  <option value="soft-knock">Soft Knock</option>
+                  <option value="digital-blip">Digital Blip</option>
+                  <option value="bass-buzz">Bass Buzz</option>
+                </select>
+              </label>
+              <label>Time warning
+                <select id="timeWarning">
+                  <option value="off">Off</option>
+                  <option value="1">1 second</option>
+                  <option value="3">3 seconds</option>
+                  <option value="5">5 seconds</option>
+                  <option value="10">10 seconds</option>
+                </select>
+              </label>
+            </div>
+            <div class="toggle-list">
+              <label><input type="checkbox" id="typingSounds" checked> Typing sounds</label>
+              <label><input type="checkbox" id="errorSounds" checked> Error sounds</label>
+            </div>
+          </section>
+
+          <section class="settings-pane" data-settings-panel="progress">
+            <div class="settings-grid">
+              <label>Practice letters
+                <select id="practiceLetters"></select>
+              </label>
+              <label>Words per row
+                <select id="wordsPerRow">
+                  <option value="8">8 words</option>
+                  <option value="10" selected>10 words</option>
+                  <option value="12">12 words</option>
+                </select>
+              </label>
+              <label>Daily goal
+                <select id="dailyGoalMinutes">
+                  <option value="5">5 minutes</option>
+                  <option value="10">10 minutes</option>
+                  <option value="15" selected>15 minutes</option>
+                  <option value="20">20 minutes</option>
+                  <option value="30">30 minutes</option>
+                  <option value="45">45 minutes</option>
+                  <option value="60">60 minutes</option>
+                </select>
+              </label>
+            </div>
+          </section>
+        </div>
       </div>
-      <div class="toggle-list">
-        <label><input type="checkbox" id="typingSounds" checked> Typing sounds</label>
-        <label><input type="checkbox" id="errorSounds" checked> Error sound</label>
-        <label><input type="checkbox" id="showKeyboard" checked> Live keyboard</label>
-        <label><input type="checkbox" id="includePunctuation" checked> Punctuation</label>
-      </div>
+    </form>
+  </dialog>
+
+  <dialog id="customTextDialog" class="custom-text-dialog">
+    <form method="dialog">
+      <header>
+        <h2>Custom Text</h2>
+        <button value="close" class="icon-button" aria-label="Close custom text">×</button>
+      </header>
+      <textarea id="customTextInput" rows="10" spellcheck="false"></textarea>
+      <button class="primary-button" id="saveCustomText" value="close">Use Text</button>
     </form>
   </dialog>
 
@@ -286,11 +574,12 @@
         <button value="close" class="icon-button" aria-label="Close letter details">×</button>
       </header>
       <div class="letter-metrics">
+        <span>Mastery <strong id="letterMastery">0%</strong></span>
         <span>Last speed <strong id="letterLastSpeed">--</strong></span>
         <span>Top speed <strong id="letterTopSpeed">--</strong></span>
         <span>Accuracy <strong id="letterAccuracy">--</strong></span>
         <span>Learning rate <strong id="letterLearningRate">Collecting</strong></span>
-        <span>Lessons <strong id="letterLessons">0</strong></span>
+        <span>Practice pages <strong id="letterLessons">0 / 9</strong></span>
       </div>
       <section class="curve-section" aria-labelledby="curveTitle">
         <header>
@@ -302,6 +591,6 @@
     </form>
   </dialog>
 
-  <script src="app.js?v=20260713-learning-curve"></script>
+  <script src="app.js?v=20260717-monkeytype-parity"></script>
 </body>
 </html>
