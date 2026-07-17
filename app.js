@@ -431,7 +431,7 @@ const els = Object.fromEntries([
   "dailyGoalFill", "resultPanel", "resultEyebrow", "resultTitle", "resultScore", "resultWpm", "resultRaw",
   "resultAccuracy", "resultConsistency", "resultCharacters", "resultTime", "resultRestartBtn", "settingsDialog", "settingsBtn",
   "statsDialog", "statsBtn", "fullscreenBtn", "restartBtn", "letterHud", "unlockNext", "unlockCount",
-  "unlockMeterFill", "letterHeatmap", "heatmapSummary", "letterDialog", "letterDetailBadge", "letterDetailTitle",
+  "letterHeatmap", "heatmapSummary", "letterDialog", "letterDetailBadge", "letterDetailTitle",
   "letterMastery", "letterLastSpeed", "letterTopSpeed", "letterAccuracy", "letterLearningRate", "letterLessons",
   "letterCurveCaption", "letterChart"
 ].map(id => [id, document.getElementById(id)]));
@@ -1091,7 +1091,6 @@ function renderLetterProgress() {
   const focusLetter = adaptiveFocusLetter();
   els.unlockCount.textContent = `${unlockedCount} / ${letterOrder.length}`;
   els.unlockNext.textContent = nextLetter ? `Focus ${focusLetter} / next ${nextLetter}` : `Focus ${focusLetter} / alphabet complete`;
-  els.unlockMeterFill.style.width = `${(unlockedCount / letterOrder.length) * 100}%`;
 
   let totalAttempts = 0;
   let totalCorrect = 0;
@@ -1118,7 +1117,11 @@ function renderLetterProgress() {
       ? isNext ? "Next to unlock" : "Locked"
       : stats.attempts ? `${mastery.percent}% confidence, ${Math.round(mastery.smoothedWpm)} WPM, ${accuracy}% accuracy` : "Building baseline";
     const disabled = isEarned ? "" : " disabled";
-    return `<button type="button" class="heat-key ${strength} ${status}" data-letter="${letter}" style="--confidence:${mastery.score.toFixed(3)}"${disabled} title="${letter}: ${detail}" aria-label="${letter}: ${detail}">${letter}</button>`;
+    const hasEvidence = isEarned && stats.attempts;
+    const heatRedAlpha = hasEvidence ? `${Math.round(8 + (1 - mastery.score) * 28)}%` : "0%";
+    const heatGoldAlpha = hasEvidence ? `${Math.round(6 + Math.max(0, 1 - Math.abs(mastery.score - .5) * 2) * 22)}%` : "0%";
+    const heatGreenAlpha = hasEvidence ? `${Math.round(5 + mastery.score * 38)}%` : "0%";
+    return `<button type="button" class="heat-key ${strength} ${status}" data-letter="${letter}" style="--confidence:${mastery.score.toFixed(3)};--heat-red-alpha:${heatRedAlpha};--heat-gold-alpha:${heatGoldAlpha};--heat-green-alpha:${heatGreenAlpha}"${disabled} title="${letter}: ${detail}" aria-label="${letter}: ${detail}">${letter}</button>`;
   }).join("");
   els.letterHeatmap.innerHTML = `<div class="heat-row">${keys}</div>`;
   els.heatmapSummary.textContent = totalAttempts
@@ -1877,7 +1880,7 @@ function playTimeWarning() {
 }
 
 function numberedSoundFiles(folder, count) {
-  return Array.from({ length: count }, (_, index) => `assets/monkeytype-sounds/${folder}/${index + 1}.wav`);
+  return Array.from({ length: count }, (_, index) => `assets/keyboard-sounds/${folder}/${index + 1}.wav`);
 }
 
 const keyboardSoundFiles = {
@@ -1935,7 +1938,7 @@ async function ensureErrorSoundStyle(style) {
 
 async function ensureTimeWarningSound() {
   if (timeWarningBuffer) return;
-  timeWarningLoading ||= decodeAudioFile("assets/monkeytype-sounds/time-warning.wav").then(decoded => {
+  timeWarningLoading ||= decodeAudioFile("assets/keyboard-sounds/time-warning.wav").then(decoded => {
     timeWarningBuffer = decoded;
   }).catch(error => console.warn("Time warning sound could not be loaded.", error));
   return timeWarningLoading;
@@ -2086,7 +2089,7 @@ const settingDescriptions = {
   britishEnglish: "Uses familiar British spellings in generated English word tests.",
   lazyMode: "Lets accented characters use their unaccented equivalent.",
   theme: "Changes the color and contrast style of the whole app.",
-  fontFamily: "Changes the website typeface using the same broad typography choices found in Monkeytype.",
+  fontFamily: "Changes the website typeface from the app's broad typography catalog.",
   currentCue: "Chooses how the exact character you need to type is marked.",
   caretStyle: "Changes the shape used to show the current typing position.",
   smoothCaret: "Controls how quickly the caret animates between characters.",
@@ -2103,7 +2106,7 @@ const settingDescriptions = {
   showLiveConsistency: "Shows how evenly spaced your keystrokes are.",
   showProgress: "Shows test completion percentage or remaining time.",
   smoothLineScroll: "Animates the four-line practice window when a line is completed.",
-  textGlow: "Adds a restrained Monkeytype-style glow to typed and current text.",
+  textGlow: "Adds a restrained glow to typed and current text.",
   flipTestColors: "Swaps the emphasis of typed and untyped characters.",
   colorfulMode: "Uses the current theme accent for completed text.",
   keyboardLayout: "Changes the labels and key arrangement of the on-screen keyboard.",
@@ -2111,10 +2114,10 @@ const settingDescriptions = {
   keymapMode: "Shows pressed keys, the next key, a static keyboard, or no keyboard.",
   keymapStyle: "Displays the keyboard as staggered, matrix, or split rows.",
   keymapLegend: "Shows uppercase, lowercase, or blank letter keys.",
-  soundStyle: "Chooses the Monkeytype keystroke sound played for accepted keys.",
+  soundStyle: "Chooses the keystroke sound played for accepted keys.",
   soundVolume: "Sets the volume of keystrokes, errors, warnings, and rewards.",
   rewardStyle: "Chooses the sound used when a line or full section is completed.",
-  errorStyle: "Chooses the Monkeytype sound played when an incorrect key is blocked.",
+  errorStyle: "Chooses the sound played when an incorrect key is blocked.",
   timeWarning: "Chooses how many seconds before a timed test ends to play a warning.",
   typingSounds: "Turns accepted-keystroke sounds on or off without changing the selected sound.",
   errorSounds: "Turns blocked-error sounds on or off without changing the selected sound.",

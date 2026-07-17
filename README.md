@@ -12,12 +12,12 @@ The public-domain KJV text is included for complete Bible reading and quote prac
 
 ## Practice Design
 
-Adaptive Letters uses a Keyboard Disciple implementation inspired by [Keybr](https://github.com/aradzie/keybr.com): it focuses the least-confident earned letter, tracks speed and accuracy per key, and unlocks the alphabet gradually. Mastery requires at least 27 completed pages and 540 attempts per letter so progress reflects sustained practice.
+Adaptive Letters focuses the least-confident earned letter, tracks speed and accuracy per key, and unlocks the alphabet gradually. Mastery requires at least 27 completed pages and 540 attempts per letter so progress reflects sustained practice.
 
-The single-page settings, test behaviors, font catalog, and Creative test concepts draw on the open-source [Monkeytype](https://github.com/monkeytypegame/monkeytype) project while retaining Keyboard Disciple's Christian identity, KJV modes, letter-confidence system, and blocked-error practice.
+The single-page settings, test behaviors, broad font catalog, and Creative tests are tailored to Keyboard Disciple's Christian identity, KJV modes, letter-confidence system, and blocked-error practice.
 
 ## Sound Credits
 
-The keystroke, error, and timer-warning sounds are the original files distributed by the open-source [Monkeytype](https://github.com/monkeytypegame/monkeytype) project. Monkeytype is licensed under GPL-3.0; its license is included at `assets/monkeytype-sounds/LICENSE-GPL-3.0.txt`.
+The keystroke, error, and timer-warning sounds are bundled with their GPL-3.0 license at `assets/keyboard-sounds/LICENSE-GPL-3.0.txt`.
 
-Creative tests are original Keyboard Disciple implementations inspired by Monkeytype's open-source Funbox catalog.
+Creative tests are original Keyboard Disciple implementations built for focused, playful practice.
