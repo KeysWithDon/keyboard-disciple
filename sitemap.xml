@@ -3,11 +3,11 @@
         xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
   <url>
     <loc>https://keyswithdon.github.io/keyboard-disciple/</loc>
-    <lastmod>2026-07-13</lastmod>
+    <lastmod>2026-07-17</lastmod>
     <changefreq>weekly</changefreq>
     <priority>1.0</priority>
     <image:image>
-      <image:loc>https://keyswithdon.github.io/keyboard-disciple/assets/keyboard-disciple-logo.png</image:loc>
+      <image:loc>https://keyswithdon.github.io/keyboard-disciple/assets/keyboard-disciple-wordmark.png</image:loc>
       <image:title>Keyboard Disciple</image:title>
     </image:image>
   </url>

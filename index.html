@@ -12,21 +12,22 @@
   <meta name="theme-color" content="#10110f">
   <link rel="canonical" href="https://keyswithdon.github.io/keyboard-disciple/">
   <link rel="sitemap" type="application/xml" href="https://keyswithdon.github.io/keyboard-disciple/sitemap.xml">
-  <link rel="icon" href="assets/keyboard-disciple-logo.png">
-  <link rel="stylesheet" href="styles.css?v=20260717-monkeytype-audio">
+  <link rel="icon" href="assets/keyboard-disciple-mark.png">
+  <link rel="stylesheet" href="styles.css?v=20260717-disciple-refresh">
+  <link rel="stylesheet" href="refresh.css?v=20260717-disciple-refresh">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Keyboard Disciple">
   <meta property="og:title" content="Keyboard Disciple | Free Typing Practice Game">
   <meta property="og:description" content="Build typing speed and accuracy with adaptive lessons, Bible practice, saved progress, and a color-coded live keyboard.">
   <meta property="og:url" content="https://keyswithdon.github.io/keyboard-disciple/">
-  <meta property="og:image" content="https://keyswithdon.github.io/keyboard-disciple/assets/keyboard-disciple-logo.png">
-  <meta property="og:image:width" content="1024">
-  <meta property="og:image:height" content="1024">
-  <meta property="og:image:alt" content="Keyboard Disciple cross and typewriter logo">
-  <meta name="twitter:card" content="summary">
+  <meta property="og:image" content="https://keyswithdon.github.io/keyboard-disciple/assets/keyboard-disciple-wordmark.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Keyboard Disciple open Bible and typing caret logo">
+  <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="Keyboard Disciple | Free Typing Practice Game">
   <meta name="twitter:description" content="Free adaptive typing practice with Bible modes, saved progress, and a color-coded live keyboard.">
-  <meta name="twitter:image" content="https://keyswithdon.github.io/keyboard-disciple/assets/keyboard-disciple-logo.png">
+  <meta name="twitter:image" content="https://keyswithdon.github.io/keyboard-disciple/assets/keyboard-disciple-wordmark.png">
   <script type="application/ld+json">
     {
       "@context": "https://schema.org",
@@ -34,7 +35,7 @@
       "name": "Keyboard Disciple",
       "alternateName": "Keyboard Disciple Typing Practice",
       "url": "https://keyswithdon.github.io/keyboard-disciple/",
-      "image": "https://keyswithdon.github.io/keyboard-disciple/assets/keyboard-disciple-logo.png",
+      "image": "https://keyswithdon.github.io/keyboard-disciple/assets/keyboard-disciple-wordmark.png",
       "description": "A free typing practice game with adaptive letter lessons, Bible reading, complete Bible quotes, saved progress, and a color-coded live keyboard.",
       "applicationCategory": "EducationalApplication",
       "applicationSubCategory": "Typing tutor",
@@ -58,35 +59,16 @@
 <body>
   <div class="app-shell">
     <header class="app-header">
-      <div class="brand">
-        <img src="assets/keyboard-disciple-logo.png" alt="" class="brand-mark">
-        <div>
-          <h1>Keyboard Disciple</h1>
-          <p>Typing practice</p>
-        </div>
-      </div>
+      <a class="brand" href="./" aria-label="Keyboard Disciple home">
+        <img src="assets/keyboard-disciple-mark.png" alt="" class="brand-mark">
+        <span class="brand-name">Keyboard Disciple</span>
+        <i class="brand-caret" aria-hidden="true"></i>
+      </a>
 
-      <nav class="mode-list">
-        <div class="mode-group">
-          <span>Practice</span>
-          <div class="mode-grid">
-            <button class="mode-button active" data-mode="adaptive">Adaptive</button>
-            <button class="mode-button" data-mode="time">Time</button>
-            <button class="mode-button" data-mode="words">Words</button>
-            <button class="mode-button" data-mode="quote">Quotes</button>
-            <button class="mode-button" data-mode="zen">Zen</button>
-            <button class="mode-button" data-mode="custom">Custom</button>
-            <button class="mode-button" data-mode="creative">Creative</button>
-          </div>
-        </div>
-        <div class="mode-group">
-          <span>Scripture</span>
-          <div class="mode-grid">
-            <button class="mode-button" data-mode="bible">Bible Reading</button>
-            <button class="mode-button" data-mode="bibleQuotes">Bible Quotes</button>
-          </div>
-        </div>
-      </nav>
+      <div class="session-identity" aria-live="polite">
+        <span id="modeEyebrow">Adaptive</span>
+        <strong id="lessonTitle">Ready</strong>
+      </div>
 
       <div class="app-actions">
         <button class="utility-button" id="statsBtn" type="button" title="Progress" aria-label="Open progress">▥</button>
@@ -98,14 +80,11 @@
     </header>
 
     <main class="stage">
-      <header class="topbar">
-        <div>
-          <p class="eyebrow" id="modeEyebrow">Adaptive Lesson</p>
-          <h2 id="lessonTitle">Ready</h2>
-        </div>
-      </header>
-
-      <section class="mode-controls" id="modeControls"></section>
+      <section class="devotion-line" aria-label="Daily encouragement">
+        <span aria-hidden="true">†</span>
+        <p id="faithPromptText">Whatsoever ye do, do it heartily, as to the Lord.</p>
+        <strong id="faithPromptRef">Colossians 3:23</strong>
+      </section>
 
       <section class="live-metrics" id="liveMetrics" aria-label="Live typing statistics">
         <span id="liveWpmWrap">Speed <strong id="liveWpm">0 WPM</strong></span>
@@ -116,26 +95,22 @@
         <div class="timer-meter hidden" id="timerMeter" aria-hidden="true"><span id="timerFill"></span></div>
       </section>
 
-      <section class="letter-hud" id="letterHud" aria-label="Letter progress">
-        <div class="heatmap-panel">
-          <header class="hud-heading">
-            <div>
-              <span>Letter progress</span>
-              <strong id="heatmapSummary">No samples yet</strong>
-            </div>
-            <div class="unlock-summary">
-              <b id="unlockCount">6 / 26</b>
-              <strong id="unlockNext">Next: T</strong>
-            </div>
-          </header>
-          <div class="unlock-meter" aria-hidden="true"><span id="unlockMeterFill"></span></div>
-          <div class="letter-heatmap" id="letterHeatmap"></div>
-          <div class="heat-legend" aria-hidden="true">
-            <span>Needs practice</span>
-            <i></i>
-            <span>Mastered</span>
+      <section class="letter-hud" id="letterHud" aria-label="Adaptive letter confidence">
+        <header class="hud-heading">
+          <div>
+            <span>Letter confidence</span>
+            <strong id="heatmapSummary">Building your baseline</strong>
           </div>
+          <div class="unlock-summary">
+            <b id="unlockCount">6 / 26</b>
+            <strong id="unlockNext">Focus T</strong>
+          </div>
+        </header>
+        <div class="letter-heatmap" id="letterHeatmap"></div>
+        <div class="confidence-scale" aria-hidden="true">
+          <span>learning</span><i></i><span>target</span>
         </div>
+        <div class="unlock-meter" aria-hidden="true"><span id="unlockMeterFill"></span></div>
       </section>
 
       <section class="typing-card" id="typingCard" aria-live="polite">
@@ -147,7 +122,7 @@
           <span id="rowLabel">Row 1 of 10</span>
           <span id="charLabel">0 / 0</span>
         </div>
-        <div id="typingText" class="typing-text" tabindex="0" aria-label="Typing target"></div>
+        <div id="typingText" class="typing-text" aria-label="Typing target"></div>
         <div class="completion-banner hidden" id="completionBanner">Line cleared</div>
       </section>
 
@@ -222,14 +197,32 @@
   <dialog id="settingsDialog" class="settings-dialog">
     <form method="dialog">
       <header>
-        <h2>Settings</h2>
+        <div>
+          <span>Keyboard Disciple</span>
+          <h2>Settings</h2>
+        </div>
         <button value="close" class="icon-button" aria-label="Close settings">×</button>
       </header>
       <div class="settings-layout settings-page">
         <div class="settings-panes">
           <section class="settings-pane active" data-settings-panel="test">
-            <h3>Test</h3>
+            <div class="settings-section-heading">
+              <span>01</span>
+              <div><h3>Test</h3><p>Choose the experience here. The practice screen stays clear.</p></div>
+            </div>
             <div class="settings-grid">
+              <label>Mode
+                <select id="practiceMode">
+                  <option value="adaptive">Adaptive letters</option>
+                  <option value="time">Time</option>
+                  <option value="words">Words</option>
+                  <option value="quote">Quotes</option>
+                  <option value="zen">Zen</option>
+                  <option value="creative">Creative lab</option>
+                  <option value="bible">Scripture reading</option>
+                  <option value="bibleQuotes">Bible quotes</option>
+                </select>
+              </label>
               <label>Default time
                 <select id="testDuration">
                   <option value="15">15 seconds</option>
@@ -273,24 +266,30 @@
                 </select>
               </label>
               <label>Creative mode
-                <select id="creativeMode">
-                  <option value="weakspot">Weakspot</option>
-                  <option value="gibberish">Gibberish</option>
-                  <option value="ascii">ASCII</option>
-                  <option value="backwards">Backwards</option>
-                  <option value="doubled">Doubled</option>
-                  <option value="random-case">Random Case</option>
-                </select>
+                <select id="creativeMode"></select>
+                <small class="setting-help creative-description" id="creativeModeDescription">Focuses the weakest letters in your saved progress.</small>
               </label>
             </div>
             <div class="toggle-list">
               <label><input type="checkbox" id="includePunctuation" checked> Punctuation</label>
               <label><input type="checkbox" id="includeNumbers"> Numbers</label>
             </div>
+            <div class="subsettings bible-settings" id="bibleSettings">
+              <div class="subsettings-title"><strong>Scripture reading</strong><span>KJV</span></div>
+              <div class="settings-grid compact-grid">
+                <label>Book<select id="bibleBook"></select></label>
+                <label>Chapter<input id="bibleChapter" type="number" min="1" max="150" value="3"></label>
+                <label>Start verse<input id="bibleStart" type="number" min="1" max="176" value="16"></label>
+                <label>End verse<input id="bibleEnd" type="number" min="1" max="176" value="17"></label>
+              </div>
+            </div>
           </section>
 
           <section class="settings-pane" data-settings-panel="input">
-            <h3>Input</h3>
+            <div class="settings-section-heading">
+              <span>02</span>
+              <div><h3>Behavior</h3><p>Control how strict, quiet, or competitive each lesson feels.</p></div>
+            </div>
             <div class="settings-grid">
               <label>Confidence mode
                 <select id="confidenceMode">
@@ -306,27 +305,93 @@
                   <option value="8">8 per character</option>
                 </select>
               </label>
+              <label>Repeat quotes
+                <select id="repeatQuotes">
+                  <option value="off">New quote</option>
+                  <option value="typing">Repeat while typing</option>
+                  <option value="always">Always repeat</option>
+                </select>
+              </label>
+              <label>Result saving
+                <select id="resultSaving">
+                  <option value="on">Save locally</option>
+                  <option value="off">Practice only</option>
+                </select>
+              </label>
+              <label>Minimum speed
+                <select id="minWpm">
+                  <option value="0">Off</option>
+                  <option value="20">20 WPM</option>
+                  <option value="30">30 WPM</option>
+                  <option value="40">40 WPM</option>
+                  <option value="50">50 WPM</option>
+                  <option value="60">60 WPM</option>
+                </select>
+              </label>
+              <label>Minimum accuracy
+                <select id="minAccuracy">
+                  <option value="0">Off</option>
+                  <option value="85">85%</option>
+                  <option value="90">90%</option>
+                  <option value="95">95%</option>
+                  <option value="98">98%</option>
+                  <option value="100">100%</option>
+                </select>
+              </label>
+              <label>Minimum word burst
+                <select id="minBurst">
+                  <option value="0">Off</option>
+                  <option value="20">20 WPM</option>
+                  <option value="30">30 WPM</option>
+                  <option value="40">40 WPM</option>
+                  <option value="50">50 WPM</option>
+                </select>
+              </label>
+              <label>Typo indicator
+                <select id="indicateTypos">
+                  <option value="key">Keyboard key</option>
+                  <option value="flash">Key and caret flash</option>
+                  <option value="subtle">Subtle caret</option>
+                </select>
+              </label>
             </div>
             <div class="toggle-list">
               <label><input type="checkbox" id="blindMode"> Blind mode</label>
               <label><input type="checkbox" id="quickEnd"> Enter ends test</label>
               <label><input type="checkbox" id="capsLockWarning" checked> Caps Lock warning</label>
               <label><input type="checkbox" id="focusMode"> Focus mode</label>
+              <label><input type="checkbox" id="freedomMode"> Freedom backspace</label>
+              <label><input type="checkbox" id="strictSpace"> Strict spaces</label>
+              <label><input type="checkbox" id="oppositeShiftMode"> Opposite Shift</label>
+              <label><input type="checkbox" id="britishEnglish"> British spelling</label>
+              <label><input type="checkbox" id="lazyMode"> Lazy accents</label>
             </div>
           </section>
 
           <section class="settings-pane" data-settings-panel="display">
-            <h3>Display</h3>
+            <div class="settings-section-heading">
+              <span>03</span>
+              <div><h3>Appearance</h3><p>Keep the page calm while making the words unmistakably yours.</p></div>
+            </div>
             <div class="settings-grid">
               <label>Theme
                 <select id="theme">
-                  <option value="dark">Disciple Dark</option>
-                  <option value="light">Daylight</option>
-                  <option value="arcade">Arcade</option>
-                  <option value="chapel">Chapel</option>
-                  <option value="midnight">Midnight</option>
-                  <option value="high-contrast">High Contrast</option>
+                  <option value="disciple">Disciple</option>
+                  <option value="morning-light">Morning Light</option>
+                  <option value="sanctuary">Sanctuary</option>
+                  <option value="living-water">Living Water</option>
+                  <option value="midnight-prayer">Midnight Prayer</option>
+                  <option value="mustard-seed">Mustard Seed</option>
+                  <option value="eden">Eden</option>
+                  <option value="royal-priesthood">Royal Priesthood</option>
+                  <option value="grace">Grace</option>
+                  <option value="armor-of-light">Armor of Light</option>
+                  <option value="revelation">Revelation</option>
+                  <option value="clarity">Clarity</option>
                 </select>
+              </label>
+              <label>Font family
+                <select id="fontFamily"></select>
               </label>
               <label>Current letter
                 <select id="currentCue">
@@ -384,6 +449,13 @@
                   <option value="full">Full</option>
                 </select>
               </label>
+              <label>Tape mode
+                <select id="tapeMode">
+                  <option value="off">Off</option>
+                  <option value="word">Follow word</option>
+                  <option value="letter">Follow letter</option>
+                </select>
+              </label>
               <label>Timer
                 <select id="timerStyle">
                   <option value="text">Text</option>
@@ -406,12 +478,18 @@
               <label><input type="checkbox" id="showLiveRaw"> Live raw speed</label>
               <label><input type="checkbox" id="showLiveConsistency"> Live consistency</label>
               <label><input type="checkbox" id="showProgress" checked> Live progress</label>
-              <label><input type="checkbox" id="showAllLines"> Show all lines</label>
+              <label><input type="checkbox" id="smoothLineScroll" checked> Smooth line scroll</label>
+              <label><input type="checkbox" id="textGlow" checked> Text glow</label>
+              <label><input type="checkbox" id="flipTestColors"> Flip test colors</label>
+              <label><input type="checkbox" id="colorfulMode"> Accent typed text</label>
             </div>
           </section>
 
           <section class="settings-pane" data-settings-panel="keyboard">
-            <h3>Keyboard</h3>
+            <div class="settings-section-heading">
+              <span>04</span>
+              <div><h3>Keyboard</h3><p>Use finger zones, live presses, or a clean keyboard-free view.</p></div>
+            </div>
             <div class="settings-grid">
               <label>Keyboard layout
                 <select id="keyboardLayout">
@@ -454,7 +532,10 @@
           </section>
 
           <section class="settings-pane" data-settings-panel="audio">
-            <h3>Audio</h3>
+            <div class="settings-section-heading">
+              <span>05</span>
+              <div><h3>Audio</h3><p>Accepted keys, blocked mistakes, and lesson rewards.</p></div>
+            </div>
             <div class="settings-grid">
               <label>Keystroke sound
                 <select id="soundStyle">
@@ -528,10 +609,23 @@
           </section>
 
           <section class="settings-pane" data-settings-panel="progress">
-            <h3>Progress</h3>
+            <div class="settings-section-heading">
+              <span>06</span>
+              <div><h3>Adaptive Learning</h3><p>Set the goal; the lesson focuses your least confident earned letter.</p></div>
+            </div>
             <div class="settings-grid">
-              <label>Practice letters
+              <label>Starting alphabet
                 <select id="practiceLetters"></select>
+              </label>
+              <label>Target speed
+                <select id="targetSpeed">
+                  <option value="20">20 WPM</option>
+                  <option value="25">25 WPM</option>
+                  <option value="30">30 WPM</option>
+                  <option value="35" selected>35 WPM</option>
+                  <option value="40">40 WPM</option>
+                  <option value="50">50 WPM</option>
+                </select>
               </label>
               <label>Words per row
                 <select id="wordsPerRow">
@@ -552,20 +646,13 @@
                 </select>
               </label>
             </div>
+            <div class="toggle-list">
+              <label><input type="checkbox" id="recoverKeys" checked> Recover weaker earned letters</label>
+              <label><input type="checkbox" id="naturalWords" checked> Prefer natural words</label>
+            </div>
           </section>
         </div>
       </div>
-    </form>
-  </dialog>
-
-  <dialog id="customTextDialog" class="custom-text-dialog">
-    <form method="dialog">
-      <header>
-        <h2>Custom Text</h2>
-        <button value="close" class="icon-button" aria-label="Close custom text">×</button>
-      </header>
-      <textarea id="customTextInput" rows="10" spellcheck="false"></textarea>
-      <button class="primary-button" id="saveCustomText" value="close">Use Text</button>
     </form>
   </dialog>
 
@@ -587,7 +674,7 @@
         <span>Top speed <strong id="letterTopSpeed">--</strong></span>
         <span>Accuracy <strong id="letterAccuracy">--</strong></span>
         <span>Learning rate <strong id="letterLearningRate">Collecting</strong></span>
-        <span>Practice pages <strong id="letterLessons">0 / 9</strong></span>
+        <span>Evidence <strong id="letterLessons">0 / 27</strong></span>
       </div>
       <section class="curve-section" aria-labelledby="curveTitle">
         <header>
@@ -599,6 +686,6 @@
     </form>
   </dialog>
 
-  <script src="app.js?v=20260717-monkeytype-audio"></script>
+  <script src="app.js?v=20260717-disciple-refresh"></script>
 </body>
 </html>

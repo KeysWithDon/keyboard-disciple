@@ -1,17 +1,27 @@
 const letterOrder = "ENIARLTOSUDYCGHPMKBWFZVXQJ".split("");
 const startLetters = 6;
 const rowsPerPage = 10;
-const masteryRequiredPages = 9;
-const masteryRequiredAttempts = 180;
+const masteryRequiredPages = 27;
+const masteryRequiredAttempts = 540;
 const STORAGE_KEY = "keyboard-disciple-web";
-const letterHeatmapRows = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
 const keyboardSoundStyles = new Set([...Array.from({ length: 26 }, (_, index) => String(index + 1)), "off"]);
 const rewardSoundStyles = new Set(["preacher", "key-bloom", "glass-keys"]);
 const errorSoundStyles = new Set(["1", "2", "3", "4", "off"]);
-const creativeModeStyles = new Set(["weakspot", "gibberish", "ascii", "backwards", "doubled", "random-case"]);
-const themeStyles = new Set(["dark", "light", "arcade", "chapel", "midnight", "high-contrast"]);
-const testModes = new Set(["time", "words", "quote", "custom", "creative"]);
-const scoredModes = new Set(["adaptive", "time", "words", "quote", "custom", "creative", "bible", "bibleQuotes"]);
+const creativeModeStyles = new Set([
+  "weakspot", "58008", "mirror", "upside_down", "nausea", "round_round_baby", "simon_says", "tts",
+  "choo_choo", "arrows", "rAnDoMcAsE", "sPoNgEcAsE", "capitals", "layout_mirror", "layoutfluid",
+  "earthquake", "space_balls", "gibberish", "ascii", "specials", "plus_zero", "plus_one", "plus_two",
+  "plus_three", "read_ahead_easy", "read_ahead", "read_ahead_hard", "memory", "nospace", "poetry",
+  "wikipedia", "pseudolang", "IPv4", "IPv6", "binary", "hexadecimal", "zipf", "morse", "crt",
+  "backwards", "ddoouubblleedd", "instant_messaging", "underscore_spaces", "ALL_CAPS", "polyglot", "asl",
+  "rot13", "no_quit"
+]);
+const themeStyles = new Set([
+  "disciple", "morning-light", "sanctuary", "living-water", "midnight-prayer", "mustard-seed", "eden",
+  "royal-priesthood", "grace", "armor-of-light", "revelation", "clarity"
+]);
+const testModes = new Set(["time", "words", "quote", "creative"]);
+const scoredModes = new Set(["adaptive", "time", "words", "quote", "creative", "bible", "bibleQuotes"]);
 const keyboardKey = (id, label = id, units = 4, shift = "") => ({ id, label, units, shift });
 const macKeyboardLayout = [
   [
@@ -114,15 +124,22 @@ const state = {
   lastAccuracy: 100,
   kjv: null,
   pressedKey: "",
-  mistakeKey: ""
+  mistakeKey: "",
+  shiftSide: "",
+  memoryVisible: true,
+  lastQuote: null
 };
 
 let storedData = {};
 try { storedData = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catch (_) {}
 
 const defaultPrefs = {
+  mode: "adaptive",
   practiceLetters: startLetters,
   wordsPerRow: 10,
+  targetSpeed: 35,
+  recoverKeys: true,
+  naturalWords: true,
   dailyGoalMinutes: 15,
   testDuration: 30,
   testWordCount: 50,
@@ -130,13 +147,30 @@ const defaultPrefs = {
   difficulty: "normal",
   creativeMode: "weakspot",
   quickRestart: "off",
+  repeatQuotes: "off",
+  resultSaving: "on",
+  minWpm: 0,
+  minAccuracy: 0,
+  minBurst: 0,
+  indicateTypos: "key",
+  freedomMode: false,
+  strictSpace: false,
+  oppositeShiftMode: false,
+  britishEnglish: false,
+  lazyMode: false,
   currentCue: "highlight",
   caretStyle: "highlight",
   smoothCaret: "medium",
   typedEffect: "keep",
   highlightMode: "letter",
   fontSize: "medium",
+  fontFamily: "Roboto_Mono",
   lineWidth: "comfortable",
+  tapeMode: "off",
+  smoothLineScroll: true,
+  textGlow: true,
+  flipTestColors: false,
+  colorfulMode: false,
   timerStyle: "text",
   speedUnit: "wpm",
   showLiveWpm: true,
@@ -144,7 +178,6 @@ const defaultPrefs = {
   showLiveRaw: false,
   showLiveConsistency: false,
   showProgress: true,
-  showAllLines: false,
   keyboardLayout: "mac",
   keyboardSize: "standard",
   keymapMode: "react",
@@ -155,7 +188,7 @@ const defaultPrefs = {
   rewardStyle: "preacher",
   errorStyle: "1",
   timeWarning: "off",
-  theme: "dark",
+  theme: "disciple",
   typingSounds: true,
   errorSounds: true,
   showKeyboard: true,
@@ -168,7 +201,6 @@ const defaultPrefs = {
   capsLockWarning: true,
   focusMode: false,
   capitalization: "source",
-  customText: "Practice with purpose and let steady hands build lasting skill.",
   bibleBook: "John",
   bibleChapter: 3,
   bibleStart: 16,
@@ -184,17 +216,52 @@ prefs.testDuration = Math.max(5, Math.min(600, Number(prefs.testDuration) || def
 prefs.testWordCount = Math.max(1, Math.min(3000, Math.round(Number(prefs.testWordCount) || defaultPrefs.testWordCount)));
 prefs.errorLimit = Math.max(1, Math.min(8, Number(prefs.errorLimit) || defaultPrefs.errorLimit));
 prefs.soundVolume = Math.max(0, Math.min(1, Number(prefs.soundVolume) || defaultPrefs.soundVolume));
+prefs.targetSpeed = Math.max(10, Math.min(100, Number(prefs.targetSpeed) || defaultPrefs.targetSpeed));
+prefs.minWpm = Math.max(0, Math.min(200, Number(prefs.minWpm) || 0));
+prefs.minAccuracy = Math.max(0, Math.min(100, Number(prefs.minAccuracy) || 0));
+prefs.minBurst = Math.max(0, Math.min(200, Number(prefs.minBurst) || 0));
 if (!keyboardSoundStyles.has(prefs.soundStyle)) prefs.soundStyle = defaultPrefs.soundStyle;
 if (!keyboardLayouts[prefs.keyboardLayout]) prefs.keyboardLayout = defaultPrefs.keyboardLayout;
 if (!rewardSoundStyles.has(prefs.rewardStyle)) prefs.rewardStyle = defaultPrefs.rewardStyle;
 if (!errorSoundStyles.has(prefs.errorStyle)) prefs.errorStyle = defaultPrefs.errorStyle;
 if (!creativeModeStyles.has(prefs.creativeMode)) prefs.creativeMode = defaultPrefs.creativeMode;
 if (!themeStyles.has(prefs.theme)) prefs.theme = defaultPrefs.theme;
+if (!scoredModes.has(prefs.mode) && prefs.mode !== "zen") prefs.mode = defaultPrefs.mode;
 if (storedPrefs.showKeyboard === false && storedPrefs.keymapMode === undefined) prefs.keymapMode = "off";
 prefs.dailyGoalMinutes = Math.max(5, Math.min(60, Number(prefs.dailyGoalMinutes) || defaultPrefs.dailyGoalMinutes));
+state.mode = prefs.mode;
 
 function applyTheme() {
   document.documentElement.dataset.theme = prefs.theme;
+}
+
+function fontDisplayName(name) {
+  if (name === "Comic_Sans_MS") return "Helvetica";
+  return name.replaceAll("_", " ");
+}
+
+function applyFont() {
+  const family = fontCatalog.includes(prefs.fontFamily) ? prefs.fontFamily : defaultPrefs.fontFamily;
+  prefs.fontFamily = family;
+  let link = document.getElementById("selectedFontStylesheet");
+  if (googleFontFamilies.has(family)) {
+    if (!link) {
+      link = document.createElement("link");
+      link.id = "selectedFontStylesheet";
+      link.rel = "stylesheet";
+      document.head.appendChild(link);
+    }
+    const queryName = family.replaceAll("_", "+");
+    link.onload = () => renderText();
+    link.href = `https://fonts.googleapis.com/css2?family=${queryName}:wght@400;500;600;700&display=swap`;
+  } else if (link) {
+    link.remove();
+  }
+  const cssName = family === "Comic_Sans_MS" ? "Helvetica Neue" : family.replaceAll("_", " ");
+  const generic = /Sans|Roboto$|Montserrat|Nunito|Oxygen|Lato|Ubuntu$|Geist$|Kanit|Sarabun|Parkinsans|Comfortaa|Itim|Coming Soon|Titillium/.test(cssName)
+    ? "ui-sans-serif, system-ui, sans-serif"
+    : "ui-monospace, SFMono-Regular, Menlo, monospace";
+  document.documentElement.style.setProperty("--app-font", `"${cssName}", ${generic}`);
 }
 
 applyTheme();
@@ -224,28 +291,111 @@ const rareLetterFocusWords = {
   v: `very view voice love give have save move live river seven leave drive avoid event value cover never over even visit valid verse victory vital vivid velvet vessel venture volume improve discover develop favorite available`.split(" ")
 };
 const rareLetterFocusPool = [...new Set(Object.values(rareLetterFocusWords).flat())];
-const creativeModeLabels = {
-  weakspot: "Weakspot",
-  gibberish: "Gibberish",
-  ascii: "ASCII",
-  backwards: "Backwards",
-  doubled: "Doubled",
-  "random-case": "Random Case"
+const creativeCatalog = [
+  ["weakspot", "Weakspot", "Focuses slow and mistyped letters from your saved progress."],
+  ["58008", "58008", "A numbers-only challenge."],
+  ["mirror", "Mirror", "Mirrors the practice text horizontally."],
+  ["upside_down", "Upside Down", "Turns the entire practice line upside down."],
+  ["nausea", "Nausea", "Adds a gentle moving challenge to the practice line."],
+  ["round_round_baby", "Round Round Baby", "Rotates the practice line while you type."],
+  ["simon_says", "Simon Says", "Shows only the word you are meant to follow."],
+  ["tts", "Listen Closely", "Reads the line aloud and hides the untyped text."],
+  ["choo_choo", "Choo Choo", "Spins the current character."],
+  ["arrows", "Arrows", "Use the four arrow keys instead of letters."],
+  ["rAnDoMcAsE", "Random Case", "Randomizes the capitalization of each letter."],
+  ["sPoNgEcAsE", "Sponge Case", "Alternates upper and lower case."],
+  ["capitals", "Capitals", "Capitalizes every word."],
+  ["layout_mirror", "Layout Mirror", "Mirrors the on-screen keyboard layout."],
+  ["layoutfluid", "Layout Fluid", "Cycles the visible keyboard style after each line."],
+  ["earthquake", "Earthquake", "Shakes the current character."],
+  ["space_balls", "Space Balls", "Tilts the text into a distant perspective."],
+  ["gibberish", "Gibberish", "Generates pronounceable-looking nonsense words."],
+  ["ascii", "ASCII", "Uses printable ASCII character groups."],
+  ["specials", "Specials", "Uses only punctuation and symbol groups."],
+  ["plus_zero", "+0", "Only the current word stays visible."],
+  ["plus_one", "+1", "Shows one word ahead."],
+  ["plus_two", "+2", "Shows two words ahead."],
+  ["plus_three", "+3", "Shows three words ahead."],
+  ["read_ahead_easy", "Read Ahead Easy", "Hides the current word."],
+  ["read_ahead", "Read Ahead", "Hides the current word and the next word."],
+  ["read_ahead_hard", "Read Ahead Hard", "Hides the current word and the next two words."],
+  ["memory", "Memory", "Shows each line briefly, then asks you to type it from memory."],
+  ["nospace", "No Space", "Removes every space from the test."],
+  ["poetry", "Poetry", "Practices a locally included public-domain verse."],
+  ["wikipedia", "Encyclopedia", "Practices clear factual prose without a network request."],
+  ["pseudolang", "Pseudo Language", "Builds English-looking invented words."],
+  ["IPv4", "IPv4", "Generates IPv4 addresses."],
+  ["IPv6", "IPv6", "Generates IPv6 addresses."],
+  ["binary", "Binary", "Generates eight-bit binary groups."],
+  ["hexadecimal", "Hexadecimal", "Generates hexadecimal byte groups."],
+  ["zipf", "Zipf", "Heavily favors common words and occasionally surfaces rare ones."],
+  ["morse", "Morse", "Converts a short phrase to Morse code."],
+  ["crt", "CRT", "Adds a restrained old-monitor glow."],
+  ["backwards", "Backwards", "Reverses every word."],
+  ["ddoouubblleedd", "Doubled", "Repeats every character twice."],
+  ["instant_messaging", "Instant Messaging", "Removes capitalization."],
+  ["underscore_spaces", "Underscore Spaces", "Replaces spaces with underscores."],
+  ["ALL_CAPS", "All Caps", "Turns every letter into uppercase."],
+  ["polyglot", "Polyglot", "Mixes familiar words from several languages."],
+  ["asl", "Finger Spelling Focus", "Presents short single-letter groups for finger-spelling drills."],
+  ["rot13", "ROT13", "Encodes regular words with ROT13."],
+  ["no_quit", "No Quit", "Disables restart until the current section is complete."]
+].map(([id, label, description]) => ({ id, label, description }));
+const creativeModeLabels = Object.fromEntries(creativeCatalog.map(item => [item.id, item.label]));
+
+const fontCatalog = [
+  "Roboto_Mono", "Noto_Naskh_Arabic", "Source_Code_Pro", "IBM_Plex_Sans", "Inconsolata", "Fira_Code", "JetBrains_Mono", "Roboto",
+  "Montserrat", "Titillium_Web", "Lexend_Deca", "Comic_Sans_MS", "Oxygen", "Nunito", "Itim", "Courier",
+  "Comfortaa", "Coming_Soon", "Atkinson_Hyperlegible", "Lato", "Lalezar", "Boon", "Open_Dyslexic", "Ubuntu", "Ubuntu_Mono",
+  "Georgia", "Cascadia_Mono", "IBM_Plex_Mono", "Overpass_Mono", "Hack", "CommitMono", "Mononoki",
+  "Parkinsans", "Geist", "Sarabun", "Kanit", "Geist_Mono", "Iosevka", "Proto", "Adwaita_Mono",
+  "Inter_Tight", "Space_Grotesk", "Noto_Sans_Lao"
+];
+const googleFontFamilies = new Set([
+  "Roboto_Mono", "Noto_Naskh_Arabic", "Source_Code_Pro", "IBM_Plex_Sans", "Inconsolata", "Fira_Code", "JetBrains_Mono", "Roboto",
+  "Montserrat", "Titillium_Web", "Lexend_Deca", "Oxygen", "Nunito", "Itim", "Comfortaa", "Coming_Soon",
+  "Atkinson_Hyperlegible", "Lato", "Lalezar", "Ubuntu", "Ubuntu_Mono", "IBM_Plex_Mono", "Overpass_Mono", "Parkinsans",
+  "Sarabun", "Kanit", "Inter_Tight", "Space_Grotesk", "Noto_Sans_Lao"
+]);
+
+const poetryPassages = [
+  "Hope is the thing with feathers that perches in the soul and sings the tune without the words and never stops at all.",
+  "I wandered lonely as a cloud that floats on high over vales and hills when all at once I saw a crowd a host of golden daffodils.",
+  "Let me not to the marriage of true minds admit impediments. Love is not love which alters when it alteration finds."
+];
+const encyclopediaPassages = [
+  "Touch typing is a method of typing without using the sense of sight to find individual keys. Muscle memory develops through accurate and repeated movement.",
+  "A mechanical keyboard uses an individual switch beneath each key. Switch design changes the sound, travel, and tactile feedback felt by the typist.",
+  "The printing press enabled written works to be reproduced efficiently and helped knowledge travel across communities and generations."
+];
+const polyglotWords = `hello hola bonjour hallo grazie gracias merci bitte amigo famille mondo casa agua livre leben paz joie faith hope grace`.split(" ");
+const morseAlphabet = {
+  a: ".-", b: "-...", c: "-.-.", d: "-..", e: ".", f: "..-.", g: "--.", h: "....", i: "..", j: ".---",
+  k: "-.-", l: ".-..", m: "--", n: "-.", o: "---", p: ".--.", q: "--.-", r: ".-.", s: "...", t: "-",
+  u: "..-", v: "...-", w: ".--", x: "-..-", y: "-.--", z: "--.."
 };
 
-const kjvQuotes = [
-  ["Psalm 23:1 KJV", "The Lord is my shepherd; I shall not want."],
-  ["Psalm 23:4 KJV", "Yea, though I walk through the valley of the shadow of death, I will fear no evil: for thou art with me; thy rod and thy staff they comfort me."],
-  ["Isaiah 40:31 KJV", "But they that wait upon the Lord shall renew their strength; they shall mount up with wings as eagles; they shall run, and not be weary; and they shall walk, and not faint."],
-  ["Romans 8:28 KJV", "And we know that all things work together for good to them that love God, to them who are the called according to his purpose."],
-  ["Philippians 4:13 KJV", "I can do all things through Christ which strengtheneth me."],
-  ["Proverbs 3:5-6 KJV", "Trust in the Lord with all thine heart; and lean not unto thine own understanding. In all thy ways acknowledge him, and he shall direct thy paths."],
-  ["Joshua 1:9 KJV", "Have not I commanded thee? Be strong and of a good courage; be not afraid, neither be thou dismayed: for the Lord thy God is with thee whithersoever thou goest."],
-  ["Matthew 6:33 KJV", "But seek ye first the kingdom of God, and his righteousness; and all these things shall be added unto you."],
-  ["John 3:16-17 KJV", "For God so loved the world, that he gave his only begotten Son, that whosoever believeth in him should not perish, but have everlasting life. For God sent not his Son into the world to condemn the world; but that the world through him might be saved."],
-  ["2 Corinthians 5:7 KJV", "For we walk by faith, not by sight."],
-  ["Ephesians 2:8-9 KJV", "For by grace are ye saved through faith; and that not of yourselves: it is the gift of God: Not of works, lest any man should boast."],
-  ["1 Peter 5:7 KJV", "Casting all your care upon him; for he careth for you."]
+const kjvQuoteReferences = [
+  ["Genesis", 1, 1], ["Exodus", 14, 14], ["Deuteronomy", 31, 8], ["Joshua", 1, 9],
+  ["Psalm", 23, 1, 4], ["Psalm", 27, 1], ["Psalm", 34, 8], ["Psalm", 37, 4, 5],
+  ["Psalm", 46, 1], ["Psalm", 46, 10], ["Psalm", 51, 10], ["Psalm", 91, 1, 2],
+  ["Psalm", 118, 24], ["Psalm", 119, 105], ["Psalm", 121, 1, 2], ["Proverbs", 3, 5, 6],
+  ["Proverbs", 18, 10], ["Isaiah", 40, 31], ["Isaiah", 41, 10], ["Isaiah", 43, 2],
+  ["Isaiah", 53, 5], ["Jeremiah", 29, 11], ["Lamentations", 3, 22, 23], ["Micah", 6, 8],
+  ["Nahum", 1, 7], ["Matthew", 5, 14, 16], ["Matthew", 6, 33, 34], ["Matthew", 7, 7],
+  ["Matthew", 11, 28, 30], ["Matthew", 19, 26], ["Matthew", 22, 37, 39], ["Mark", 9, 23],
+  ["Luke", 1, 37], ["John", 3, 16, 17], ["John", 8, 12], ["John", 10, 10],
+  ["John", 14, 1, 3], ["John", 14, 6], ["John", 14, 27], ["John", 15, 5],
+  ["John", 16, 33], ["Acts", 1, 8], ["Romans", 5, 8], ["Romans", 8, 1],
+  ["Romans", 8, 28], ["Romans", 8, 31], ["Romans", 10, 9], ["Romans", 12, 2],
+  ["1 Corinthians", 10, 13], ["1 Corinthians", 13, 4, 7], ["1 Corinthians", 15, 58],
+  ["2 Corinthians", 5, 7], ["2 Corinthians", 12, 9], ["Galatians", 2, 20], ["Galatians", 5, 22, 23],
+  ["Ephesians", 2, 8, 10], ["Ephesians", 3, 20], ["Ephesians", 6, 10, 11],
+  ["Philippians", 1, 6], ["Philippians", 4, 4, 7], ["Philippians", 4, 13], ["Philippians", 4, 19],
+  ["Colossians", 3, 23, 24], ["1 Thessalonians", 5, 16, 18], ["2 Timothy", 1, 7],
+  ["2 Timothy", 3, 16, 17], ["Hebrews", 4, 12], ["Hebrews", 11, 1], ["Hebrews", 12, 1, 2],
+  ["James", 1, 2, 4], ["James", 1, 5], ["1 Peter", 5, 7], ["1 John", 1, 9],
+  ["1 John", 4, 4], ["1 John", 4, 19], ["Revelation", 21, 4]
 ];
 
 const generalQuotes = [
@@ -274,19 +424,22 @@ const generalQuotes = [
 const books = ["Genesis","Exodus","Leviticus","Numbers","Deuteronomy","Joshua","Judges","Ruth","1 Samuel","2 Samuel","1 Kings","2 Kings","1 Chronicles","2 Chronicles","Ezra","Nehemiah","Esther","Job","Psalm","Proverbs","Ecclesiastes","Song of Solomon","Isaiah","Jeremiah","Lamentations","Ezekiel","Daniel","Hosea","Joel","Amos","Obadiah","Jonah","Micah","Nahum","Habakkuk","Zephaniah","Haggai","Zechariah","Malachi","Matthew","Mark","Luke","John","Acts","Romans","1 Corinthians","2 Corinthians","Galatians","Ephesians","Philippians","Colossians","1 Thessalonians","2 Thessalonians","1 Timothy","2 Timothy","Titus","Philemon","Hebrews","James","1 Peter","2 Peter","1 John","2 John","3 John","Jude","Revelation"];
 
 const els = Object.fromEntries([
-  "modeEyebrow", "lessonTitle", "modeControls", "liveMetrics", "liveWpmWrap", "liveWpm", "liveAccWrap", "liveAcc",
+  "modeEyebrow", "lessonTitle", "liveMetrics", "liveWpmWrap", "liveWpm", "liveAccWrap", "liveAcc",
   "liveRawWrap", "liveRaw", "liveConsistencyWrap", "liveConsistency", "liveProgressWrap", "liveProgress", "timerMeter",
   "timerFill", "typingCard", "typingText", "rowLabel", "charLabel", "scriptureStrip", "scriptureRef", "completionBanner",
   "keyboard", "keyboardWrap", "lessonScore", "lastWpm", "lastAccuracy", "topWpm", "learningRate", "dailyGoalText",
   "dailyGoalFill", "resultPanel", "resultEyebrow", "resultTitle", "resultScore", "resultWpm", "resultRaw",
   "resultAccuracy", "resultConsistency", "resultCharacters", "resultTime", "resultRestartBtn", "settingsDialog", "settingsBtn",
-  "statsDialog", "statsBtn", "fullscreenBtn", "restartBtn", "customTextDialog", "customTextInput", "saveCustomText", "letterHud", "unlockNext", "unlockCount",
+  "statsDialog", "statsBtn", "fullscreenBtn", "restartBtn", "letterHud", "unlockNext", "unlockCount",
   "unlockMeterFill", "letterHeatmap", "heatmapSummary", "letterDialog", "letterDetailBadge", "letterDetailTitle",
   "letterMastery", "letterLastSpeed", "letterTopSpeed", "letterAccuracy", "letterLearningRate", "letterLessons",
   "letterCurveCaption", "letterChart"
 ].map(id => [id, document.getElementById(id)]));
 
 let saveTimer;
+let memoryTimer;
+let kjvPromise;
+let restartRequestId = 0;
 
 function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ prefs, progress }));
@@ -417,7 +570,7 @@ function renderResult() {
   const result = state.result;
   if (!result) return;
   els.resultEyebrow.textContent = `${modeCopy()[0]} complete`;
-  els.resultTitle.textContent = result.personalBest ? "New personal best" : "Results";
+  els.resultTitle.textContent = result.failedReason || (result.personalBest ? "New personal best" : "Results");
   els.resultScore.textContent = Number(result.score).toLocaleString();
   els.resultWpm.textContent = Math.round(result.wpm);
   els.resultRaw.textContent = Math.round(result.raw);
@@ -432,16 +585,45 @@ function letterMastery(letter) {
   const stats = progress.letterStats[key] || { attempts: 0, correct: 0 };
   const history = Array.isArray(progress.letterHistory[key]) ? progress.letterHistory[key] : [];
   const accuracy = stats.attempts ? stats.correct / stats.attempts : 0;
+  const recentSpeeds = history.slice(-12).map(item => Number(item.wpm)).filter(Number.isFinite);
+  const smoothedWpm = recentSpeeds.reduce((value, speed) => value === null ? speed : value * .82 + speed * .18, null) || 0;
+  const speedConfidence = Math.min(1, smoothedWpm / Math.max(1, Number(prefs.targetSpeed)));
+  const accuracyConfidence = Math.max(0, Math.min(1, (accuracy - .75) / .2));
   const evidence = Math.min(1, stats.attempts / masteryRequiredAttempts, history.length / masteryRequiredPages);
-  const score = Math.max(0, Math.min(1, evidence * accuracy));
+  const currentConfidence = Math.max(0, Math.min(1, Math.min(speedConfidence, accuracyConfidence) * evidence));
+  const savedBest = Number(stats.bestConfidence) || 0;
+  const bestConfidence = Math.max(savedBest, currentConfidence);
+  const score = prefs.recoverKeys ? currentConfidence : bestConfidence;
   return {
     score,
     percent: Math.round(score * 100),
+    currentConfidence,
+    bestConfidence,
+    smoothedWpm,
+    accuracy,
     pages: history.length,
     attempts: Number(stats.attempts) || 0,
     pagesRemaining: Math.max(0, masteryRequiredPages - history.length),
     attemptsRemaining: Math.max(0, masteryRequiredAttempts - (Number(stats.attempts) || 0))
   };
+}
+
+function adaptiveFocusLetter() {
+  const earned = letterOrder.slice(0, Number(prefs.practiceLetters));
+  const belowTarget = earned.filter(letter => letterMastery(letter).score < .98);
+  if (!belowTarget.length) return earned.at(-1) || letterOrder[0];
+  return belowTarget.sort((a, b) => {
+    const aMastery = letterMastery(a);
+    const bMastery = letterMastery(b);
+    return aMastery.score - bMastery.score || aMastery.attempts - bMastery.attempts;
+  })[0];
+}
+
+function canUnlockNextLetter() {
+  if (Number(prefs.practiceLetters) >= letterOrder.length) return false;
+  const earned = letterOrder.slice(0, Number(prefs.practiceLetters));
+  if (prefs.recoverKeys) return earned.every(letter => letterMastery(letter).currentConfidence >= .98);
+  return earned.every(letter => letterMastery(letter).bestConfidence >= .98);
 }
 
 function shuffle(items) {
@@ -459,25 +641,39 @@ function allowedSet() {
 
 function wordDeck() {
   const unlocked = allowedSet();
+  const focusLetter = adaptiveFocusLetter().toLowerCase();
   const isAllowed = word => [...word.toLowerCase()].every(ch => !/[a-z]/.test(ch) || unlocked.has(ch));
+  if (!prefs.naturalWords) {
+    const letters = [...unlocked];
+    const pseudo = Array.from({ length: 180 }, (_, wordIndex) => {
+      const length = 3 + Math.floor(Math.random() * 5);
+      const output = Array.from({ length }, () => letters[Math.floor(Math.random() * letters.length)] || "e");
+      output[wordIndex % length] = focusLetter;
+      return output.join("");
+    });
+    return { common: shuffle(pseudo), moderate: [], rare: [], rareFocus: [], focus: shuffle(pseudo), focusLetter };
+  }
+  const allNatural = [...new Set(commonWords.concat(moderateWords, rareWords, dictionaryExtra, rareLetterFocusPool))].filter(isAllowed);
   const common = shuffle(commonWords.concat(dictionaryExtra.filter(w => w.length <= 6)).filter(isAllowed));
   const moderate = shuffle(moderateWords.concat(dictionaryExtra.filter(w => w.length >= 6 && w.length <= 9)).filter(isAllowed));
   const rare = shuffle(rareWords.concat(dictionaryExtra.filter(w => w.length >= 9)).filter(isAllowed));
-  const focus = shuffle(rareLetterFocusPool.filter(isAllowed));
-  return { common, moderate, rare, focus };
+  const rareFocus = shuffle(rareLetterFocusPool.filter(isAllowed));
+  const focus = shuffle(allNatural.filter(word => word.includes(focusLetter)));
+  return { common, moderate, rare, rareFocus, focus, focusLetter };
 }
 
-function makeAdaptiveRows() {
+function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
   const deck = wordDeck();
   const rows = [];
-  let ci = 0, mi = 0, ri = 0, fi = 0;
-  for (let r = 0; r < rowsPerPage; r++) {
+  let ci = 0, mi = 0, ri = 0, fi = 0, rfi = 0;
+  for (let r = 0; r < rowCount; r++) {
     const words = [];
     for (let i = 0; i < Number(prefs.wordsPerRow); i++) {
       const pos = r * Number(prefs.wordsPerRow) + i + 1;
       let list = deck.common;
       let index = ci++;
-      if (pos % 4 === 0 && deck.focus.length) { list = deck.focus; index = fi++; }
+      if (pos % 3 === 0 && deck.focus.length) { list = deck.focus; index = fi++; }
+      else if (pos % 11 === 0 && deck.rareFocus.length) { list = deck.rareFocus; index = rfi++; }
       else if (pos % 100 === 0 && deck.rare.length) { list = deck.rare; index = ri++; }
       else if (pos % 20 === 0 && deck.moderate.length) { list = deck.moderate; index = mi++; }
       if (!list.length) list = deck.common.length ? deck.common : ["lean", "real", "line"];
@@ -496,6 +692,10 @@ function testWordPool() {
 
 function decorateTestWords(words) {
   const output = words.slice();
+  if (prefs.britishEnglish) {
+    const british = { color: "colour", favor: "favour", favorite: "favourite", honor: "honour", center: "centre", theater: "theatre", organize: "organise", recognize: "recognise" };
+    output.forEach((word, index) => { output[index] = british[word] || word; });
+  }
   if (prefs.includeNumbers) {
     for (let index = 8; index < output.length; index += 11) {
       output[index] = String(10 + Math.floor(Math.random() * 990));
@@ -527,8 +727,9 @@ function makeTestWords(count) {
 function makeWordSections(count) {
   const words = makeTestWords(count);
   const sections = [];
-  for (let index = 0; index < words.length; index += 50) {
-    sections.push(transformText(words.slice(index, index + 50).join(" ")));
+  const size = Math.max(2, Number(prefs.wordsPerRow) || 10);
+  for (let index = 0; index < words.length; index += size) {
+    sections.push(transformText(words.slice(index, index + size).join(" ")));
   }
   return sections.length ? sections : ["practice"];
 }
@@ -564,30 +765,84 @@ function randomPrintableAscii() {
 }
 
 function randomGibberish() {
-  const length = 1 + Math.floor(Math.random() * 7);
-  return Array.from({ length }, () => String.fromCharCode(97 + Math.floor(Math.random() * 26))).join("");
+  const starts = ["br", "cl", "dr", "fl", "gr", "pl", "qu", "sh", "st", "tr", "v", "z"];
+  const middles = ["a", "e", "i", "o", "u", "ae", "ou"];
+  const ends = ["n", "r", "s", "t", "ck", "nd", "sh", "ve", "x", "z"];
+  return `${starts[Math.floor(Math.random() * starts.length)]}${middles[Math.floor(Math.random() * middles.length)]}${ends[Math.floor(Math.random() * ends.length)]}`;
+}
+
+function randomSpecials() {
+  const characters = "!@#$%^&*()-_=+[]{};:'\",.<>/?\\|`~";
+  const length = 2 + Math.floor(Math.random() * 6);
+  return Array.from({ length }, () => characters[Math.floor(Math.random() * characters.length)]).join("");
+}
+
+function randomIPv4() {
+  return Array.from({ length: 4 }, () => Math.floor(Math.random() * 256)).join(".");
+}
+
+function randomIPv6() {
+  return Array.from({ length: 4 }, () => Math.floor(Math.random() * 65536).toString(16).padStart(4, "0")).join(":");
+}
+
+function rot13(text) {
+  return text.replace(/[a-z]/gi, letter => {
+    const base = letter <= "Z" ? 65 : 97;
+    return String.fromCharCode(base + (letter.charCodeAt(0) - base + 13) % 26);
+  });
+}
+
+function toMorse(text) {
+  return text.toLowerCase().split(" ").map(word => [...word].map(letter => morseAlphabet[letter] || "").filter(Boolean).join("/")).join(" // ");
 }
 
 function makeCreativeWords(count) {
-  if (prefs.creativeMode === "weakspot") return makeWeakspotWords(count);
-  if (prefs.creativeMode === "gibberish") return Array.from({ length: count }, randomGibberish);
-  if (prefs.creativeMode === "ascii") return Array.from({ length: count }, randomPrintableAscii);
-
+  const mode = prefs.creativeMode;
+  if (mode === "weakspot") return makeWeakspotWords(count);
+  if (mode === "58008") return Array.from({ length: count }, () => String(Math.floor(100 + Math.random() * 999999)));
+  if (mode === "gibberish" || mode === "pseudolang") return Array.from({ length: count }, randomGibberish);
+  if (mode === "ascii") return Array.from({ length: count }, randomPrintableAscii);
+  if (mode === "specials") return Array.from({ length: count }, randomSpecials);
+  if (mode === "arrows") return Array.from({ length: count }, () => ["↑", "↓", "←", "→"][Math.floor(Math.random() * 4)]);
+  if (mode === "IPv4") return Array.from({ length: count }, randomIPv4);
+  if (mode === "IPv6") return Array.from({ length: count }, randomIPv6);
+  if (mode === "binary") return Array.from({ length: count }, () => Math.floor(Math.random() * 256).toString(2).padStart(8, "0"));
+  if (mode === "hexadecimal") return Array.from({ length: count }, () => `0x${Math.floor(Math.random() * 256).toString(16).padStart(2, "0").toUpperCase()}`);
+  if (mode === "polyglot") return Array.from({ length: count }, (_, index) => polyglotWords[index % polyglotWords.length]);
+  if (mode === "asl") return Array.from({ length: count }, () => String.fromCharCode(97 + Math.floor(Math.random() * 26)));
+  if (mode === "poetry") return shuffle(poetryPassages)[0].split(/\s+/).slice(0, count);
+  if (mode === "wikipedia") return shuffle(encyclopediaPassages)[0].split(/\s+/).slice(0, count);
   const pool = shuffle(testWordPool());
-  const words = Array.from({ length: count }, (_, index) => pool[index % pool.length] || "practice");
-  if (prefs.creativeMode === "backwards") return words.map(word => [...word].reverse().join(""));
-  if (prefs.creativeMode === "doubled") return words.map(word => [...word].map(letter => letter + letter).join(""));
-  if (prefs.creativeMode === "random-case") {
+  let words = Array.from({ length: count }, (_, index) => {
+    if (mode === "zipf") {
+      const weightedIndex = Math.floor(Math.pow(Math.random(), 2.7) * Math.max(1, commonWords.length));
+      return commonWords[weightedIndex] || "practice";
+    }
+    return pool[index % pool.length] || "practice";
+  });
+  if (mode === "backwards") return words.map(word => [...word].reverse().join(""));
+  if (mode === "ddoouubblleedd") return words.map(word => [...word].map(letter => letter + letter).join(""));
+  if (mode === "rAnDoMcAsE") {
     return words.map(word => [...word].map(letter => Math.random() < .5 ? letter.toUpperCase() : letter.toLowerCase()).join(""));
   }
+  if (mode === "sPoNgEcAsE") return words.map((word, wordIndex) => [...word].map((letter, index) => (index + wordIndex) % 2 ? letter.toUpperCase() : letter.toLowerCase()).join(""));
+  if (mode === "capitals") return words.map(word => word[0].toUpperCase() + word.slice(1));
+  if (mode === "instant_messaging") return words.map(word => word.toLowerCase());
+  if (mode === "ALL_CAPS") return words.map(word => word.toUpperCase());
+  if (mode === "rot13") return words.map(rot13);
+  if (mode === "morse") return toMorse(words.slice(0, Math.min(words.length, 8)).join(" ")).split(" ");
   return words;
 }
 
 function makeCreativeSections(count) {
   const words = makeCreativeWords(count);
   const sections = [];
-  for (let index = 0; index < words.length; index += 50) {
-    sections.push(words.slice(index, index + 50).join(" "));
+  const size = Math.max(2, Number(prefs.wordsPerRow) || 10);
+  for (let index = 0; index < words.length; index += size) {
+    let text = words.slice(index, index + size).join(" ");
+    if (prefs.creativeMode === "nospace") text = text.replaceAll(" ", "");
+    if (prefs.creativeMode === "underscore_spaces") text = text.replaceAll(" ", "_");
+    sections.push(text);
   }
   return sections.length ? sections : ["practice"];
 }
@@ -619,26 +874,49 @@ function quoteForLength() {
 
 function transformText(text) {
   let out = text.replace(/\s+/g, " ").trim();
+  if (prefs.lazyMode) out = out.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
   if (!prefs.includePunctuation) out = out.replace(/[^\w\s]/g, "");
   if (prefs.capitalization === "lower") out = out.toLowerCase().replace(/\bgod\b/gi, "God");
   if (prefs.capitalization === "words") out = out.split(" ").map(w => w ? w[0].toUpperCase() + w.slice(1).toLowerCase() : w).join(" ").replace(/\bgod\b/gi, "God");
   if (prefs.capitalization === "sentences") out = out.toLowerCase().replace(/(^|[.!?]\s+)([a-z])/g, (_, a, b) => a + b.toUpperCase()).replace(/\bgod\b/gi, "God");
-  return out;
+  return out.replace(/\bgod\b/gi, "God");
 }
 
 async function loadKJV() {
   if (state.kjv) return state.kjv;
-  const res = await fetch("assets/kjv-verses-1769.json");
-  state.kjv = await res.json();
+  kjvPromise ||= fetch("assets/kjv-verses-1769.json").then(response => {
+    if (!response.ok) throw new Error(`Unable to load KJV text (${response.status})`);
+    return response.json();
+  });
+  state.kjv = await kjvPromise;
   return state.kjv;
+}
+
+function bibleDataBook(book) {
+  return { Psalm: "Psalms", "Song of Solomon": "Solomon's Song" }[book] || book;
+}
+
+function makeBibleQuotePages(data) {
+  const pages = shuffle(kjvQuoteReferences).map(([book, chapter, start, end = start]) => {
+    const dataBook = bibleDataBook(book);
+    const verses = [];
+    for (let verse = start; verse <= end; verse++) {
+      const text = data[`${dataBook} ${chapter}:${verse}`];
+      if (text) verses.push(cleanVerse(text));
+    }
+    const verseLabel = start === end ? start : `${start}-${end}`;
+    return [`${book} ${chapter}:${verseLabel} KJV`, verses.join(" ")];
+  }).filter(([, text]) => text);
+  return pages.length ? pages : [["John 3:16 KJV", cleanVerse(data["John 3:16"] || "For God so loved the world.")]];
 }
 
 async function makeBiblePages() {
   const data = await loadKJV();
   const pages = [];
+  const dataBook = bibleDataBook(prefs.bibleBook);
   for (let v = Number(prefs.bibleStart); v <= Number(prefs.bibleEnd); v++) {
-    const key = `${prefs.bibleBook} ${prefs.bibleChapter}:${v}`;
-    if (data[key]) pages.push([`${key} KJV`, cleanVerse(data[key])]);
+    const key = `${dataBook} ${prefs.bibleChapter}:${v}`;
+    if (data[key]) pages.push([`${prefs.bibleBook} ${prefs.bibleChapter}:${v} KJV`, cleanVerse(data[key])]);
   }
   return pages.length ? pages : [["John 3:16 KJV", cleanVerse(data["John 3:16"] || "For God so loved the world, that he gave his only begotten Son.")]];
 }
@@ -654,7 +932,11 @@ function clearTestTimer() {
 }
 
 async function restart() {
+  const requestId = ++restartRequestId;
+  const wasTyping = !!state.startedAt && !state.testCompleted;
   clearTestTimer();
+  clearTimeout(memoryTimer);
+  window.speechSynthesis?.cancel();
   stopRewardSound();
   state.input = "";
   state.rowIndex = 0;
@@ -674,9 +956,10 @@ async function restart() {
   state.testCompleted = false;
   state.result = null;
   state.completion = false;
+  state.memoryVisible = true;
   els.completionBanner.classList.add("hidden");
   if (state.mode === "adaptive") {
-    state.targetRows = makeAdaptiveRows();
+    state.targetRows = makeAdaptiveRows(rowsPerPage * 2);
     state.scripturePages = [];
   } else if (state.mode === "time") {
     state.targetRows = makeTimedRows();
@@ -688,23 +971,29 @@ async function restart() {
     state.targetRows = makeCreativeSections(Number(prefs.testWordCount));
     state.scripturePages = [];
   } else if (state.mode === "quote") {
-    const quote = quoteForLength();
+    const shouldRepeat = prefs.repeatQuotes === "always" || (prefs.repeatQuotes === "typing" && wasTyping);
+    const quote = shouldRepeat && state.lastQuote ? state.lastQuote : quoteForLength();
+    state.lastQuote = quote;
     state.scripturePages = [[quote[0], transformText(quote[1])]];
     state.targetRows = [];
-  } else if (state.mode === "custom") {
-    state.targetRows = [transformText(prefs.customText || defaultPrefs.customText)];
-    state.scripturePages = [];
   } else if (state.mode === "bibleQuotes") {
-    state.scripturePages = shuffle(kjvQuotes).slice(0, 12);
+    const data = await loadKJV();
+    if (requestId !== restartRequestId) return;
+    state.scripturePages = makeBibleQuotePages(data);
     state.targetRows = [];
   } else if (state.mode === "bible") {
-    state.scripturePages = await makeBiblePages();
+    const pages = await makeBiblePages();
+    if (requestId !== restartRequestId) return;
+    state.scripturePages = pages;
     state.targetRows = [];
   } else {
     state.targetRows = [""];
     state.scripturePages = [];
   }
+  prefs.mode = state.mode;
+  scheduleSave();
   render();
+  prepareCreativeLine();
 }
 
 function currentTarget() {
@@ -718,14 +1007,37 @@ function currentReference() {
   return "";
 }
 
+function speakCurrentTarget() {
+  if (!("speechSynthesis" in window)) return;
+  window.speechSynthesis.cancel();
+  const utterance = new SpeechSynthesisUtterance(currentTarget());
+  utterance.rate = .92;
+  utterance.pitch = 1;
+  window.speechSynthesis.speak(utterance);
+}
+
+function prepareCreativeLine() {
+  if (state.mode !== "creative") return;
+  clearTimeout(memoryTimer);
+  if (prefs.creativeMode === "memory") {
+    state.memoryVisible = true;
+    applyDisplayPreferences();
+    memoryTimer = setTimeout(() => {
+      state.memoryVisible = false;
+      renderText();
+      applyDisplayPreferences();
+    }, 2600);
+  }
+  if (["tts", "simon_says"].includes(prefs.creativeMode)) setTimeout(speakCurrentTarget, 40);
+}
+
 function modeCopy() {
   const copy = {
-    adaptive: ["Adaptive Lesson", "Unlock letters. Keep the flow."],
+    adaptive: ["Adaptive letters", `Focus ${adaptiveFocusLetter()} / ${prefs.targetSpeed} WPM target`],
     time: ["Timed Test", `${prefs.testDuration} second sprint`],
     words: ["Word Test", `${prefs.testWordCount} word challenge`],
     quote: ["Quote Test", "Complete the quote"],
     zen: ["Zen Mode", "Type without limits"],
-    custom: ["Custom Test", "Your text, your pace"],
     creative: ["Creative Test", creativeModeLabels[prefs.creativeMode]],
     bible: ["Scripture Reading", "Bible Reading"],
     bibleQuotes: ["Bible Quotes", "Complete Quotes"]
@@ -740,6 +1052,15 @@ function applyDisplayPreferences() {
   els.typingText.dataset.highlight = prefs.highlightMode;
   els.typingCard.dataset.size = prefs.fontSize;
   els.typingCard.dataset.width = prefs.lineWidth;
+  document.body.dataset.mode = state.mode;
+  document.body.classList.toggle("smooth-lines", prefs.smoothLineScroll);
+  document.body.classList.toggle("text-glow", prefs.textGlow);
+  document.body.classList.toggle("flip-test-colors", prefs.flipTestColors);
+  document.body.classList.toggle("colorful-test", prefs.colorfulMode);
+  document.body.classList.toggle("tape-mode", prefs.tapeMode !== "off");
+  document.body.classList.toggle("memory-hidden", state.mode === "creative" && prefs.creativeMode === "memory" && !state.memoryVisible);
+  [...document.body.classList].filter(name => name.startsWith("funbox-")).forEach(name => document.body.classList.remove(name));
+  if (state.mode === "creative") document.body.classList.add(`funbox-${prefs.creativeMode}`);
   document.body.classList.toggle("focus-mode", prefs.focusMode && !!state.startedAt && !state.testCompleted);
 }
 
@@ -747,7 +1068,6 @@ function render() {
   const [eyebrow, title] = modeCopy();
   els.modeEyebrow.textContent = eyebrow;
   els.lessonTitle.textContent = title;
-  renderControls();
   renderText();
   renderKeyboard();
   renderLetterProgress();
@@ -768,45 +1088,42 @@ function renderLetterProgress() {
   const unlockedCount = Number(prefs.practiceLetters);
   const earnedLetters = new Set(letterOrder.slice(0, unlockedCount));
   const nextLetter = letterOrder[unlockedCount];
+  const focusLetter = adaptiveFocusLetter();
   els.unlockCount.textContent = `${unlockedCount} / ${letterOrder.length}`;
-  els.unlockNext.textContent = nextLetter ? `Next: ${nextLetter}` : "All letters unlocked";
+  els.unlockNext.textContent = nextLetter ? `Focus ${focusLetter} / next ${nextLetter}` : `Focus ${focusLetter} / alphabet complete`;
   els.unlockMeterFill.style.width = `${(unlockedCount / letterOrder.length) * 100}%`;
 
   let totalAttempts = 0;
   let totalCorrect = 0;
   let totalMastery = 0;
   let sampledLetters = 0;
-  els.letterHeatmap.innerHTML = letterHeatmapRows.map(row => {
-    const keys = [...row].map(letter => {
-      const isEarned = earnedLetters.has(letter);
-      const isNext = letter === nextLetter;
-      const stats = progress.letterStats[letter.toLowerCase()] || { attempts: 0, correct: 0 };
-      const mastery = letterMastery(letter);
-      if (isEarned) {
-        totalAttempts += stats.attempts;
-        totalCorrect += stats.correct;
-        if (stats.attempts) {
-          totalMastery += mastery.score;
-          sampledLetters++;
-        }
+  const keys = letterOrder.map(letter => {
+    const isEarned = earnedLetters.has(letter);
+    const isNext = letter === nextLetter;
+    const isFocus = letter === focusLetter;
+    const stats = progress.letterStats[letter.toLowerCase()] || { attempts: 0, correct: 0 };
+    const mastery = letterMastery(letter);
+    if (isEarned) {
+      totalAttempts += Number(stats.attempts) || 0;
+      totalCorrect += Number(stats.correct) || 0;
+      if (stats.attempts) {
+        totalMastery += mastery.score;
+        sampledLetters++;
       }
-      const accuracy = stats.attempts ? Math.round((stats.correct / stats.attempts) * 100) : 0;
-      const strength = isEarned && stats.attempts ? "sampled" : "unseen";
-      const locked = isEarned ? "" : isNext ? " next" : " locked";
-      const detail = !isEarned
-        ? isNext ? "Next to unlock" : "Locked"
-        : stats.attempts ? `${mastery.percent}% mastery, ${accuracy}% accuracy, ${mastery.pages} of ${masteryRequiredPages} pages` : "No samples yet";
-      const hue = Math.round(mastery.score * 120);
-      const intensity = (.36 + mastery.score * .56).toFixed(2);
-      const heatStyle = isEarned && stats.attempts ? ` style="--heat-hue:${hue};--heat-intensity:${intensity}"` : "";
-      const disabled = isEarned ? "" : " disabled";
-      return `<button type="button" class="heat-key ${strength}${locked}" data-letter="${letter}"${heatStyle}${disabled} title="${letter}: ${detail}" aria-label="${letter}: ${detail}">${letter}</button>`;
-    }).join("");
-    return `<div class="heat-row">${keys}</div>`;
+    }
+    const accuracy = stats.attempts ? Math.round((stats.correct / stats.attempts) * 100) : 0;
+    const strength = isEarned && stats.attempts ? "sampled" : "unseen";
+    const status = [isEarned ? "" : isNext ? "next" : "locked", isFocus ? "focus" : ""].filter(Boolean).join(" ");
+    const detail = !isEarned
+      ? isNext ? "Next to unlock" : "Locked"
+      : stats.attempts ? `${mastery.percent}% confidence, ${Math.round(mastery.smoothedWpm)} WPM, ${accuracy}% accuracy` : "Building baseline";
+    const disabled = isEarned ? "" : " disabled";
+    return `<button type="button" class="heat-key ${strength} ${status}" data-letter="${letter}" style="--confidence:${mastery.score.toFixed(3)}"${disabled} title="${letter}: ${detail}" aria-label="${letter}: ${detail}">${letter}</button>`;
   }).join("");
+  els.letterHeatmap.innerHTML = `<div class="heat-row">${keys}</div>`;
   els.heatmapSummary.textContent = totalAttempts
-    ? `${Math.round((totalMastery / Math.max(1, sampledLetters)) * 100)}% mastery / ${Math.round((totalCorrect / totalAttempts) * 100)}% accuracy`
-    : "No samples yet";
+    ? `${Math.round((totalMastery / Math.max(1, sampledLetters)) * 100)}% confidence / ${Math.round((totalCorrect / totalAttempts) * 100)}% accuracy`
+    : `Build ${focusLetter} toward ${prefs.targetSpeed} WPM`;
 }
 
 function recordLetterAttempt(expected, isCorrect, recordedAt = performance.now()) {
@@ -848,7 +1165,7 @@ function renderLetterChart(letter, history, lifetimeStats) {
   const margin = { top: 22, right: 22, bottom: 38, left: 62 };
   const plotWidth = width - margin.left - margin.right;
   const plotHeight = height - margin.top - margin.bottom;
-  const speeds = points.map(point => Number(point.wpm) || 0);
+  const speeds = points.map(point => Number(point.wpm) || 0).concat(Number(prefs.targetSpeed) || 35);
   let minY = Math.max(0, Math.floor((Math.min(...speeds) - 5) / 5) * 5);
   let maxY = Math.ceil((Math.max(...speeds) + 5) / 5) * 5;
   if (maxY - minY < 10) maxY = minY + 10;
@@ -872,10 +1189,13 @@ function renderLetterChart(letter, history, lifetimeStats) {
     const currentClass = index === points.length - 1 ? " current" : "";
     return `<circle class="curve-point${currentClass}" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${index === points.length - 1 ? 6 : 4}"><title>Lesson ${lessonNumber}: ${Math.round(point.wpm)} WPM, ${Math.round(point.accuracy)}% accuracy</title></circle>`;
   }).join("");
+  const targetY = yFor(Number(prefs.targetSpeed) || 35);
 
   els.letterChart.innerHTML = `
     <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="${letter} speed learning curve">
       ${grid}
+      <line class="curve-target-line" x1="${margin.left}" y1="${targetY.toFixed(1)}" x2="${width - margin.right}" y2="${targetY.toFixed(1)}"></line>
+      <text class="curve-target-label" x="${width - margin.right}" y="${(targetY - 6).toFixed(1)}" text-anchor="end">${prefs.targetSpeed} WPM target</text>
       ${areaPath ? `<path class="curve-area" d="${areaPath}"></path>` : ""}
       <path class="curve-line" d="${linePath}"></path>
       ${dots}
@@ -905,38 +1225,33 @@ function openLetterDetails(letter) {
   els.letterAccuracy.textContent = accuracy === null ? "--" : `${accuracy}%`;
   els.letterLearningRate.textContent = formatLearningRate(history);
   els.letterLessons.textContent = `${history.length} / ${masteryRequiredPages}`;
-  els.letterCurveCaption.textContent = mastery.score >= .95
-    ? "Mastery earned"
-    : `${mastery.pagesRemaining} pages / ${mastery.attemptsRemaining} attempts remaining`;
+  els.letterCurveCaption.textContent = mastery.score >= .98
+    ? "Target confidence earned"
+    : `${mastery.pagesRemaining} evidence pages / ${mastery.attemptsRemaining} keystrokes remaining`;
   renderLetterChart(upperLetter, history, lifetimeStats);
   if (!els.letterDialog.open) els.letterDialog.showModal();
 }
 
-function renderText() {
-  const target = currentTarget();
-  els.scriptureStrip.classList.toggle("hidden", !currentReference());
-  els.scriptureRef.textContent = currentReference();
-  const rowLabels = {
-    adaptive: `Row ${state.rowIndex + 1} of ${rowsPerPage}`,
-    time: `${Math.max(0, Math.ceil(state.timeRemaining))} seconds`,
-    words: state.targetRows.length > 1 ? `Section ${state.rowIndex + 1} of ${state.targetRows.length}` : `${prefs.testWordCount} words`,
-    creative: state.targetRows.length > 1 ? `${creativeModeLabels[prefs.creativeMode]} ${state.rowIndex + 1} of ${state.targetRows.length}` : `${creativeModeLabels[prefs.creativeMode]} / ${prefs.testWordCount} words`,
-    quote: "Quote",
-    zen: "Zen",
-    custom: "Custom text",
-    bible: `Scripture ${state.pageIndex + 1} of ${state.scripturePages.length}`,
-    bibleQuotes: `Quote ${state.pageIndex + 1} of ${state.scripturePages.length}`
-  };
-  els.rowLabel.textContent = rowLabels[state.mode] || "Practice";
-  els.charLabel.textContent = state.mode === "zen" ? `${state.input.length}` : `${state.input.length} / ${target.length}`;
-  if (state.mode === "zen") {
-    els.typingText.textContent = state.input || "\u00a0";
-    return;
-  }
+function renderInteractiveTarget(target) {
   let characterIndex = 0;
-  let nextWordMarked = false;
-  const wordGroups = target.match(/\S+|\s+/g) || [];
-  els.typingText.innerHTML = wordGroups.map(group => {
+  let wordIndex = 0;
+  const groups = target.match(/\S+|\s+/g) || [];
+  let currentWord = 0;
+  for (const group of groups) {
+    if (/^\s+$/.test(group)) {
+      characterIndex += [...group].length;
+      continue;
+    }
+    const start = characterIndex;
+    const end = start + [...group].length;
+    if (state.input.length >= start) currentWord = wordIndex;
+    characterIndex = end;
+    wordIndex++;
+  }
+
+  characterIndex = 0;
+  wordIndex = 0;
+  return groups.map(group => {
     const groupStart = characterIndex;
     const groupCharacters = [...group];
     const groupEnd = groupStart + groupCharacters.length;
@@ -950,92 +1265,80 @@ function renderText() {
       const shownCharacter = prefs.typedEffect === "dots" && index < state.input.length && !/\s/.test(ch) ? "•" : ch;
       return `<span class="${cls}">${escapeHtml(shownCharacter)}</span>`;
     }).join("");
-    let wordState = "";
-    if (!isSpace) {
-      if (state.input.length >= groupStart && state.input.length < groupEnd) wordState = " active-word";
-      else if (!nextWordMarked && groupStart > state.input.length) {
-        wordState = " next-word";
-        nextWordMarked = true;
-      }
-    }
-    const groupClass = isSpace ? "typing-space" : `typing-word${wordState}`;
-    return `<span class="${groupClass}">${characters}</span>`;
+    if (isSpace) return `<span class="typing-space">${characters}</span>`;
+    const distance = wordIndex - currentWord;
+    const stateClass = distance < 0 ? " completed-word" : distance === 0 ? " active-word" : " future-word";
+    const shownDistance = Math.max(0, Math.min(4, distance));
+    wordIndex++;
+    return `<span class="typing-word${stateClass}" data-distance="${shownDistance}">${characters}</span>`;
   }).join("");
-  if (prefs.showAllLines && ["adaptive", "time"].includes(state.mode)) {
-    const upcoming = state.targetRows.slice(state.rowIndex + 1, state.rowIndex + 3);
-    if (upcoming.length) {
-      els.typingText.insertAdjacentHTML("beforeend", upcoming.map(line => `<span class="typing-preview-line">${escapeHtml(line)}</span>`).join(""));
-    }
-  }
 }
 
-function renderControls() {
-  if (state.mode === "bible") {
-    els.modeControls.innerHTML = `
-      <strong>KJV</strong>
-      <label>Book<select id="bibleBook">${books.map(b => `<option ${b === prefs.bibleBook ? "selected" : ""}>${b}</option>`).join("")}</select></label>
-      <label>Chapter<input id="bibleChapter" type="number" min="1" max="150" value="${prefs.bibleChapter}"></label>
-      <label>Start<input id="bibleStart" type="number" min="1" max="176" value="${prefs.bibleStart}"></label>
-      <label>End<input id="bibleEnd" type="number" min="${prefs.bibleStart}" max="176" value="${prefs.bibleEnd}"></label>`;
-    bindBibleControls();
-  } else if (state.mode === "bibleQuotes") {
-    els.modeControls.innerHTML = `<strong>KJV</strong>`;
-  } else if (state.mode === "adaptive") {
-    els.modeControls.innerHTML = `<strong>Unlocked</strong><span class="unlocked-list">${letterOrder.slice(0, prefs.practiceLetters).join(" ")}</span>`;
-  } else if (state.mode === "time") {
-    els.modeControls.innerHTML = controlOptions("testDuration", [15, 30, 60, 120], value => String(value));
-  } else if (state.mode === "words") {
-    els.modeControls.innerHTML = `
-      ${controlOptions("testWordCount", [10, 25, 50], value => String(value))}
-      <label class="word-count-control">Custom
-        <input id="wordCountControl" type="number" min="1" max="3000" step="1" inputmode="numeric" value="${prefs.testWordCount}">
-      </label>
-      <button type="button" class="control-option" data-action="apply-word-count">Start</button>`;
-  } else if (state.mode === "quote") {
-    els.modeControls.innerHTML = controlOptions("quoteLength", ["short", "medium", "long", "epic"], value => value);
-  } else if (state.mode === "creative") {
-    els.modeControls.innerHTML = `
-      ${controlOptions("creativeMode", ["weakspot", "gibberish", "ascii", "backwards", "doubled", "random-case"], value => creativeModeLabels[value])}
-      ${controlOptions("testWordCount", [10, 25, 50], value => String(value))}`;
-  } else if (state.mode === "custom") {
-    els.modeControls.innerHTML = `<button type="button" class="control-option active" data-action="custom-text">Change text</button>`;
-  } else if (state.mode === "zen") {
-    els.modeControls.innerHTML = `<strong>Endless</strong>`;
-  }
-
-  if (["time", "words", "custom"].includes(state.mode)) {
-    els.modeControls.insertAdjacentHTML("afterbegin", `
-      <div class="control-segment">
-        <button type="button" class="control-option ${prefs.includePunctuation ? "active" : ""}" data-toggle-pref="includePunctuation">Punctuation</button>
-        <button type="button" class="control-option ${prefs.includeNumbers ? "active" : ""}" data-toggle-pref="includeNumbers">Numbers</button>
-      </div>`);
-  }
+function renderPlainLine(line) {
+  return (line.match(/\S+|\s+/g) || []).map(group => /^\s+$/.test(group)
+    ? `<span class="typing-space">${escapeHtml(group)}</span>`
+    : `<span class="typing-word">${escapeHtml(group)}</span>`).join("");
 }
 
-function controlOptions(prefKey, values, labelFor) {
-  return `<div class="control-segment">${values.map(value => `
-    <button type="button" class="control-option ${String(prefs[prefKey]) === String(value) ? "active" : ""}" data-pref="${prefKey}" data-value="${value}">${labelFor(value)}</button>`).join("")}</div>`;
-}
-
-function bindBibleControls() {
-  ["bibleBook","bibleChapter","bibleStart","bibleEnd"].forEach(id => {
-    document.getElementById(id).addEventListener("change", e => {
-      const key = id.replace("bible", "");
-      const prop = `bible${key}`;
-      prefs[prop] = e.target.type === "number" ? Number(e.target.value) : e.target.value;
-      if (prefs.bibleEnd < prefs.bibleStart) prefs.bibleEnd = prefs.bibleStart;
-      save();
-      restart();
-    });
+function fitPracticeLines(lines) {
+  if (!["adaptive", "time", "words", "creative"].includes(state.mode)) {
+    els.typingText.style.fontSize = "";
+    return;
+  }
+  requestAnimationFrame(() => {
+    const longest = Math.max(1, ...lines.map(line => [...line].length));
+    const baseSize = { small: 25, medium: 32, large: 38, xlarge: 44 }[prefs.fontSize] || 32;
+    const fitted = Math.max(13, Math.min(baseSize, els.typingText.clientWidth / (longest * .61)));
+    els.typingText.style.fontSize = `${fitted.toFixed(1)}px`;
   });
+}
+
+function renderText() {
+  const target = currentTarget();
+  const reference = currentReference();
+  els.scriptureStrip.classList.toggle("hidden", !reference);
+  els.scriptureRef.textContent = reference;
+  const rowLabels = {
+    adaptive: `Page ${state.pageIndex + 1} / line ${(state.rowIndex % rowsPerPage) + 1} of ${rowsPerPage}`,
+    time: `${Math.max(0, Math.ceil(state.timeRemaining))} seconds`,
+    words: `Line ${state.rowIndex + 1} of ${state.targetRows.length}`,
+    creative: `${creativeModeLabels[prefs.creativeMode]} / line ${state.rowIndex + 1} of ${state.targetRows.length}`,
+    quote: "Complete quote",
+    zen: "Endless practice",
+    bible: `Scripture ${state.pageIndex + 1} of ${state.scripturePages.length}`,
+    bibleQuotes: `Quote ${state.pageIndex + 1} of ${state.scripturePages.length}`
+  };
+  els.rowLabel.textContent = rowLabels[state.mode] || "Practice";
+  els.charLabel.textContent = state.mode === "zen" ? `${state.input.length}` : `${state.input.length} / ${target.length}`;
+  if (state.mode === "zen") {
+    els.typingText.innerHTML = `<span class="practice-line active">${escapeHtml(state.input || "\u00a0")}</span>`;
+    els.typingText.style.fontSize = "";
+    return;
+  }
+
+  const streamMode = ["adaptive", "time", "words", "creative"].includes(state.mode);
+  if (streamMode) {
+    const lines = state.targetRows.slice(state.rowIndex, state.rowIndex + 4);
+    while (lines.length < 4) lines.push("");
+    els.typingText.innerHTML = lines.map((line, index) => `<span class="practice-line${index === 0 ? " active" : ""}" data-line-offset="${index}">${index === 0 ? renderInteractiveTarget(line) : renderPlainLine(line)}</span>`).join("");
+    fitPracticeLines(lines);
+    return;
+  }
+
+  els.typingText.innerHTML = renderInteractiveTarget(target);
+  els.typingText.style.fontSize = "";
 }
 
 let keyboardElements = new Map();
 
 function renderKeyboard() {
   const unlocked = new Set(letterOrder.slice(0, prefs.practiceLetters));
-  const layout = keyboardLayouts[prefs.keyboardLayout] || keyboardLayouts.mac;
-  els.keyboard.className = `keyboard ${prefs.keyboardSize} layout-${prefs.keyboardLayout} style-${prefs.keymapStyle}`;
+  const fluidLayouts = ["mac", "windows", "compact", "typewriter"];
+  const layoutName = state.mode === "creative" && prefs.creativeMode === "layoutfluid"
+    ? fluidLayouts[state.rowIndex % fluidLayouts.length]
+    : prefs.keyboardLayout;
+  const layout = keyboardLayouts[layoutName] || keyboardLayouts.mac;
+  els.keyboard.className = `keyboard ${prefs.keyboardSize} layout-${layoutName} style-${prefs.keymapStyle}`;
   els.keyboard.innerHTML = layout.map((row, rowIndex) => {
     const keys = row.map(key => {
       if (key.type === "arrow-stack") return renderArrowStack(key);
@@ -1108,7 +1411,8 @@ let mistakeKeyTimer;
 let lastErrorSoundAt = 0;
 
 function setKeyboardKeyClass(key, className, isActive) {
-  keyboardElements.get(key)?.classList.toggle(className, isActive);
+  const element = keyboardElements.get(key) || [...els.keyboard.querySelectorAll("[data-key]")].find(item => item.dataset.key === key);
+  element?.classList.toggle(className, isActive);
 }
 
 function flashPressedKey(key) {
@@ -1128,23 +1432,27 @@ function flashMistakeKey(key) {
   if (state.mistakeKey) setKeyboardKeyClass(state.mistakeKey, "mistake", false);
   state.mistakeKey = key;
   setKeyboardKeyClass(key, "mistake", true);
+  els.keyboard.dataset.lastMistake = key;
   mistakeKeyTimer = setTimeout(() => {
     setKeyboardKeyClass(state.mistakeKey, "mistake", false);
     state.mistakeKey = "";
+    delete els.keyboard.dataset.lastMistake;
   }, 240);
 }
 
 function handleKey(event) {
-  if (els.settingsDialog.open || els.statsDialog.open || els.letterDialog.open || els.customTextDialog.open) return;
+  if (els.settingsDialog.open || els.statsDialog.open || els.letterDialog.open) return;
   if (event.target instanceof HTMLElement && (event.target.matches("input, select, textarea") || event.target.isContentEditable)) return;
   const restartKey = { escape: "Escape", tab: "Tab", enter: "Enter" }[prefs.quickRestart];
   if (restartKey && event.key === restartKey) {
     event.preventDefault();
+    if (state.mode === "creative" && prefs.creativeMode === "no_quit" && state.startedAt && !state.testCompleted) return;
     restart();
     return;
   }
   if (state.testCompleted) return;
   state.capsLock = !!event.getModifierState?.("CapsLock");
+  if (event.key === "Shift") state.shiftSide = event.code === "ShiftRight" ? "right" : "left";
   els.typingCard.classList.toggle("caps-on", prefs.capsLockWarning && state.capsLock);
   const keyId = visualKeyId(event);
   flashPressedKey(keyId);
@@ -1156,13 +1464,13 @@ function handleKey(event) {
   if (event.key === "Backspace") {
     event.preventDefault();
     const wordStart = state.input.lastIndexOf(" ") + 1;
-    const backspaceAllowed = prefs.confidenceMode !== "max" && (prefs.confidenceMode !== "word" || state.input.length > wordStart);
+    const backspaceAllowed = prefs.freedomMode || (prefs.confidenceMode !== "max" && (prefs.confidenceMode !== "word" || state.input.length > wordStart));
     if (state.input.length && backspaceAllowed) {
       state.input = state.input.slice(0, -1);
       state.charsTyped = Math.max(0, state.charsTyped - 1);
       state.characterErrors = 0;
     }
-    renderText();
+    els.rowLabel.textContent = `${Math.max(0, Math.ceil(state.timeRemaining))} seconds`;
     renderLiveMetrics();
     if (prefs.keymapMode === "next") renderKeyboard();
     return;
@@ -1172,7 +1480,10 @@ function handleKey(event) {
     finishTest();
     return;
   }
-  if (event.key.length !== 1) return;
+  const arrowCharacter = state.mode === "creative" && prefs.creativeMode === "arrows"
+    ? { ArrowUp: "↑", ArrowDown: "↓", ArrowLeft: "←", ArrowRight: "→" }[event.key]
+    : "";
+  if (event.key.length !== 1 && !arrowCharacter) return;
   event.preventDefault();
   const recordedAt = performance.now();
   if (!state.startedAt) {
@@ -1187,15 +1498,23 @@ function handleKey(event) {
   state.lastKeyAt = recordedAt;
   trackDailyActivity(recordedAt);
   const target = currentTarget();
-  const key = event.key;
+  const key = arrowCharacter || event.key;
   const expected = target[state.input.length];
-  if (state.mode !== "zen" && key !== expected) {
+  const expectedLower = String(expected || "").toLowerCase();
+  const expectedZone = /^[a-z]$/.test(expectedLower) ? fingerZone(expectedLower).label : "";
+  const oppositeShiftError = prefs.oppositeShiftMode && /^[A-Z]$/.test(String(expected || "")) && !["b", "y"].includes(expectedLower)
+    && state.shiftSide !== (expectedZone.startsWith("Left") ? "right" : "left");
+  if (state.mode !== "zen" && (key !== expected || oppositeShiftError)) {
     if (state.characterErrors < Number(prefs.errorLimit)) {
       state.errors++;
       state.characterErrors++;
       recordLetterAttempt(expected, false, recordedAt);
     }
     flashMistakeKey(keyId);
+    if (prefs.indicateTypos === "flash") {
+      els.typingCard.classList.add("typo-flash");
+      setTimeout(() => els.typingCard.classList.remove("typo-flash"), 130);
+    }
     if (prefs.errorSounds && recordedAt - lastErrorSoundAt > 90) {
       playError();
       lastErrorSoundAt = recordedAt;
@@ -1257,6 +1576,9 @@ function recordLetterLessonResults(pageWpm, completedAt) {
       attempts: stats.attempts
     });
     if (history.length > 60) progress.letterHistory[letter] = history.slice(-60);
+    const current = letterMastery(letter).currentConfidence;
+    const lifetime = progress.letterStats[letter] ||= { attempts: 0, correct: 0 };
+    lifetime.bestConfidence = Math.max(Number(lifetime.bestConfidence) || 0, current);
   });
 }
 
@@ -1270,11 +1592,13 @@ function recordCompletedLesson(wpm, accuracy, extra = {}) {
     score: lessonScore(wpm, accuracy),
     ...extra
   };
-  progress.lessonHistory.push(result);
-  if (progress.lessonHistory.length > 120) progress.lessonHistory = progress.lessonHistory.slice(-120);
+  if (prefs.resultSaving === "on") {
+    progress.lessonHistory.push(result);
+    if (progress.lessonHistory.length > 120) progress.lessonHistory = progress.lessonHistory.slice(-120);
+    recordLetterLessonResults(wpm, completedAt);
+  }
   state.lastWpm = result.wpm;
   state.lastAccuracy = result.accuracy;
-  recordLetterLessonResults(wpm, completedAt);
   return result;
 }
 
@@ -1282,7 +1606,7 @@ function finishLine() {
   if (state.mode === "adaptive") finishAdaptiveLine();
   else if (state.mode === "time") finishTimedLine();
   else if (["words", "creative"].includes(state.mode)) finishWordSection();
-  else if (["quote", "custom"].includes(state.mode)) finishTest();
+  else if (state.mode === "quote") finishTest();
   else if (["bible", "bibleQuotes"].includes(state.mode)) finishScripture();
 }
 
@@ -1292,13 +1616,19 @@ function updateLifetimeAverages(metrics) {
 }
 
 function finishAdaptiveLine() {
-  const completedRow = state.rowIndex + 1;
+  const completedRow = (state.rowIndex % rowsPerPage) + 1;
   const completedPage = completedRow === rowsPerPage;
-  const newlyUnlocked = completedPage && prefs.practiceLetters < letterOrder.length ? letterOrder[prefs.practiceLetters] : "";
+  let newlyUnlocked = "";
   if (completedPage) {
     const metrics = currentMetrics();
     updateLifetimeAverages(metrics);
     recordCompletedLesson(metrics.wpm, metrics.accuracy, { raw: metrics.raw, consistency: metrics.consistency, elapsedMs: metrics.elapsedMs });
+    if (canUnlockNextLetter()) {
+      newlyUnlocked = letterOrder[Number(prefs.practiceLetters)] || "";
+      prefs.practiceLetters = Math.min(letterOrder.length, Number(prefs.practiceLetters) + 1);
+      const practiceSelector = document.getElementById("practiceLetters");
+      if (practiceSelector) practiceSelector.value = String(prefs.practiceLetters);
+    }
   }
   progress.rowsCleared++;
   save();
@@ -1319,18 +1649,20 @@ function finishAdaptiveLine() {
     }
     state.lastAcceptedAt = null;
     state.rowIndex++;
-    if (state.rowIndex >= rowsPerPage) {
-      state.pageIndex++;
-      state.rowIndex = 0;
-      if (prefs.practiceLetters < letterOrder.length) {
-        prefs.practiceLetters++;
-        document.getElementById("practiceLetters").value = String(prefs.practiceLetters);
-        save();
-      }
-      state.targetRows = makeAdaptiveRows();
+    if (completedPage) state.pageIndex++;
+    if (completedPage) {
+      state.targetRows = state.targetRows.slice(0, state.rowIndex);
+      state.targetRows.push(...makeAdaptiveRows(rowsPerPage * 2));
+    } else if (state.targetRows.length - state.rowIndex < 8) {
+      state.targetRows.push(...makeAdaptiveRows(rowsPerPage));
     }
+    if (completedPage && state.rowIndex >= 100) {
+      state.targetRows = state.targetRows.slice(state.rowIndex);
+      state.rowIndex = 0;
+    }
+    save();
     render();
-  }, 100);
+  }, 72);
 }
 
 function finishTimedLine() {
@@ -1357,7 +1689,7 @@ function finishWordSection() {
   }
   progress.rowsCleared++;
   save();
-  els.completionBanner.textContent = `Section ${state.rowIndex + 1} cleared`;
+  els.completionBanner.textContent = `Line ${state.rowIndex + 1} cleared`;
   els.completionBanner.classList.remove("hidden");
   playReward((state.rowIndex % 9) + 1);
   setTimeout(() => {
@@ -1368,7 +1700,8 @@ function finishWordSection() {
     state.rowIndex++;
     renderText();
     renderLiveMetrics();
-    if (prefs.keymapMode === "next") renderKeyboard();
+    if (prefs.keymapMode === "next" || prefs.creativeMode === "layoutfluid") renderKeyboard();
+    prepareCreativeLine();
   }, 70);
 }
 
@@ -1407,8 +1740,13 @@ function finishTest() {
     consistency: Number(metrics.consistency.toFixed(1)),
     elapsedMs: Math.round(metrics.elapsedMs)
   });
+  let failedReason = "";
+  if (Number(prefs.minWpm) && metrics.wpm < Number(prefs.minWpm)) failedReason = `Below ${prefs.minWpm} WPM`;
+  else if (Number(prefs.minAccuracy) && metrics.accuracy < Number(prefs.minAccuracy)) failedReason = `Below ${prefs.minAccuracy}% accuracy`;
+  else if (Number(prefs.minBurst) && metrics.raw < Number(prefs.minBurst)) failedReason = `Below ${prefs.minBurst} WPM burst`;
+  else if (prefs.difficulty === "master" && state.errors > 0) failedReason = "Master test missed a key";
   updateLifetimeAverages(metrics);
-  state.result = { ...savedResult, ...metrics, personalBest: metrics.wpm > previousBest };
+  state.result = { ...savedResult, ...metrics, failedReason, personalBest: !failedReason && metrics.wpm > previousBest };
   state.testCompleted = true;
   save();
   playReward(rowsPerPage);
@@ -1720,13 +2058,20 @@ function escapeHtml(text) {
 }
 
 const settingDescriptions = {
+  practiceMode: "Changes the active typing experience. Modes are selected only here so the practice page stays focused.",
   testDuration: "Sets the length of timed tests.",
-  testWordCount: "Sets Words and Creative test length. Counts above 50 open in 50-word sections.",
+  testWordCount: "Sets Words and Creative test length up to 3,000 words. Only four lines are shown at once.",
   quoteLength: "Limits general quotes to the selected length range.",
   difficulty: "Controls how broad and challenging the regular word pool is.",
   capitalization: "Controls letter case in generated practice outside Scripture.",
   quickRestart: "Assigns one key to restart the current test immediately.",
   creativeMode: "Chooses the word or character transformation used by Creative tests.",
+  repeatQuotes: "Chooses whether restart loads a new quote or repeats the current one.",
+  resultSaving: "Turns local lesson-history saving on or off. Adaptive progress requires saved results.",
+  minWpm: "Marks a completed test as failed when corrected speed is below this value.",
+  minAccuracy: "Marks a completed test as failed when accuracy is below this value.",
+  minBurst: "Marks a completed test as failed when raw speed is below this value.",
+  indicateTypos: "Controls how a blocked incorrect key is shown. Incorrect letters are never added.",
   includePunctuation: "Adds sentence marks to generated Time and Words tests.",
   includeNumbers: "Mixes number groups into generated Time and Words tests.",
   confidenceMode: "Limits backspacing to the current word or disables it completely.",
@@ -1735,7 +2080,13 @@ const settingDescriptions = {
   quickEnd: "Lets Enter finish an active scored test early.",
   capsLockWarning: "Warns when Caps Lock would make the expected letter case incorrect.",
   focusMode: "Dims controls and statistics while a test is active.",
+  freedomMode: "Allows backspacing into any previous word unless backspace is fully disabled.",
+  strictSpace: "Treats an early or extra space as a blocked mistake.",
+  oppositeShiftMode: "Requires the opposite hand to supply Shift for capital letters.",
+  britishEnglish: "Uses familiar British spellings in generated English word tests.",
+  lazyMode: "Lets accented characters use their unaccented equivalent.",
   theme: "Changes the color and contrast style of the whole app.",
+  fontFamily: "Changes the website typeface using the same broad typography choices found in Monkeytype.",
   currentCue: "Chooses how the exact character you need to type is marked.",
   caretStyle: "Changes the shape used to show the current typing position.",
   smoothCaret: "Controls how quickly the caret animates between characters.",
@@ -1743,6 +2094,7 @@ const settingDescriptions = {
   highlightMode: "Chooses whether the current letter, word, next word, or nothing is emphasized.",
   fontSize: "Changes the size of the typing text.",
   lineWidth: "Controls the maximum width of the typing area.",
+  tapeMode: "Limits practice to one horizontally followed line, moving by word or letter.",
   timerStyle: "Shows timed-test progress as text, a bar, both, or neither.",
   speedUnit: "Displays speed as words, characters, or words per second.",
   showLiveWpm: "Shows current corrected typing speed during a test.",
@@ -1750,7 +2102,10 @@ const settingDescriptions = {
   showLiveRaw: "Shows speed before accuracy penalties.",
   showLiveConsistency: "Shows how evenly spaced your keystrokes are.",
   showProgress: "Shows test completion percentage or remaining time.",
-  showAllLines: "Adds upcoming lines beneath the active line where supported.",
+  smoothLineScroll: "Animates the four-line practice window when a line is completed.",
+  textGlow: "Adds a restrained Monkeytype-style glow to typed and current text.",
+  flipTestColors: "Swaps the emphasis of typed and untyped characters.",
+  colorfulMode: "Uses the current theme accent for completed text.",
   keyboardLayout: "Changes the labels and key arrangement of the on-screen keyboard.",
   keyboardSize: "Changes the on-screen keyboard scale.",
   keymapMode: "Shows pressed keys, the next key, a static keyboard, or no keyboard.",
@@ -1763,7 +2118,10 @@ const settingDescriptions = {
   timeWarning: "Chooses how many seconds before a timed test ends to play a warning.",
   typingSounds: "Turns accepted-keystroke sounds on or off without changing the selected sound.",
   errorSounds: "Turns blocked-error sounds on or off without changing the selected sound.",
-  practiceLetters: "Sets how many letters are available in the adaptive word pool.",
+  practiceLetters: "Sets the starting alphabet size. Automatic unlocks still require confidence evidence.",
+  targetSpeed: "Sets the per-letter speed needed for full confidence and the next automatic unlock.",
+  recoverKeys: "Requires every earned letter to be currently above target before the next one unlocks.",
+  naturalWords: "Prefers real dictionary words while the adaptive pool is large enough.",
   wordsPerRow: "Sets the target word count for each adaptive row.",
   dailyGoalMinutes: "Sets the amount of active typing time needed to complete the daily goal."
 };
@@ -1793,28 +2151,75 @@ function setupSettings() {
     practiceLetters.appendChild(opt);
   }
 
+  const creativeMode = document.getElementById("creativeMode");
+  creativeCatalog.forEach(item => {
+    const option = document.createElement("option");
+    option.value = item.id;
+    option.textContent = item.label;
+    creativeMode.appendChild(option);
+  });
+
+  const fontFamily = document.getElementById("fontFamily");
+  fontCatalog.forEach(font => {
+    const option = document.createElement("option");
+    option.value = font;
+    option.textContent = fontDisplayName(font);
+    fontFamily.appendChild(option);
+  });
+
+  const bibleBook = document.getElementById("bibleBook");
+  books.forEach(book => {
+    const option = document.createElement("option");
+    option.value = book;
+    option.textContent = book;
+    bibleBook.appendChild(option);
+  });
+
+  function updateCreativeDescription() {
+    const selected = creativeCatalog.find(item => item.id === prefs.creativeMode) || creativeCatalog[0];
+    const description = document.getElementById("creativeModeDescription");
+    if (description) description.textContent = selected.description;
+  }
+
   const selectIds = [
-    "testDuration", "testWordCount", "quoteLength", "difficulty", "creativeMode", "capitalization", "quickRestart", "confidenceMode",
-    "errorLimit", "theme", "currentCue", "caretStyle", "smoothCaret", "typedEffect", "highlightMode", "fontSize",
-    "lineWidth", "timerStyle", "speedUnit", "keyboardLayout", "keyboardSize", "keymapMode", "keymapStyle",
+    "practiceMode", "testDuration", "testWordCount", "quoteLength", "difficulty", "creativeMode", "capitalization", "quickRestart",
+    "repeatQuotes", "resultSaving", "minWpm", "minAccuracy", "minBurst", "indicateTypos", "confidenceMode", "errorLimit",
+    "theme", "fontFamily", "currentCue", "caretStyle", "smoothCaret", "typedEffect", "highlightMode", "fontSize",
+    "lineWidth", "tapeMode", "timerStyle", "speedUnit", "keyboardLayout", "keyboardSize", "keymapMode", "keymapStyle",
     "keymapLegend", "soundStyle", "soundVolume", "rewardStyle", "errorStyle", "timeWarning", "practiceLetters",
-    "wordsPerRow", "dailyGoalMinutes"
+    "targetSpeed", "wordsPerRow", "dailyGoalMinutes", "bibleBook", "bibleChapter", "bibleStart", "bibleEnd"
   ];
-  const numericIds = new Set(["testDuration", "testWordCount", "errorLimit", "soundVolume", "practiceLetters", "wordsPerRow", "dailyGoalMinutes"]);
-  const restartIds = new Set(["testDuration", "testWordCount", "quoteLength", "difficulty", "creativeMode", "capitalization", "practiceLetters", "wordsPerRow"]);
+  const prefKeys = { practiceMode: "mode" };
+  const numericIds = new Set([
+    "testDuration", "testWordCount", "minWpm", "minAccuracy", "minBurst", "errorLimit", "soundVolume", "practiceLetters",
+    "targetSpeed", "wordsPerRow", "dailyGoalMinutes", "bibleChapter", "bibleStart", "bibleEnd"
+  ]);
+  const restartIds = new Set([
+    "practiceMode", "testDuration", "testWordCount", "quoteLength", "difficulty", "creativeMode", "capitalization",
+    "practiceLetters", "targetSpeed", "wordsPerRow", "bibleBook", "bibleChapter", "bibleStart", "bibleEnd"
+  ]);
   const keyboardIds = new Set(["keyboardLayout", "keyboardSize", "keymapMode", "keymapStyle", "keymapLegend"]);
 
   selectIds.forEach(id => {
     const el = document.getElementById(id);
-    el.value = prefs[id];
+    if (!el) return;
+    const prefKey = prefKeys[id] || id;
+    el.value = prefs[prefKey];
     el.addEventListener("change", event => {
-      prefs[id] = numericIds.has(id) ? Number(event.target.value) : event.target.value;
+      prefs[prefKey] = numericIds.has(id) ? Number(event.target.value) : event.target.value;
       if (id === "testWordCount") {
         prefs.testWordCount = Math.max(1, Math.min(3000, Math.round(prefs.testWordCount || defaultPrefs.testWordCount)));
         event.target.value = String(prefs.testWordCount);
       }
+      if (["bibleStart", "bibleEnd"].includes(id) && prefs.bibleEnd < prefs.bibleStart) {
+        prefs.bibleEnd = prefs.bibleStart;
+        document.getElementById("bibleEnd").value = String(prefs.bibleEnd);
+      }
+      if (id === "practiceMode") state.mode = prefs.mode;
       save();
       if (id === "theme") applyTheme();
+      if (id === "fontFamily") applyFont();
+      if (id === "creativeMode") updateCreativeDescription();
       if (id === "soundStyle") {
         ensureKeySoundStyle(prefs.soundStyle).then(() => {
           if (prefs.typingSounds) playKey();
@@ -1840,29 +2245,26 @@ function setupSettings() {
 
   const toggleIds = [
     "includePunctuation", "includeNumbers", "blindMode", "quickEnd", "capsLockWarning", "focusMode", "showLiveWpm",
-    "showLiveAccuracy", "showLiveRaw", "showLiveConsistency", "showProgress", "showAllLines", "typingSounds", "errorSounds"
+    "freedomMode", "strictSpace", "oppositeShiftMode", "britishEnglish", "lazyMode", "showLiveAccuracy", "showLiveRaw",
+    "showLiveConsistency", "showProgress", "smoothLineScroll", "textGlow", "flipTestColors", "colorfulMode", "typingSounds",
+    "errorSounds", "recoverKeys", "naturalWords"
   ];
   toggleIds.forEach(id => {
     const el = document.getElementById(id);
+    if (!el) return;
     el.checked = !!prefs[id];
     el.addEventListener("change", event => {
       prefs[id] = event.target.checked;
       save();
-      if (["includePunctuation", "includeNumbers"].includes(id)) restart();
+      if (["includePunctuation", "includeNumbers", "britishEnglish", "lazyMode", "recoverKeys", "naturalWords"].includes(id)) restart();
       else render();
     });
   });
 
   els.settingsBtn.addEventListener("click", () => els.settingsDialog.showModal());
 
+  updateCreativeDescription();
   installSettingDescriptions();
-
-  els.saveCustomText.addEventListener("click", () => {
-    const value = els.customTextInput.value.replace(/\s+/g, " ").trim();
-    if (value) prefs.customText = value;
-    save();
-    if (state.mode === "custom") restart();
-  });
 }
 
 function fullscreenElement() {
@@ -1897,75 +2299,26 @@ els.letterHeatmap.addEventListener("click", event => {
   openLetterDetails(key.dataset.letter);
 });
 
-function applyWordCountControl() {
-  const input = document.getElementById("wordCountControl");
-  if (!input) return;
-  prefs.testWordCount = Math.max(1, Math.min(3000, Math.round(Number(input.value) || defaultPrefs.testWordCount)));
-  input.value = String(prefs.testWordCount);
-  document.getElementById("testWordCount").value = String(prefs.testWordCount);
-  save();
+els.restartBtn.addEventListener("click", () => {
+  if (state.mode === "creative" && prefs.creativeMode === "no_quit" && state.startedAt && !state.testCompleted) return;
   restart();
-}
-
-els.modeControls.addEventListener("click", event => {
-  const option = event.target.closest("[data-pref]");
-  const toggle = event.target.closest("[data-toggle-pref]");
-  const action = event.target.closest("[data-action]");
-  if (option) {
-    const key = option.dataset.pref;
-    const numeric = ["testDuration", "testWordCount"].includes(key);
-    prefs[key] = numeric ? Number(option.dataset.value) : option.dataset.value;
-    const setting = document.getElementById(key);
-    if (setting) setting.value = String(prefs[key]);
-    save();
-    restart();
-  } else if (toggle) {
-    const key = toggle.dataset.togglePref;
-    prefs[key] = !prefs[key];
-    const setting = document.getElementById(key);
-    if (setting) setting.checked = !!prefs[key];
-    save();
-    restart();
-  } else if (action?.dataset.action === "apply-word-count") {
-    applyWordCountControl();
-  } else if (action?.dataset.action === "custom-text") {
-    els.customTextInput.value = prefs.customText;
-    els.customTextDialog.showModal();
-  }
 });
-
-els.modeControls.addEventListener("keydown", event => {
-  if (event.target.id === "wordCountControl" && event.key === "Enter") {
-    event.preventDefault();
-    applyWordCountControl();
-  }
-});
-
-document.querySelectorAll(".mode-button").forEach(btn => {
-  btn.addEventListener("click", () => {
-    document.querySelectorAll(".mode-button").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-    state.mode = btn.dataset.mode;
-    restart();
-    if (state.mode === "custom") {
-      els.customTextInput.value = prefs.customText;
-      els.customTextDialog.showModal();
-    }
-  });
-});
-els.restartBtn.addEventListener("click", restart);
 els.resultRestartBtn.addEventListener("click", restart);
 els.statsBtn.addEventListener("click", () => els.statsDialog.showModal());
 els.fullscreenBtn.addEventListener("click", toggleFullscreen);
 document.addEventListener("fullscreenchange", syncFullscreenButton);
 document.addEventListener("webkitfullscreenchange", syncFullscreenButton);
 document.addEventListener("keydown", handleKey);
+document.addEventListener("keyup", event => {
+  if (event.key === "Shift") state.shiftSide = "";
+});
 window.addEventListener("pagehide", save);
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") save();
 });
 preloadRewardSounds();
 preloadKeySounds();
+applyFont();
 setupSettings();
 if (!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen)) els.fullscreenBtn.hidden = true;
 syncFullscreenButton();
