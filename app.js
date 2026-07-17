@@ -179,7 +179,7 @@ const prefs = Object.fromEntries(Object.keys(defaultPrefs).map(key => [
 ]));
 prefs.practiceLetters = Math.max(startLetters, Math.min(letterOrder.length, Number(prefs.practiceLetters) || startLetters));
 prefs.testDuration = Math.max(5, Math.min(600, Number(prefs.testDuration) || defaultPrefs.testDuration));
-prefs.testWordCount = Math.max(1, Math.min(500, Number(prefs.testWordCount) || defaultPrefs.testWordCount));
+prefs.testWordCount = Math.max(1, Math.min(3000, Math.round(Number(prefs.testWordCount) || defaultPrefs.testWordCount)));
 prefs.errorLimit = Math.max(1, Math.min(8, Number(prefs.errorLimit) || defaultPrefs.errorLimit));
 prefs.soundVolume = Math.max(0, Math.min(1, Number(prefs.soundVolume) || defaultPrefs.soundVolume));
 if (!keyboardSoundStyles.has(prefs.soundStyle)) prefs.soundStyle = defaultPrefs.soundStyle;
@@ -270,7 +270,7 @@ const els = Object.fromEntries([
   "dailyGoalFill", "resultPanel", "resultEyebrow", "resultTitle", "resultScore", "resultWpm", "resultRaw",
   "resultAccuracy", "resultConsistency", "resultCharacters", "resultTime", "resultRestartBtn", "settingsDialog", "settingsBtn",
   "statsDialog", "statsBtn", "fullscreenBtn", "restartBtn", "customTextDialog", "customTextInput", "saveCustomText", "letterHud", "unlockNext", "unlockCount",
-  "unlockMeterFill", "unlockTrack", "letterHeatmap", "heatmapSummary", "letterDialog", "letterDetailBadge", "letterDetailTitle",
+  "unlockMeterFill", "letterHeatmap", "heatmapSummary", "letterDialog", "letterDetailBadge", "letterDetailTitle",
   "letterMastery", "letterLastSpeed", "letterTopSpeed", "letterAccuracy", "letterLearningRate", "letterLessons",
   "letterCurveCaption", "letterChart"
 ].map(id => [id, document.getElementById(id)]));
@@ -374,6 +374,7 @@ function currentProgress() {
   const target = currentTarget();
   if (state.mode === "time") return Math.max(0, Math.min(1, 1 - state.timeRemaining / Number(prefs.testDuration)));
   if (state.mode === "adaptive") return Math.max(0, Math.min(1, (state.rowIndex + (target.length ? state.input.length / target.length : 0)) / rowsPerPage));
+  if (state.mode === "words") return Math.max(0, Math.min(1, (state.rowIndex + (target.length ? state.input.length / target.length : 0)) / Math.max(1, state.targetRows.length)));
   if (state.mode === "zen") return 0;
   return target.length ? Math.max(0, Math.min(1, state.input.length / target.length)) : 0;
 }
@@ -512,6 +513,15 @@ function makeTestWords(count) {
   return decorateTestWords(words);
 }
 
+function makeWordSections(count) {
+  const words = makeTestWords(count);
+  const sections = [];
+  for (let index = 0; index < words.length; index += 50) {
+    sections.push(transformText(words.slice(index, index + 50).join(" ")));
+  }
+  return sections.length ? sections : ["practice"];
+}
+
 function makeTimedRows() {
   const words = makeTestWords(600);
   const size = Math.max(4, Number(prefs.wordsPerRow) || 10);
@@ -602,7 +612,7 @@ async function restart() {
     state.targetRows = makeTimedRows();
     state.scripturePages = [];
   } else if (state.mode === "words") {
-    state.targetRows = [transformText(makeTestWords(Number(prefs.testWordCount)).join(" "))];
+    state.targetRows = makeWordSections(Number(prefs.testWordCount));
     state.scripturePages = [];
   } else if (state.mode === "quote") {
     const quote = quoteForLength();
@@ -687,10 +697,6 @@ function renderLetterProgress() {
   els.unlockCount.textContent = `${unlockedCount} / ${letterOrder.length}`;
   els.unlockNext.textContent = nextLetter ? `Next: ${nextLetter}` : "All letters unlocked";
   els.unlockMeterFill.style.width = `${(unlockedCount / letterOrder.length) * 100}%`;
-  els.unlockTrack.innerHTML = letterOrder.map((letter, index) => {
-    const status = index < unlockedCount ? "unlocked" : index === unlockedCount ? "next" : "locked";
-    return `<span class="unlock-letter ${status}" title="${letter} - ${status}">${letter}</span>`;
-  }).join("");
 
   let totalAttempts = 0;
   let totalCorrect = 0;
@@ -699,6 +705,7 @@ function renderLetterProgress() {
   els.letterHeatmap.innerHTML = letterHeatmapRows.map(row => {
     const keys = [...row].map(letter => {
       const isEarned = earnedLetters.has(letter);
+      const isNext = letter === nextLetter;
       const stats = progress.letterStats[letter.toLowerCase()] || { attempts: 0, correct: 0 };
       const mastery = letterMastery(letter);
       if (isEarned) {
@@ -711,9 +718,9 @@ function renderLetterProgress() {
       }
       const accuracy = stats.attempts ? Math.round((stats.correct / stats.attempts) * 100) : 0;
       const strength = isEarned && stats.attempts ? "sampled" : "unseen";
-      const locked = isEarned ? "" : " locked";
+      const locked = isEarned ? "" : isNext ? " next" : " locked";
       const detail = !isEarned
-        ? "Locked"
+        ? isNext ? "Next to unlock" : "Locked"
         : stats.attempts ? `${mastery.percent}% mastery, ${accuracy}% accuracy, ${mastery.pages} of ${masteryRequiredPages} pages` : "No samples yet";
       const hue = Math.round(mastery.score * 120);
       const intensity = (.36 + mastery.score * .56).toFixed(2);
@@ -838,7 +845,7 @@ function renderText() {
   const rowLabels = {
     adaptive: `Row ${state.rowIndex + 1} of ${rowsPerPage}`,
     time: `${Math.max(0, Math.ceil(state.timeRemaining))} seconds`,
-    words: `${prefs.testWordCount} words`,
+    words: state.targetRows.length > 1 ? `Section ${state.rowIndex + 1} of ${state.targetRows.length}` : `${prefs.testWordCount} words`,
     quote: "Quote",
     zen: "Zen",
     custom: "Custom text",
@@ -856,16 +863,18 @@ function renderText() {
   const wordGroups = target.match(/\S+|\s+/g) || [];
   els.typingText.innerHTML = wordGroups.map(group => {
     const groupStart = characterIndex;
-    const characters = [...group].map(ch => {
+    const groupCharacters = [...group];
+    const groupEnd = groupStart + groupCharacters.length;
+    const isSpace = /^\s+$/.test(group);
+    const wordInProgress = !isSpace && state.input.length > groupStart && state.input.length < groupEnd;
+    const characters = groupCharacters.map(ch => {
       const index = characterIndex++;
       const cls = index < state.input.length
-        ? `done${prefs.blindMode ? " blind" : ""}`
+        ? `done${prefs.blindMode ? " blind" : ""}${wordInProgress ? " word-in-progress" : ""}`
         : index === state.input.length ? `current ${prefs.currentCue}` : "pending";
       const shownCharacter = prefs.typedEffect === "dots" && index < state.input.length && !/\s/.test(ch) ? "•" : ch;
       return `<span class="${cls}">${escapeHtml(shownCharacter)}</span>`;
     }).join("");
-    const isSpace = /^\s+$/.test(group);
-    const groupEnd = characterIndex;
     let wordState = "";
     if (!isSpace) {
       if (state.input.length >= groupStart && state.input.length < groupEnd) wordState = " active-word";
@@ -901,7 +910,12 @@ function renderControls() {
   } else if (state.mode === "time") {
     els.modeControls.innerHTML = controlOptions("testDuration", [15, 30, 60, 120], value => String(value));
   } else if (state.mode === "words") {
-    els.modeControls.innerHTML = controlOptions("testWordCount", [10, 25, 50, 100], value => String(value));
+    els.modeControls.innerHTML = `
+      ${controlOptions("testWordCount", [10, 25, 50], value => String(value))}
+      <label class="word-count-control">Custom
+        <input id="wordCountControl" type="number" min="1" max="3000" step="1" inputmode="numeric" value="${prefs.testWordCount}">
+      </label>
+      <button type="button" class="control-option" data-action="apply-word-count">Start</button>`;
   } else if (state.mode === "quote") {
     els.modeControls.innerHTML = controlOptions("quoteLength", ["short", "medium", "long", "epic"], value => value);
   } else if (state.mode === "custom") {
@@ -1043,6 +1057,7 @@ function flashMistakeKey(key) {
 
 function handleKey(event) {
   if (els.settingsDialog.open || els.statsDialog.open || els.letterDialog.open || els.customTextDialog.open) return;
+  if (event.target instanceof HTMLElement && (event.target.matches("input, select, textarea") || event.target.isContentEditable)) return;
   const restartKey = { escape: "Escape", tab: "Tab", enter: "Enter" }[prefs.quickRestart];
   if (restartKey && event.key === restartKey) {
     event.preventDefault();
@@ -1187,7 +1202,8 @@ function recordCompletedLesson(wpm, accuracy, extra = {}) {
 function finishLine() {
   if (state.mode === "adaptive") finishAdaptiveLine();
   else if (state.mode === "time") finishTimedLine();
-  else if (["words", "quote", "custom"].includes(state.mode)) finishTest();
+  else if (state.mode === "words") finishWordSection();
+  else if (["quote", "custom"].includes(state.mode)) finishTest();
   else if (["bible", "bibleQuotes"].includes(state.mode)) finishScripture();
 }
 
@@ -1249,6 +1265,28 @@ function finishTimedLine() {
     state.input = "";
     state.rowIndex++;
     if (state.rowIndex >= state.targetRows.length - 2) state.targetRows.push(...makeTimedRows());
+    renderText();
+    renderLiveMetrics();
+    if (prefs.keymapMode === "next") renderKeyboard();
+  }, 70);
+}
+
+function finishWordSection() {
+  if (state.rowIndex >= state.targetRows.length - 1) {
+    finishTest();
+    return;
+  }
+  progress.rowsCleared++;
+  save();
+  els.completionBanner.textContent = `Section ${state.rowIndex + 1} cleared`;
+  els.completionBanner.classList.remove("hidden");
+  playReward((state.rowIndex % 9) + 1);
+  setTimeout(() => {
+    els.completionBanner.classList.add("hidden");
+    state.input = "";
+    state.characterErrors = 0;
+    state.lastAcceptedAt = null;
+    state.rowIndex++;
     renderText();
     renderLiveMetrics();
     if (prefs.keymapMode === "next") renderKeyboard();
@@ -1594,6 +1632,10 @@ function setupSettings() {
     el.value = prefs[id];
     el.addEventListener("change", event => {
       prefs[id] = numericIds.has(id) ? Number(event.target.value) : event.target.value;
+      if (id === "testWordCount") {
+        prefs.testWordCount = Math.max(1, Math.min(3000, Math.round(prefs.testWordCount || defaultPrefs.testWordCount)));
+        event.target.value = String(prefs.testWordCount);
+      }
       save();
       if (id === "theme") applyTheme();
       if (id === "soundStyle") {
@@ -1632,12 +1674,6 @@ function setupSettings() {
     });
   });
 
-  document.querySelectorAll("[data-settings-tab]").forEach(button => {
-    button.addEventListener("click", () => {
-      document.querySelectorAll("[data-settings-tab]").forEach(item => item.classList.toggle("active", item === button));
-      document.querySelectorAll("[data-settings-panel]").forEach(panel => panel.classList.toggle("active", panel.dataset.settingsPanel === button.dataset.settingsTab));
-    });
-  });
   els.settingsBtn.addEventListener("click", () => els.settingsDialog.showModal());
 
   els.saveCustomText.addEventListener("click", () => {
@@ -1680,6 +1716,16 @@ els.letterHeatmap.addEventListener("click", event => {
   openLetterDetails(key.dataset.letter);
 });
 
+function applyWordCountControl() {
+  const input = document.getElementById("wordCountControl");
+  if (!input) return;
+  prefs.testWordCount = Math.max(1, Math.min(3000, Math.round(Number(input.value) || defaultPrefs.testWordCount)));
+  input.value = String(prefs.testWordCount);
+  document.getElementById("testWordCount").value = String(prefs.testWordCount);
+  save();
+  restart();
+}
+
 els.modeControls.addEventListener("click", event => {
   const option = event.target.closest("[data-pref]");
   const toggle = event.target.closest("[data-toggle-pref]");
@@ -1699,9 +1745,18 @@ els.modeControls.addEventListener("click", event => {
     if (setting) setting.checked = !!prefs[key];
     save();
     restart();
+  } else if (action?.dataset.action === "apply-word-count") {
+    applyWordCountControl();
   } else if (action?.dataset.action === "custom-text") {
     els.customTextInput.value = prefs.customText;
     els.customTextDialog.showModal();
+  }
+});
+
+els.modeControls.addEventListener("keydown", event => {
+  if (event.target.id === "wordCountControl" && event.key === "Enter") {
+    event.preventDefault();
+    applyWordCountControl();
   }
 });
 

@@ -13,7 +13,7 @@
   <link rel="canonical" href="https://keyswithdon.github.io/keyboard-disciple/">
   <link rel="sitemap" type="application/xml" href="https://keyswithdon.github.io/keyboard-disciple/sitemap.xml">
   <link rel="icon" href="assets/keyboard-disciple-logo.png">
-  <link rel="stylesheet" href="styles.css?v=20260717-minimal-ui">
+  <link rel="stylesheet" href="styles.css?v=20260717-settings-page">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Keyboard Disciple">
   <meta property="og:title" content="Keyboard Disciple | Free Typing Practice Game">
@@ -116,24 +116,18 @@
       </section>
 
       <section class="letter-hud" id="letterHud" aria-label="Letter progress">
-        <div class="unlock-panel">
-          <header class="hud-heading">
-            <div>
-              <span>Letter unlocks</span>
-              <strong id="unlockNext">Next: T</strong>
-            </div>
-            <b id="unlockCount">6 / 26</b>
-          </header>
-          <div class="unlock-meter" aria-hidden="true"><span id="unlockMeterFill"></span></div>
-          <div class="unlock-track" id="unlockTrack"></div>
-        </div>
         <div class="heatmap-panel">
           <header class="hud-heading">
             <div>
-              <span>Letter accuracy</span>
+              <span>Letter progress</span>
               <strong id="heatmapSummary">No samples yet</strong>
             </div>
+            <div class="unlock-summary">
+              <b id="unlockCount">6 / 26</b>
+              <strong id="unlockNext">Next: T</strong>
+            </div>
           </header>
+          <div class="unlock-meter" aria-hidden="true"><span id="unlockMeterFill"></span></div>
           <div class="letter-heatmap" id="letterHeatmap"></div>
           <div class="heat-legend" aria-hidden="true">
             <span>Needs practice</span>
@@ -230,17 +224,10 @@
         <h2>Settings</h2>
         <button value="close" class="icon-button" aria-label="Close settings">×</button>
       </header>
-      <div class="settings-layout">
-        <nav class="settings-tabs" aria-label="Settings sections">
-          <button type="button" class="active" data-settings-tab="test">Test</button>
-          <button type="button" data-settings-tab="input">Input</button>
-          <button type="button" data-settings-tab="display">Display</button>
-          <button type="button" data-settings-tab="keyboard">Keyboard</button>
-          <button type="button" data-settings-tab="audio">Audio</button>
-          <button type="button" data-settings-tab="progress">Progress</button>
-        </nav>
+      <div class="settings-layout settings-page">
         <div class="settings-panes">
           <section class="settings-pane active" data-settings-panel="test">
+            <h3>Test</h3>
             <div class="settings-grid">
               <label>Default time
                 <select id="testDuration">
@@ -250,13 +237,8 @@
                   <option value="120">120 seconds</option>
                 </select>
               </label>
-              <label>Default words
-                <select id="testWordCount">
-                  <option value="10">10 words</option>
-                  <option value="25">25 words</option>
-                  <option value="50" selected>50 words</option>
-                  <option value="100">100 words</option>
-                </select>
+              <label>Word count
+                <input id="testWordCount" type="number" min="1" max="3000" step="1" value="50" inputmode="numeric">
               </label>
               <label>Quote length
                 <select id="quoteLength">
@@ -297,6 +279,7 @@
           </section>
 
           <section class="settings-pane" data-settings-panel="input">
+            <h3>Input</h3>
             <div class="settings-grid">
               <label>Confidence mode
                 <select id="confidenceMode">
@@ -322,6 +305,7 @@
           </section>
 
           <section class="settings-pane" data-settings-panel="display">
+            <h3>Display</h3>
             <div class="settings-grid">
               <label>Theme
                 <select id="theme">
@@ -361,7 +345,7 @@
                 <select id="typedEffect">
                   <option value="keep">Keep</option>
                   <option value="fade">Fade</option>
-                  <option value="hide">Hide</option>
+                  <option value="hide">Hide completed words</option>
                   <option value="dots">Dots</option>
                 </select>
               </label>
@@ -416,6 +400,7 @@
           </section>
 
           <section class="settings-pane" data-settings-panel="keyboard">
+            <h3>Keyboard</h3>
             <div class="settings-grid">
               <label>Keyboard layout
                 <select id="keyboardLayout">
@@ -458,6 +443,7 @@
           </section>
 
           <section class="settings-pane" data-settings-panel="audio">
+            <h3>Audio</h3>
             <div class="settings-grid">
               <label>Keyboard sound
                 <select id="soundStyle">
@@ -530,6 +516,7 @@
           </section>
 
           <section class="settings-pane" data-settings-panel="progress">
+            <h3>Progress</h3>
             <div class="settings-grid">
               <label>Practice letters
                 <select id="practiceLetters"></select>
@@ -600,6 +587,6 @@
     </form>
   </dialog>
 
-  <script src="app.js?v=20260717-minimal-ui"></script>
+  <script src="app.js?v=20260717-settings-page"></script>
 </body>
 </html>
