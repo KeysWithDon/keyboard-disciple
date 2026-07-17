@@ -5,13 +5,9 @@ const masteryRequiredPages = 9;
 const masteryRequiredAttempts = 180;
 const STORAGE_KEY = "keyboard-disciple-web";
 const letterHeatmapRows = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
-const keyboardSoundStyles = new Set([
-  "clicky", "clacky", "creamy", "thocky", "poppy", "marbly", "typewriter", "soft-tap", "sharp-tap",
-  "wooden", "bubble", "metallic", "glass", "deep", "crisp", "arcade-key", "retro", "stone", "paper",
-  "muted", "spring", "sine", "square", "triangle", "pentatonic", "blues", "silent"
-]);
+const keyboardSoundStyles = new Set([...Array.from({ length: 26 }, (_, index) => String(index + 1)), "off"]);
 const rewardSoundStyles = new Set(["preacher", "key-bloom", "glass-keys"]);
-const errorSoundStyles = new Set(["beep", "soft-knock", "digital-blip", "bass-buzz"]);
+const errorSoundStyles = new Set(["1", "2", "3", "4"]);
 const themeStyles = new Set(["dark", "light", "arcade", "chapel", "midnight", "high-contrast"]);
 const testModes = new Set(["time", "words", "quote", "custom"]);
 const scoredModes = new Set(["adaptive", "time", "words", "quote", "custom", "bible", "bibleQuotes"]);
@@ -152,10 +148,10 @@ const defaultPrefs = {
   keymapMode: "react",
   keymapStyle: "staggered",
   keymapLegend: "uppercase",
-  soundStyle: "clicky",
+  soundStyle: "1",
   soundVolume: .5,
   rewardStyle: "preacher",
-  errorStyle: "beep",
+  errorStyle: "1",
   timeWarning: "off",
   theme: "dark",
   typingSounds: true,
@@ -273,7 +269,7 @@ const els = Object.fromEntries([
   "keyboard", "keyboardWrap", "lessonScore", "lastWpm", "lastAccuracy", "topWpm", "learningRate", "dailyGoalText",
   "dailyGoalFill", "resultPanel", "resultEyebrow", "resultTitle", "resultScore", "resultWpm", "resultRaw",
   "resultAccuracy", "resultConsistency", "resultCharacters", "resultTime", "resultRestartBtn", "settingsDialog", "settingsBtn",
-  "restartBtn", "customTextDialog", "customTextInput", "saveCustomText", "letterHud", "unlockNext", "unlockCount",
+  "statsDialog", "statsBtn", "fullscreenBtn", "restartBtn", "customTextDialog", "customTextInput", "saveCustomText", "letterHud", "unlockNext", "unlockCount",
   "unlockMeterFill", "unlockTrack", "letterHeatmap", "heatmapSummary", "letterDialog", "letterDetailBadge", "letterDetailTitle",
   "letterMastery", "letterLastSpeed", "letterTopSpeed", "letterAccuracy", "letterLearningRate", "letterLessons",
   "letterCurveCaption", "letterChart"
@@ -1046,7 +1042,7 @@ function flashMistakeKey(key) {
 }
 
 function handleKey(event) {
-  if (els.settingsDialog.open || els.letterDialog.open || els.customTextDialog.open) return;
+  if (els.settingsDialog.open || els.statsDialog.open || els.letterDialog.open || els.customTextDialog.open) return;
   const restartKey = { escape: "Escape", tab: "Tab", enter: "Enter" }[prefs.quickRestart];
   if (restartKey && event.key === restartKey) {
     event.preventDefault();
@@ -1322,11 +1318,11 @@ function tone(freq, dur, type = "square", gain = .045, delay = 0) {
   osc.stop(start + dur);
 }
 function playKey() {
-  if (prefs.soundStyle === "silent") return;
+  if (prefs.soundStyle === "off") return;
   const buffers = keyboardSoundBuffers[prefs.soundStyle];
   if (!buffers?.length) {
     if (keyboardSoundFiles[prefs.soundStyle]) ensureKeySoundStyle(prefs.soundStyle);
-    playSynthKey(keyboardSoundFiles[prefs.soundStyle] ? "soft-tap" : prefs.soundStyle);
+    playSynthKey(keyboardSoundFiles[prefs.soundStyle] ? "soft-tap" : monkeytypeSoundProfiles[prefs.soundStyle]);
     return;
   }
 
@@ -1343,17 +1339,17 @@ function playKey() {
   source.start();
 }
 function playError() {
-  if (prefs.errorStyle === "soft-knock") {
+  if (prefs.errorStyle === "2") {
     tone(190, .07, "triangle", .075);
     tone(125, .09, "sine", .045, .025);
     return;
   }
-  if (prefs.errorStyle === "digital-blip") {
+  if (prefs.errorStyle === "3") {
     tone(560, .045, "square", .055);
     tone(280, .07, "square", .04, .045);
     return;
   }
-  if (prefs.errorStyle === "bass-buzz") {
+  if (prefs.errorStyle === "4") {
     tone(110, .13, "sawtooth", .065);
     tone(82, .16, "square", .035, .02);
     return;
@@ -1393,6 +1389,7 @@ function playSynthKey(style) {
     muted: [135, .025, "sine", .02],
     spring: [420 + (cursor % 3) * 70, .08, "triangle", .035],
     sine: [440, .04, "sine", .03],
+    sawtooth: [330, .035, "sawtooth", .024],
     square: [330, .035, "square", .025],
     triangle: [392, .045, "triangle", .03]
   };
@@ -1402,23 +1399,45 @@ function playSynthKey(style) {
   if (style === "glass") tone(2349.32, .08, "sine", .012, .01);
 }
 
+const monkeytypeSoundProfiles = {
+  8: "sine",
+  9: "sawtooth",
+  10: "square",
+  11: "triangle",
+  12: "pentatonic",
+  13: "blues",
+  14: "soft-tap",
+  15: "sharp-tap",
+  16: "wooden",
+  17: "bubble",
+  18: "metallic",
+  19: "glass",
+  20: "deep",
+  21: "crisp",
+  22: "arcade-key",
+  23: "retro",
+  24: "stone",
+  25: "paper",
+  26: "spring"
+};
+
 const keyboardSoundFiles = {
-  clicky: Array.from({ length: 5 }, (_, index) => `assets/key-sounds/clicky/key-${index + 1}.mp3`),
-  clacky: Array.from({ length: 5 }, (_, index) => `assets/key-sounds/clacky/key-${index + 1}.mp3`),
-  creamy: Array.from({ length: 5 }, (_, index) => `assets/key-sounds/creamy/key-${index + 1}.mp3`),
-  thocky: Array.from({ length: 5 }, (_, index) => `assets/key-sounds/thocky/key-${index + 1}.mp3`),
-  poppy: Array.from({ length: 5 }, (_, index) => `assets/key-sounds/poppy/key-${index + 1}.mp3`),
-  marbly: Array.from({ length: 5 }, (_, index) => `assets/key-sounds/marbly/key-${index + 1}.mp3`),
-  typewriter: ["assets/key-sounds/typewriter/key.wav", "assets/key-sounds/typewriter/key2.wav"]
+  1: Array.from({ length: 5 }, (_, index) => `assets/key-sounds/clicky/key-${index + 1}.mp3`),
+  2: Array.from({ length: 5 }, (_, index) => `assets/key-sounds/clacky/key-${index + 1}.mp3`),
+  3: Array.from({ length: 5 }, (_, index) => `assets/key-sounds/creamy/key-${index + 1}.mp3`),
+  4: Array.from({ length: 5 }, (_, index) => `assets/key-sounds/thocky/key-${index + 1}.mp3`),
+  5: Array.from({ length: 5 }, (_, index) => `assets/key-sounds/poppy/key-${index + 1}.mp3`),
+  6: Array.from({ length: 5 }, (_, index) => `assets/key-sounds/marbly/key-${index + 1}.mp3`),
+  7: ["assets/key-sounds/typewriter/key.wav", "assets/key-sounds/typewriter/key2.wav"]
 };
 const keyboardSoundVolumes = {
-  clicky: .48,
-  clacky: .5,
-  creamy: .58,
-  thocky: .58,
-  poppy: .54,
-  marbly: .52,
-  typewriter: .42
+  1: .48,
+  2: .5,
+  3: .58,
+  4: .58,
+  5: .54,
+  6: .52,
+  7: .42
 };
 const keyboardSoundBuffers = {};
 const keyboardSoundCursors = {};
@@ -1439,7 +1458,7 @@ async function ensureKeySoundStyle(style) {
 }
 
 async function preloadKeySounds() {
-  await Promise.all([ensureKeySoundStyle(prefs.soundStyle), ensureKeySoundStyle("creamy")]);
+  await Promise.all([ensureKeySoundStyle(prefs.soundStyle), ensureKeySoundStyle("3")]);
 }
 
 const rowRewardFiles = Array.from({ length: 9 }, (_, index) => `assets/Shout_${index + 1}.wav`);
@@ -1507,8 +1526,8 @@ function rewardTone(freq, dur, type, gainValue, delay = 0) {
 }
 
 function rewardKeySamples() {
-  const preferred = prefs.soundStyle === "silent" ? "creamy" : prefs.soundStyle;
-  return keyboardSoundBuffers[preferred] || keyboardSoundBuffers.creamy || keyboardSoundBuffers.clicky || [];
+  const preferred = prefs.soundStyle === "off" ? "3" : prefs.soundStyle;
+  return keyboardSoundBuffers[preferred] || keyboardSoundBuffers["3"] || keyboardSoundBuffers["1"] || [];
 }
 
 function playKeyBloom(isSection) {
@@ -1629,6 +1648,32 @@ function setupSettings() {
   });
 }
 
+function fullscreenElement() {
+  return document.fullscreenElement || document.webkitFullscreenElement || null;
+}
+
+function syncFullscreenButton() {
+  const active = !!fullscreenElement();
+  const label = active ? "Exit fullscreen" : "Enter fullscreen";
+  els.fullscreenBtn.title = label;
+  els.fullscreenBtn.setAttribute("aria-label", label);
+  els.fullscreenBtn.setAttribute("aria-pressed", String(active));
+  els.fullscreenBtn.classList.toggle("active", active);
+  document.body.classList.toggle("is-fullscreen", active);
+}
+
+async function toggleFullscreen() {
+  const root = document.documentElement;
+  const request = root.requestFullscreen || root.webkitRequestFullscreen;
+  const exit = document.exitFullscreen || document.webkitExitFullscreen;
+  try {
+    if (fullscreenElement()) await exit?.call(document);
+    else await request?.call(root);
+  } catch (error) {
+    console.warn("Fullscreen mode is unavailable.", error);
+  }
+}
+
 els.letterHeatmap.addEventListener("click", event => {
   const key = event.target.closest("[data-letter]");
   if (!key || key.disabled) return;
@@ -1674,6 +1719,10 @@ document.querySelectorAll(".mode-button").forEach(btn => {
 });
 els.restartBtn.addEventListener("click", restart);
 els.resultRestartBtn.addEventListener("click", restart);
+els.statsBtn.addEventListener("click", () => els.statsDialog.showModal());
+els.fullscreenBtn.addEventListener("click", toggleFullscreen);
+document.addEventListener("fullscreenchange", syncFullscreenButton);
+document.addEventListener("webkitfullscreenchange", syncFullscreenButton);
 document.addEventListener("keydown", handleKey);
 window.addEventListener("pagehide", save);
 document.addEventListener("visibilitychange", () => {
@@ -1682,5 +1731,7 @@ document.addEventListener("visibilitychange", () => {
 preloadRewardSounds();
 preloadKeySounds();
 setupSettings();
+if (!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen)) els.fullscreenBtn.hidden = true;
+syncFullscreenButton();
 save();
 restart();

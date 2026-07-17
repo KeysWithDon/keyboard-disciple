@@ -13,7 +13,7 @@
   <link rel="canonical" href="https://keyswithdon.github.io/keyboard-disciple/">
   <link rel="sitemap" type="application/xml" href="https://keyswithdon.github.io/keyboard-disciple/sitemap.xml">
   <link rel="icon" href="assets/keyboard-disciple-logo.png">
-  <link rel="stylesheet" href="styles.css?v=20260717-monkeytype-parity">
+  <link rel="stylesheet" href="styles.css?v=20260717-minimal-ui">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Keyboard Disciple">
   <meta property="og:title" content="Keyboard Disciple | Free Typing Practice Game">
@@ -57,7 +57,7 @@
 </head>
 <body>
   <div class="app-shell">
-    <aside class="sidebar" aria-label="Practice modes">
+    <header class="app-header">
       <div class="brand">
         <img src="assets/keyboard-disciple-logo.png" alt="" class="brand-mark">
         <div>
@@ -87,46 +87,20 @@
         </div>
       </nav>
 
-      <section class="panel compact performance-panel" aria-labelledby="lessonScoreTitle">
-        <header class="panel-heading">
-          <h2 id="lessonScoreTitle">Lesson Score</h2>
-          <span>Per page</span>
-        </header>
-        <div class="score-total">
-          <span>Latest</span>
-          <strong id="lessonScore">0</strong>
-        </div>
-        <div class="lesson-metrics">
-          <span>Speed <strong id="lastWpm">0 WPM</strong></span>
-          <span>Accuracy <strong id="lastAccuracy">--</strong></span>
-          <span>Top speed <strong id="topWpm">0 WPM</strong></span>
-          <span>Learning rate <strong id="learningRate">Collecting</strong></span>
-        </div>
-        <div class="daily-goal">
-          <div>
-            <span>Daily goal</span>
-            <strong id="dailyGoalText">0 / 15 min</strong>
-          </div>
-          <div class="daily-goal-meter" aria-hidden="true"><span id="dailyGoalFill"></span></div>
-        </div>
-      </section>
-
-      <section class="support-panel" aria-labelledby="supportTitle">
-        <h2 id="supportTitle">Support Keyboard Disciple</h2>
-        <p>Enjoying the practice? Donations help keep it growing.</p>
-        <a class="support-link" href="https://www.paypal.com/donate/?hosted_button_id=ZRYREBW4JQLSC" target="_blank" rel="noopener noreferrer">Donate</a>
-      </section>
-    </aside>
+      <div class="app-actions">
+        <button class="utility-button" id="statsBtn" type="button" title="Progress" aria-label="Open progress">▥</button>
+        <button class="utility-button" id="restartBtn" type="button" title="Restart lesson" aria-label="Restart lesson">↻</button>
+        <button class="utility-button" id="fullscreenBtn" type="button" title="Enter fullscreen" aria-label="Enter fullscreen">⛶</button>
+        <button class="utility-button" id="settingsBtn" type="button" title="Settings" aria-label="Open settings">⚙</button>
+        <a class="donate-link" href="https://www.paypal.com/donate/?hosted_button_id=ZRYREBW4JQLSC" target="_blank" rel="noopener noreferrer">Donate</a>
+      </div>
+    </header>
 
     <main class="stage">
       <header class="topbar">
         <div>
           <p class="eyebrow" id="modeEyebrow">Adaptive Lesson</p>
           <h2 id="lessonTitle">Ready</h2>
-        </div>
-        <div class="topbar-actions">
-          <button class="icon-button" id="restartBtn" title="Restart lesson">↻</button>
-          <button class="primary-button" id="settingsBtn">Settings</button>
         </div>
       </header>
 
@@ -214,6 +188,41 @@
       </section>
     </main>
   </div>
+
+  <dialog id="statsDialog" class="stats-dialog">
+    <form method="dialog">
+      <header>
+        <div>
+          <p class="eyebrow">Progress</p>
+          <h2>Practice summary</h2>
+        </div>
+        <button value="close" class="icon-button" aria-label="Close progress">×</button>
+      </header>
+      <section class="panel compact performance-panel" aria-labelledby="lessonScoreTitle">
+        <header class="panel-heading">
+          <h2 id="lessonScoreTitle">Lesson score</h2>
+          <span>Per page</span>
+        </header>
+        <div class="score-total">
+          <span>Latest</span>
+          <strong id="lessonScore">0</strong>
+        </div>
+        <div class="lesson-metrics">
+          <span>Speed <strong id="lastWpm">0 WPM</strong></span>
+          <span>Accuracy <strong id="lastAccuracy">--</strong></span>
+          <span>Top speed <strong id="topWpm">0 WPM</strong></span>
+          <span>Learning rate <strong id="learningRate">Collecting</strong></span>
+        </div>
+        <div class="daily-goal">
+          <div>
+            <span>Daily goal</span>
+            <strong id="dailyGoalText">0 / 15 min</strong>
+          </div>
+          <div class="daily-goal-meter" aria-hidden="true"><span id="dailyGoalFill"></span></div>
+        </div>
+      </section>
+    </form>
+  </dialog>
 
   <dialog id="settingsDialog" class="settings-dialog">
     <form method="dialog">
@@ -452,33 +461,33 @@
             <div class="settings-grid">
               <label>Keyboard sound
                 <select id="soundStyle">
-                  <option value="clicky">Clicky</option>
-                  <option value="clacky">Clacky</option>
-                  <option value="creamy">Creamy</option>
-                  <option value="thocky">Thocky</option>
-                  <option value="poppy">Poppy</option>
-                  <option value="marbly">Marbly</option>
-                  <option value="typewriter">Typewriter</option>
-                  <option value="soft-tap">Soft Tap</option>
-                  <option value="sharp-tap">Sharp Tap</option>
-                  <option value="wooden">Wooden</option>
-                  <option value="bubble">Bubble</option>
-                  <option value="metallic">Metallic</option>
-                  <option value="glass">Glass</option>
-                  <option value="deep">Deep</option>
-                  <option value="crisp">Crisp</option>
-                  <option value="arcade-key">Arcade</option>
-                  <option value="retro">Retro</option>
-                  <option value="stone">Stone</option>
-                  <option value="paper">Paper</option>
-                  <option value="muted">Muted</option>
-                  <option value="spring">Spring</option>
-                  <option value="sine">Sine</option>
-                  <option value="square">Square</option>
-                  <option value="triangle">Triangle</option>
-                  <option value="pentatonic">Pentatonic</option>
-                  <option value="blues">Blues</option>
-                  <option value="silent">Silent</option>
+                  <option value="1">Sound 1</option>
+                  <option value="2">Sound 2</option>
+                  <option value="3">Sound 3</option>
+                  <option value="4">Sound 4</option>
+                  <option value="5">Sound 5</option>
+                  <option value="6">Sound 6</option>
+                  <option value="7">Sound 7</option>
+                  <option value="8">Sound 8</option>
+                  <option value="9">Sound 9</option>
+                  <option value="10">Sound 10</option>
+                  <option value="11">Sound 11</option>
+                  <option value="12">Sound 12</option>
+                  <option value="13">Sound 13</option>
+                  <option value="14">Sound 14</option>
+                  <option value="15">Sound 15</option>
+                  <option value="16">Sound 16</option>
+                  <option value="17">Sound 17</option>
+                  <option value="18">Sound 18</option>
+                  <option value="19">Sound 19</option>
+                  <option value="20">Sound 20</option>
+                  <option value="21">Sound 21</option>
+                  <option value="22">Sound 22</option>
+                  <option value="23">Sound 23</option>
+                  <option value="24">Sound 24</option>
+                  <option value="25">Sound 25</option>
+                  <option value="26">Sound 26</option>
+                  <option value="off">Off</option>
                 </select>
               </label>
               <label>Volume
@@ -498,10 +507,10 @@
               </label>
               <label>Error sound
                 <select id="errorStyle">
-                  <option value="beep">Beep</option>
-                  <option value="soft-knock">Soft Knock</option>
-                  <option value="digital-blip">Digital Blip</option>
-                  <option value="bass-buzz">Bass Buzz</option>
+                  <option value="1">Error 1</option>
+                  <option value="2">Error 2</option>
+                  <option value="3">Error 3</option>
+                  <option value="4">Error 4</option>
                 </select>
               </label>
               <label>Time warning
@@ -591,6 +600,6 @@
     </form>
   </dialog>
 
-  <script src="app.js?v=20260717-monkeytype-parity"></script>
+  <script src="app.js?v=20260717-minimal-ui"></script>
 </body>
 </html>
