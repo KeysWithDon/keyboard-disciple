@@ -7,10 +7,11 @@ const STORAGE_KEY = "keyboard-disciple-web";
 const letterHeatmapRows = ["QWERTYUIOP", "ASDFGHJKL", "ZXCVBNM"];
 const keyboardSoundStyles = new Set([...Array.from({ length: 26 }, (_, index) => String(index + 1)), "off"]);
 const rewardSoundStyles = new Set(["preacher", "key-bloom", "glass-keys"]);
-const errorSoundStyles = new Set(["1", "2", "3", "4"]);
+const errorSoundStyles = new Set(["1", "2", "3", "4", "off"]);
+const creativeModeStyles = new Set(["weakspot", "gibberish", "ascii", "backwards", "doubled", "random-case"]);
 const themeStyles = new Set(["dark", "light", "arcade", "chapel", "midnight", "high-contrast"]);
-const testModes = new Set(["time", "words", "quote", "custom"]);
-const scoredModes = new Set(["adaptive", "time", "words", "quote", "custom", "bible", "bibleQuotes"]);
+const testModes = new Set(["time", "words", "quote", "custom", "creative"]);
+const scoredModes = new Set(["adaptive", "time", "words", "quote", "custom", "creative", "bible", "bibleQuotes"]);
 const keyboardKey = (id, label = id, units = 4, shift = "") => ({ id, label, units, shift });
 const macKeyboardLayout = [
   [
@@ -127,6 +128,7 @@ const defaultPrefs = {
   testWordCount: 50,
   quoteLength: "medium",
   difficulty: "normal",
+  creativeMode: "weakspot",
   quickRestart: "off",
   currentCue: "highlight",
   caretStyle: "highlight",
@@ -186,6 +188,7 @@ if (!keyboardSoundStyles.has(prefs.soundStyle)) prefs.soundStyle = defaultPrefs.
 if (!keyboardLayouts[prefs.keyboardLayout]) prefs.keyboardLayout = defaultPrefs.keyboardLayout;
 if (!rewardSoundStyles.has(prefs.rewardStyle)) prefs.rewardStyle = defaultPrefs.rewardStyle;
 if (!errorSoundStyles.has(prefs.errorStyle)) prefs.errorStyle = defaultPrefs.errorStyle;
+if (!creativeModeStyles.has(prefs.creativeMode)) prefs.creativeMode = defaultPrefs.creativeMode;
 if (!themeStyles.has(prefs.theme)) prefs.theme = defaultPrefs.theme;
 if (storedPrefs.showKeyboard === false && storedPrefs.keymapMode === undefined) prefs.keymapMode = "off";
 prefs.dailyGoalMinutes = Math.max(5, Math.min(60, Number(prefs.dailyGoalMinutes) || defaultPrefs.dailyGoalMinutes));
@@ -221,6 +224,14 @@ const rareLetterFocusWords = {
   v: `very view voice love give have save move live river seven leave drive avoid event value cover never over even visit valid verse victory vital vivid velvet vessel venture volume improve discover develop favorite available`.split(" ")
 };
 const rareLetterFocusPool = [...new Set(Object.values(rareLetterFocusWords).flat())];
+const creativeModeLabels = {
+  weakspot: "Weakspot",
+  gibberish: "Gibberish",
+  ascii: "ASCII",
+  backwards: "Backwards",
+  doubled: "Doubled",
+  "random-case": "Random Case"
+};
 
 const kjvQuotes = [
   ["Psalm 23:1 KJV", "The Lord is my shepherd; I shall not want."],
@@ -374,7 +385,7 @@ function currentProgress() {
   const target = currentTarget();
   if (state.mode === "time") return Math.max(0, Math.min(1, 1 - state.timeRemaining / Number(prefs.testDuration)));
   if (state.mode === "adaptive") return Math.max(0, Math.min(1, (state.rowIndex + (target.length ? state.input.length / target.length : 0)) / rowsPerPage));
-  if (state.mode === "words") return Math.max(0, Math.min(1, (state.rowIndex + (target.length ? state.input.length / target.length : 0)) / Math.max(1, state.targetRows.length)));
+  if (["words", "creative"].includes(state.mode)) return Math.max(0, Math.min(1, (state.rowIndex + (target.length ? state.input.length / target.length : 0)) / Math.max(1, state.targetRows.length)));
   if (state.mode === "zen") return 0;
   return target.length ? Math.max(0, Math.min(1, state.input.length / target.length)) : 0;
 }
@@ -522,6 +533,65 @@ function makeWordSections(count) {
   return sections.length ? sections : ["practice"];
 }
 
+function weakestPracticeLetters() {
+  return letterOrder
+    .slice(0, Number(prefs.practiceLetters))
+    .map(letter => letter.toLowerCase())
+    .sort((a, b) => {
+      const aStats = progress.letterStats[a] || { attempts: 0, correct: 0 };
+      const bStats = progress.letterStats[b] || { attempts: 0, correct: 0 };
+      const aAccuracy = aStats.attempts ? aStats.correct / aStats.attempts : 0;
+      const bAccuracy = bStats.attempts ? bStats.correct / bStats.attempts : 0;
+      return aAccuracy - bAccuracy || aStats.attempts - bStats.attempts;
+    })
+    .slice(0, 4);
+}
+
+function makeWeakspotWords(count) {
+  const focusLetters = [...new Set([...weakestPracticeLetters(), "q", "z", "x", "v"])];
+  const allWords = [...new Set(testWordPool().concat(rareLetterFocusPool))];
+  const focused = shuffle(allWords.filter(word => focusLetters.some(letter => word.includes(letter))));
+  const general = shuffle(allWords);
+  return Array.from({ length: count }, (_, index) => {
+    if (focused.length && index % 5 !== 4) return focused[index % focused.length];
+    return general[index % general.length] || "practice";
+  });
+}
+
+function randomPrintableAscii() {
+  const length = 1 + Math.floor(Math.random() * 10);
+  return Array.from({ length }, () => String.fromCharCode(33 + Math.floor(Math.random() * 94))).join("");
+}
+
+function randomGibberish() {
+  const length = 1 + Math.floor(Math.random() * 7);
+  return Array.from({ length }, () => String.fromCharCode(97 + Math.floor(Math.random() * 26))).join("");
+}
+
+function makeCreativeWords(count) {
+  if (prefs.creativeMode === "weakspot") return makeWeakspotWords(count);
+  if (prefs.creativeMode === "gibberish") return Array.from({ length: count }, randomGibberish);
+  if (prefs.creativeMode === "ascii") return Array.from({ length: count }, randomPrintableAscii);
+
+  const pool = shuffle(testWordPool());
+  const words = Array.from({ length: count }, (_, index) => pool[index % pool.length] || "practice");
+  if (prefs.creativeMode === "backwards") return words.map(word => [...word].reverse().join(""));
+  if (prefs.creativeMode === "doubled") return words.map(word => [...word].map(letter => letter + letter).join(""));
+  if (prefs.creativeMode === "random-case") {
+    return words.map(word => [...word].map(letter => Math.random() < .5 ? letter.toUpperCase() : letter.toLowerCase()).join(""));
+  }
+  return words;
+}
+
+function makeCreativeSections(count) {
+  const words = makeCreativeWords(count);
+  const sections = [];
+  for (let index = 0; index < words.length; index += 50) {
+    sections.push(words.slice(index, index + 50).join(" "));
+  }
+  return sections.length ? sections : ["practice"];
+}
+
 function makeTimedRows() {
   const words = makeTestWords(600);
   const size = Math.max(4, Number(prefs.wordsPerRow) || 10);
@@ -614,6 +684,9 @@ async function restart() {
   } else if (state.mode === "words") {
     state.targetRows = makeWordSections(Number(prefs.testWordCount));
     state.scripturePages = [];
+  } else if (state.mode === "creative") {
+    state.targetRows = makeCreativeSections(Number(prefs.testWordCount));
+    state.scripturePages = [];
   } else if (state.mode === "quote") {
     const quote = quoteForLength();
     state.scripturePages = [[quote[0], transformText(quote[1])]];
@@ -653,6 +726,7 @@ function modeCopy() {
     quote: ["Quote Test", "Complete the quote"],
     zen: ["Zen Mode", "Type without limits"],
     custom: ["Custom Test", "Your text, your pace"],
+    creative: ["Creative Test", creativeModeLabels[prefs.creativeMode]],
     bible: ["Scripture Reading", "Bible Reading"],
     bibleQuotes: ["Bible Quotes", "Complete Quotes"]
   };
@@ -846,6 +920,7 @@ function renderText() {
     adaptive: `Row ${state.rowIndex + 1} of ${rowsPerPage}`,
     time: `${Math.max(0, Math.ceil(state.timeRemaining))} seconds`,
     words: state.targetRows.length > 1 ? `Section ${state.rowIndex + 1} of ${state.targetRows.length}` : `${prefs.testWordCount} words`,
+    creative: state.targetRows.length > 1 ? `${creativeModeLabels[prefs.creativeMode]} ${state.rowIndex + 1} of ${state.targetRows.length}` : `${creativeModeLabels[prefs.creativeMode]} / ${prefs.testWordCount} words`,
     quote: "Quote",
     zen: "Zen",
     custom: "Custom text",
@@ -918,6 +993,10 @@ function renderControls() {
       <button type="button" class="control-option" data-action="apply-word-count">Start</button>`;
   } else if (state.mode === "quote") {
     els.modeControls.innerHTML = controlOptions("quoteLength", ["short", "medium", "long", "epic"], value => value);
+  } else if (state.mode === "creative") {
+    els.modeControls.innerHTML = `
+      ${controlOptions("creativeMode", ["weakspot", "gibberish", "ascii", "backwards", "doubled", "random-case"], value => creativeModeLabels[value])}
+      ${controlOptions("testWordCount", [10, 25, 50], value => String(value))}`;
   } else if (state.mode === "custom") {
     els.modeControls.innerHTML = `<button type="button" class="control-option active" data-action="custom-text">Change text</button>`;
   } else if (state.mode === "zen") {
@@ -1131,7 +1210,7 @@ function handleKey(event) {
   state.input += key;
   state.charsTyped++;
   state.rawTyped++;
-  if (prefs.typingSounds) playKey();
+  if (prefs.typingSounds) playKey(event.code, event.shiftKey || state.capsLock);
   if (state.mode !== "zen" && state.input.length >= target.length) {
     finishLine();
     return;
@@ -1202,7 +1281,7 @@ function recordCompletedLesson(wpm, accuracy, extra = {}) {
 function finishLine() {
   if (state.mode === "adaptive") finishAdaptiveLine();
   else if (state.mode === "time") finishTimedLine();
-  else if (state.mode === "words") finishWordSection();
+  else if (["words", "creative"].includes(state.mode)) finishWordSection();
   else if (["quote", "custom"].includes(state.mode)) finishTest();
   else if (["bible", "bibleQuotes"].includes(state.mode)) finishScripture();
 }
@@ -1355,148 +1434,182 @@ function tone(freq, dur, type = "square", gain = .045, delay = 0) {
   osc.start(start);
   osc.stop(start + dur);
 }
-function playKey() {
-  if (prefs.soundStyle === "off") return;
-  const buffers = keyboardSoundBuffers[prefs.soundStyle];
-  if (!buffers?.length) {
-    if (keyboardSoundFiles[prefs.soundStyle]) ensureKeySoundStyle(prefs.soundStyle);
-    playSynthKey(keyboardSoundFiles[prefs.soundStyle] ? "soft-tap" : monkeytypeSoundProfiles[prefs.soundStyle]);
-    return;
-  }
-
+function playDecodedBuffer(buffer, gainValue = 1) {
+  if (!buffer) return false;
   const c = ctx();
   if (c.state === "suspended") c.resume().catch(() => {});
-  const cursor = keyboardSoundCursors[prefs.soundStyle] || 0;
-  keyboardSoundCursors[prefs.soundStyle] = (cursor + 1) % buffers.length;
-
   const source = c.createBufferSource();
   const gain = c.createGain();
-  source.buffer = buffers[cursor % buffers.length];
-  gain.gain.value = (keyboardSoundVolumes[prefs.soundStyle] || .5) * Number(prefs.soundVolume);
+  source.buffer = buffer;
+  gain.gain.value = gainValue * Number(prefs.soundVolume);
   source.connect(gain).connect(c.destination);
   source.start();
+  return true;
 }
+
+const keyboardCodeSemitones = {
+  KeyZ: 0, KeyS: 1, KeyX: 2, KeyD: 3, KeyC: 4, KeyV: 5, KeyG: 6, KeyB: 7,
+  KeyH: 8, KeyN: 9, KeyJ: 10, KeyM: 11, Comma: 12, KeyL: 13, Period: 14,
+  Semicolon: 15, Slash: 16, KeyQ: 12, Digit2: 13, KeyW: 14, Digit3: 15, KeyE: 16,
+  KeyR: 17, Digit5: 18, KeyT: 19, Digit6: 20, KeyY: 21, Digit7: 22, KeyU: 23,
+  KeyI: 24, Digit9: 25, KeyO: 26, Digit0: 27, KeyP: 28, BracketLeft: 29,
+  Equal: 30, BracketRight: 31
+};
+const oscillatorSoundStyles = { 8: "sine", 9: "sawtooth", 10: "square", 11: "triangle" };
+const scaleSoundStyles = { 12: [0, 2, 4, 7, 9], 13: [0, 2, 4, 6, 8, 10] };
+const scaleSoundState = {
+  12: { octave: 4, direction: 1 },
+  13: { octave: 4, direction: 1 }
+};
+
+function playMappedTone(code = "KeyQ", oscillatorType = "sine", shifted = false) {
+  const c = ctx();
+  if (c.state === "suspended") c.resume().catch(() => {});
+  const semitone = (keyboardCodeSemitones[code] ?? keyboardCodeSemitones.KeyQ) + (shifted ? 12 : 0);
+  const frequency = 130.81 * (2 ** (semitone / 12));
+  const oscillator = c.createOscillator();
+  const gain = c.createGain();
+  oscillator.type = oscillatorType;
+  oscillator.frequency.value = frequency;
+  gain.gain.value = Number(prefs.soundVolume) / 10;
+  oscillator.connect(gain).connect(c.destination);
+  oscillator.start(c.currentTime);
+  gain.gain.setTargetAtTime(0, c.currentTime, .15);
+  oscillator.stop(c.currentTime + .5);
+}
+
+function playScaleSound(style) {
+  const notes = scaleSoundStyles[style];
+  const scale = scaleSoundState[style];
+  if (!notes || !scale) return;
+  if (Math.random() < .5) scale.octave += scale.direction;
+  if (scale.octave >= 6) scale.direction = -1;
+  if (scale.octave <= 4) scale.direction = 1;
+  const semitone = notes[Math.floor(Math.random() * notes.length)] || 0;
+  const frequency = 261.63 * (2 ** (scale.octave - 4)) * (2 ** (semitone / 12));
+  const c = ctx();
+  if (c.state === "suspended") c.resume().catch(() => {});
+  const oscillator = c.createOscillator();
+  const gain = c.createGain();
+  oscillator.type = "sine";
+  oscillator.frequency.value = frequency;
+  gain.gain.value = Number(prefs.soundVolume) / 10;
+  oscillator.connect(gain).connect(c.destination);
+  oscillator.start(c.currentTime);
+  gain.gain.setTargetAtTime(0, c.currentTime, .3);
+  oscillator.stop(c.currentTime + 2);
+}
+
+function playKey(code = "KeyQ", shifted = false) {
+  const style = prefs.soundStyle;
+  if (style === "off") return;
+  if (oscillatorSoundStyles[style]) {
+    playMappedTone(code, oscillatorSoundStyles[style], shifted);
+    return;
+  }
+  if (scaleSoundStyles[style]) {
+    playScaleSound(style);
+    return;
+  }
+  const buffers = keyboardSoundBuffers[style];
+  if (!buffers?.length) {
+    ensureKeySoundStyle(style);
+    return;
+  }
+  playDecodedBuffer(buffers[Math.floor(Math.random() * buffers.length)]);
+}
+
 function playError() {
-  if (prefs.errorStyle === "2") {
-    tone(190, .07, "triangle", .075);
-    tone(125, .09, "sine", .045, .025);
+  const style = prefs.errorStyle;
+  if (style === "off") return;
+  const buffers = errorSoundBuffers[style];
+  if (!buffers?.length) {
+    ensureErrorSoundStyle(style);
     return;
   }
-  if (prefs.errorStyle === "3") {
-    tone(560, .045, "square", .055);
-    tone(280, .07, "square", .04, .045);
-    return;
-  }
-  if (prefs.errorStyle === "4") {
-    tone(110, .13, "sawtooth", .065);
-    tone(82, .16, "square", .035, .02);
-    return;
-  }
-  tone(420, .11, "square", .08);
+  playDecodedBuffer(buffers[Math.floor(Math.random() * buffers.length)]);
 }
 
 function playTimeWarning() {
-  tone(880, .09, "sine", .055);
-  tone(1174.66, .12, "sine", .045, .08);
-}
-
-function playSynthKey(style) {
-  const cursor = keyboardSoundCursors[style] || 0;
-  keyboardSoundCursors[style] = cursor + 1;
-  const scales = {
-    pentatonic: [261.63, 293.66, 329.63, 392, 440],
-    blues: [261.63, 311.13, 349.23, 369.99, 392, 466.16]
-  };
-  if (scales[style]) {
-    tone(scales[style][cursor % scales[style].length], .08, "sine", .025);
+  if (!timeWarningBuffer) {
+    ensureTimeWarningSound();
     return;
   }
-  const profiles = {
-    "soft-tap": [220, .025, "sine", .028],
-    "sharp-tap": [920, .018, "square", .025],
-    wooden: [170, .045, "triangle", .045],
-    bubble: [540 + (cursor % 3) * 45, .055, "sine", .03],
-    metallic: [1200, .04, "sawtooth", .022],
-    glass: [1568, .09, "sine", .025],
-    deep: [95, .065, "sine", .055],
-    crisp: [760, .025, "triangle", .035],
-    "arcade-key": [330 + (cursor % 4) * 55, .045, "square", .03],
-    retro: [196 + (cursor % 2) * 98, .05, "square", .03],
-    stone: [82, .075, "triangle", .07],
-    paper: [1380, .018, "sawtooth", .018],
-    muted: [135, .025, "sine", .02],
-    spring: [420 + (cursor % 3) * 70, .08, "triangle", .035],
-    sine: [440, .04, "sine", .03],
-    sawtooth: [330, .035, "sawtooth", .024],
-    square: [330, .035, "square", .025],
-    triangle: [392, .045, "triangle", .03]
-  };
-  const [freq, duration, type, gain] = profiles[style] || profiles["soft-tap"];
-  tone(freq, duration, type, gain);
-  if (style === "stone") tone(61, .08, "sine", .035, .008);
-  if (style === "glass") tone(2349.32, .08, "sine", .012, .01);
+  playDecodedBuffer(timeWarningBuffer);
 }
 
-const monkeytypeSoundProfiles = {
-  8: "sine",
-  9: "sawtooth",
-  10: "square",
-  11: "triangle",
-  12: "pentatonic",
-  13: "blues",
-  14: "soft-tap",
-  15: "sharp-tap",
-  16: "wooden",
-  17: "bubble",
-  18: "metallic",
-  19: "glass",
-  20: "deep",
-  21: "crisp",
-  22: "arcade-key",
-  23: "retro",
-  24: "stone",
-  25: "paper",
-  26: "spring"
-};
+function numberedSoundFiles(folder, count) {
+  return Array.from({ length: count }, (_, index) => `assets/monkeytype-sounds/${folder}/${index + 1}.wav`);
+}
 
 const keyboardSoundFiles = {
-  1: Array.from({ length: 5 }, (_, index) => `assets/key-sounds/clicky/key-${index + 1}.mp3`),
-  2: Array.from({ length: 5 }, (_, index) => `assets/key-sounds/clacky/key-${index + 1}.mp3`),
-  3: Array.from({ length: 5 }, (_, index) => `assets/key-sounds/creamy/key-${index + 1}.mp3`),
-  4: Array.from({ length: 5 }, (_, index) => `assets/key-sounds/thocky/key-${index + 1}.mp3`),
-  5: Array.from({ length: 5 }, (_, index) => `assets/key-sounds/poppy/key-${index + 1}.mp3`),
-  6: Array.from({ length: 5 }, (_, index) => `assets/key-sounds/marbly/key-${index + 1}.mp3`),
-  7: ["assets/key-sounds/typewriter/key.wav", "assets/key-sounds/typewriter/key2.wav"]
+  1: numberedSoundFiles("click", 3),
+  2: numberedSoundFiles("beep", 3),
+  3: numberedSoundFiles("pop", 3),
+  4: numberedSoundFiles("nk-creams", 6),
+  5: numberedSoundFiles("typewriter", 6),
+  6: numberedSoundFiles("osu", 3),
+  7: numberedSoundFiles("hitmarker", 3),
+  14: numberedSoundFiles("fist-fight", 8),
+  15: numberedSoundFiles("rubber-keys", 5),
+  16: numberedSoundFiles("fart", 8),
+  17: numberedSoundFiles("akko-lavenders", 10),
+  18: numberedSoundFiles("cherrymx-black-abs", 10),
+  19: numberedSoundFiles("cherrymx-black-pbt", 10),
+  20: numberedSoundFiles("cherrymx-blue-abs", 10),
+  21: numberedSoundFiles("cherrymx-blue-pbt", 10),
+  22: numberedSoundFiles("cherrymx-brown-pbt", 10),
+  23: numberedSoundFiles("kailh-box-white", 10),
+  24: numberedSoundFiles("razer-green", 10),
+  25: numberedSoundFiles("tealios-v2", 10),
+  26: numberedSoundFiles("trust-gxt", 10)
 };
-const keyboardSoundVolumes = {
-  1: .48,
-  2: .5,
-  3: .58,
-  4: .58,
-  5: .54,
-  6: .52,
-  7: .42
+const errorSoundFiles = {
+  1: numberedSoundFiles("error-damage", 1),
+  2: numberedSoundFiles("error-triangle", 1),
+  3: numberedSoundFiles("error-square", 1),
+  4: numberedSoundFiles("error-missed-punch", 2)
 };
 const keyboardSoundBuffers = {};
-const keyboardSoundCursors = {};
 const keyboardSoundLoading = {};
+const errorSoundBuffers = {};
+const errorSoundLoading = {};
+let timeWarningBuffer;
+let timeWarningLoading;
 
 async function ensureKeySoundStyle(style) {
   if (!keyboardSoundFiles[style] || keyboardSoundBuffers[style]) return;
   if (keyboardSoundLoading[style]) return keyboardSoundLoading[style];
-  const c = ctx();
-  keyboardSoundLoading[style] = Promise.all(keyboardSoundFiles[style].map(async file => {
-      const response = await fetch(new URL(file, document.baseURI));
-      if (!response.ok) throw new Error(`Could not load ${file}`);
-      return c.decodeAudioData(await response.arrayBuffer());
-  })).then(decoded => {
+  keyboardSoundLoading[style] = Promise.all(keyboardSoundFiles[style].map(decodeAudioFile)).then(decoded => {
     keyboardSoundBuffers[style] = decoded;
   }).catch(error => console.warn(`Keyboard sound ${style} could not be loaded.`, error));
   return keyboardSoundLoading[style];
 }
 
+async function ensureErrorSoundStyle(style) {
+  if (!errorSoundFiles[style] || errorSoundBuffers[style]) return;
+  if (errorSoundLoading[style]) return errorSoundLoading[style];
+  errorSoundLoading[style] = Promise.all(errorSoundFiles[style].map(decodeAudioFile)).then(decoded => {
+    errorSoundBuffers[style] = decoded;
+  }).catch(error => console.warn(`Error sound ${style} could not be loaded.`, error));
+  return errorSoundLoading[style];
+}
+
+async function ensureTimeWarningSound() {
+  if (timeWarningBuffer) return;
+  timeWarningLoading ||= decodeAudioFile("assets/monkeytype-sounds/time-warning.wav").then(decoded => {
+    timeWarningBuffer = decoded;
+  }).catch(error => console.warn("Time warning sound could not be loaded.", error));
+  return timeWarningLoading;
+}
+
 async function preloadKeySounds() {
-  await Promise.all([ensureKeySoundStyle(prefs.soundStyle), ensureKeySoundStyle("3")]);
+  await Promise.all([
+    ensureKeySoundStyle(prefs.soundStyle),
+    ensureKeySoundStyle("4"),
+    ensureErrorSoundStyle(prefs.errorStyle),
+    prefs.timeWarning === "off" ? Promise.resolve() : ensureTimeWarningSound()
+  ]);
 }
 
 const rowRewardFiles = Array.from({ length: 9 }, (_, index) => `assets/Shout_${index + 1}.wav`);
@@ -1564,8 +1677,8 @@ function rewardTone(freq, dur, type, gainValue, delay = 0) {
 }
 
 function rewardKeySamples() {
-  const preferred = prefs.soundStyle === "off" ? "3" : prefs.soundStyle;
-  return keyboardSoundBuffers[preferred] || keyboardSoundBuffers["3"] || keyboardSoundBuffers["1"] || [];
+  const preferred = keyboardSoundFiles[prefs.soundStyle] ? prefs.soundStyle : "4";
+  return keyboardSoundBuffers[preferred] || keyboardSoundBuffers["4"] || keyboardSoundBuffers["1"] || [];
 }
 
 function playKeyBloom(isSection) {
@@ -1606,6 +1719,70 @@ function escapeHtml(text) {
   return text.replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[ch]));
 }
 
+const settingDescriptions = {
+  testDuration: "Sets the length of timed tests.",
+  testWordCount: "Sets Words and Creative test length. Counts above 50 open in 50-word sections.",
+  quoteLength: "Limits general quotes to the selected length range.",
+  difficulty: "Controls how broad and challenging the regular word pool is.",
+  capitalization: "Controls letter case in generated practice outside Scripture.",
+  quickRestart: "Assigns one key to restart the current test immediately.",
+  creativeMode: "Chooses the word or character transformation used by Creative tests.",
+  includePunctuation: "Adds sentence marks to generated Time and Words tests.",
+  includeNumbers: "Mixes number groups into generated Time and Words tests.",
+  confidenceMode: "Limits backspacing to the current word or disables it completely.",
+  errorLimit: "Caps repeated errors on one character so accidental key holds cannot ruin statistics.",
+  blindMode: "Hides feedback on completed characters to encourage rhythm over correction.",
+  quickEnd: "Lets Enter finish an active scored test early.",
+  capsLockWarning: "Warns when Caps Lock would make the expected letter case incorrect.",
+  focusMode: "Dims controls and statistics while a test is active.",
+  theme: "Changes the color and contrast style of the whole app.",
+  currentCue: "Chooses how the exact character you need to type is marked.",
+  caretStyle: "Changes the shape used to show the current typing position.",
+  smoothCaret: "Controls how quickly the caret animates between characters.",
+  typedEffect: "Chooses how completed text remains visible. Hide waits until the whole word is finished.",
+  highlightMode: "Chooses whether the current letter, word, next word, or nothing is emphasized.",
+  fontSize: "Changes the size of the typing text.",
+  lineWidth: "Controls the maximum width of the typing area.",
+  timerStyle: "Shows timed-test progress as text, a bar, both, or neither.",
+  speedUnit: "Displays speed as words, characters, or words per second.",
+  showLiveWpm: "Shows current corrected typing speed during a test.",
+  showLiveAccuracy: "Shows current accuracy during a test.",
+  showLiveRaw: "Shows speed before accuracy penalties.",
+  showLiveConsistency: "Shows how evenly spaced your keystrokes are.",
+  showProgress: "Shows test completion percentage or remaining time.",
+  showAllLines: "Adds upcoming lines beneath the active line where supported.",
+  keyboardLayout: "Changes the labels and key arrangement of the on-screen keyboard.",
+  keyboardSize: "Changes the on-screen keyboard scale.",
+  keymapMode: "Shows pressed keys, the next key, a static keyboard, or no keyboard.",
+  keymapStyle: "Displays the keyboard as staggered, matrix, or split rows.",
+  keymapLegend: "Shows uppercase, lowercase, or blank letter keys.",
+  soundStyle: "Chooses the Monkeytype keystroke sound played for accepted keys.",
+  soundVolume: "Sets the volume of keystrokes, errors, warnings, and rewards.",
+  rewardStyle: "Chooses the sound used when a line or full section is completed.",
+  errorStyle: "Chooses the Monkeytype sound played when an incorrect key is blocked.",
+  timeWarning: "Chooses how many seconds before a timed test ends to play a warning.",
+  typingSounds: "Turns accepted-keystroke sounds on or off without changing the selected sound.",
+  errorSounds: "Turns blocked-error sounds on or off without changing the selected sound.",
+  practiceLetters: "Sets how many letters are available in the adaptive word pool.",
+  wordsPerRow: "Sets the target word count for each adaptive row.",
+  dailyGoalMinutes: "Sets the amount of active typing time needed to complete the daily goal."
+};
+
+function installSettingDescriptions() {
+  Object.entries(settingDescriptions).forEach(([id, description]) => {
+    const control = document.getElementById(id);
+    const label = control?.closest("label");
+    if (!control || !label || label.querySelector(`[data-setting-help="${id}"]`)) return;
+    const help = document.createElement("small");
+    help.className = "setting-help";
+    help.id = `settingHelp-${id}`;
+    help.dataset.settingHelp = id;
+    help.textContent = description;
+    label.appendChild(help);
+    control.setAttribute("aria-describedby", help.id);
+  });
+}
+
 function setupSettings() {
   const practiceLetters = document.getElementById("practiceLetters");
   for (let i = startLetters; i <= 26; i++) {
@@ -1617,14 +1794,14 @@ function setupSettings() {
   }
 
   const selectIds = [
-    "testDuration", "testWordCount", "quoteLength", "difficulty", "capitalization", "quickRestart", "confidenceMode",
+    "testDuration", "testWordCount", "quoteLength", "difficulty", "creativeMode", "capitalization", "quickRestart", "confidenceMode",
     "errorLimit", "theme", "currentCue", "caretStyle", "smoothCaret", "typedEffect", "highlightMode", "fontSize",
     "lineWidth", "timerStyle", "speedUnit", "keyboardLayout", "keyboardSize", "keymapMode", "keymapStyle",
     "keymapLegend", "soundStyle", "soundVolume", "rewardStyle", "errorStyle", "timeWarning", "practiceLetters",
     "wordsPerRow", "dailyGoalMinutes"
   ];
   const numericIds = new Set(["testDuration", "testWordCount", "errorLimit", "soundVolume", "practiceLetters", "wordsPerRow", "dailyGoalMinutes"]);
-  const restartIds = new Set(["testDuration", "testWordCount", "quoteLength", "difficulty", "capitalization", "practiceLetters", "wordsPerRow"]);
+  const restartIds = new Set(["testDuration", "testWordCount", "quoteLength", "difficulty", "creativeMode", "capitalization", "practiceLetters", "wordsPerRow"]);
   const keyboardIds = new Set(["keyboardLayout", "keyboardSize", "keymapMode", "keymapStyle", "keymapLegend"]);
 
   selectIds.forEach(id => {
@@ -1646,7 +1823,9 @@ function setupSettings() {
         stopRewardSound();
         playReward(1);
       } else if (id === "errorStyle" && prefs.errorSounds) {
-        playError();
+        ensureErrorSoundStyle(prefs.errorStyle).then(playError);
+      } else if (id === "timeWarning" && prefs.timeWarning !== "off") {
+        ensureTimeWarningSound().then(playTimeWarning);
       }
       if (restartIds.has(id)) restart();
       else if (keyboardIds.has(id)) render();
@@ -1675,6 +1854,8 @@ function setupSettings() {
   });
 
   els.settingsBtn.addEventListener("click", () => els.settingsDialog.showModal());
+
+  installSettingDescriptions();
 
   els.saveCustomText.addEventListener("click", () => {
     const value = els.customTextInput.value.replace(/\s+/g, " ").trim();

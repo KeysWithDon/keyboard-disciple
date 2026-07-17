@@ -13,7 +13,7 @@
   <link rel="canonical" href="https://keyswithdon.github.io/keyboard-disciple/">
   <link rel="sitemap" type="application/xml" href="https://keyswithdon.github.io/keyboard-disciple/sitemap.xml">
   <link rel="icon" href="assets/keyboard-disciple-logo.png">
-  <link rel="stylesheet" href="styles.css?v=20260717-settings-page">
+  <link rel="stylesheet" href="styles.css?v=20260717-monkeytype-audio">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Keyboard Disciple">
   <meta property="og:title" content="Keyboard Disciple | Free Typing Practice Game">
@@ -76,6 +76,7 @@
             <button class="mode-button" data-mode="quote">Quotes</button>
             <button class="mode-button" data-mode="zen">Zen</button>
             <button class="mode-button" data-mode="custom">Custom</button>
+            <button class="mode-button" data-mode="creative">Creative</button>
           </div>
         </div>
         <div class="mode-group">
@@ -271,6 +272,16 @@
                   <option value="enter">Enter</option>
                 </select>
               </label>
+              <label>Creative mode
+                <select id="creativeMode">
+                  <option value="weakspot">Weakspot</option>
+                  <option value="gibberish">Gibberish</option>
+                  <option value="ascii">ASCII</option>
+                  <option value="backwards">Backwards</option>
+                  <option value="doubled">Doubled</option>
+                  <option value="random-case">Random Case</option>
+                </select>
+              </label>
             </div>
             <div class="toggle-list">
               <label><input type="checkbox" id="includePunctuation" checked> Punctuation</label>
@@ -445,35 +456,35 @@
           <section class="settings-pane" data-settings-panel="audio">
             <h3>Audio</h3>
             <div class="settings-grid">
-              <label>Keyboard sound
+              <label>Keystroke sound
                 <select id="soundStyle">
-                  <option value="1">Sound 1</option>
-                  <option value="2">Sound 2</option>
-                  <option value="3">Sound 3</option>
-                  <option value="4">Sound 4</option>
-                  <option value="5">Sound 5</option>
-                  <option value="6">Sound 6</option>
-                  <option value="7">Sound 7</option>
-                  <option value="8">Sound 8</option>
-                  <option value="9">Sound 9</option>
-                  <option value="10">Sound 10</option>
-                  <option value="11">Sound 11</option>
-                  <option value="12">Sound 12</option>
-                  <option value="13">Sound 13</option>
-                  <option value="14">Sound 14</option>
-                  <option value="15">Sound 15</option>
-                  <option value="16">Sound 16</option>
-                  <option value="17">Sound 17</option>
-                  <option value="18">Sound 18</option>
-                  <option value="19">Sound 19</option>
-                  <option value="20">Sound 20</option>
-                  <option value="21">Sound 21</option>
-                  <option value="22">Sound 22</option>
-                  <option value="23">Sound 23</option>
-                  <option value="24">Sound 24</option>
-                  <option value="25">Sound 25</option>
-                  <option value="26">Sound 26</option>
                   <option value="off">Off</option>
+                  <option value="1">Click</option>
+                  <option value="2">Beep</option>
+                  <option value="3">Pop</option>
+                  <option value="4">NK Creams</option>
+                  <option value="5">Typewriter</option>
+                  <option value="6">Osu!</option>
+                  <option value="7">Hitmarker</option>
+                  <option value="8">Sine</option>
+                  <option value="9">Sawtooth</option>
+                  <option value="10">Square</option>
+                  <option value="11">Triangle</option>
+                  <option value="12">Pentatonic</option>
+                  <option value="13">Whole Tone</option>
+                  <option value="14">Fist Fight</option>
+                  <option value="15">Rubber Keys</option>
+                  <option value="16">Fart</option>
+                  <option value="17">Akko Lavenders</option>
+                  <option value="18">Cherry MX Black ABS</option>
+                  <option value="19">Cherry MX Black PBT</option>
+                  <option value="20">Cherry MX Blue ABS</option>
+                  <option value="21">Cherry MX Blue PBT</option>
+                  <option value="22">Cherry MX Brown PBT</option>
+                  <option value="23">Kailh Box White</option>
+                  <option value="24">Razer Green</option>
+                  <option value="25">Tealios V2</option>
+                  <option value="26">Trust GXT</option>
                 </select>
               </label>
               <label>Volume
@@ -493,10 +504,11 @@
               </label>
               <label>Error sound
                 <select id="errorStyle">
-                  <option value="1">Error 1</option>
-                  <option value="2">Error 2</option>
-                  <option value="3">Error 3</option>
-                  <option value="4">Error 4</option>
+                  <option value="off">Off</option>
+                  <option value="1">Damage</option>
+                  <option value="2">Triangle</option>
+                  <option value="3">Square</option>
+                  <option value="4">Missed Punch</option>
                 </select>
               </label>
               <label>Time warning
@@ -587,6 +599,6 @@
     </form>
   </dialog>
 
-  <script src="app.js?v=20260717-settings-page"></script>
+  <script src="app.js?v=20260717-monkeytype-audio"></script>
 </body>
 </html>

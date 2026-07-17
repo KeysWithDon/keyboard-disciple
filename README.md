@@ -1,6 +1,6 @@
 # Keyboard Disciple
 
-Keyboard Disciple is a fast, game-inspired typing practice app with adaptive letter progression, live keyboard feedback, saved progress, Bible reading, and Bible quote practice.
+Keyboard Disciple is a fast, game-inspired typing practice app with adaptive letter progression, creative tests, live keyboard feedback, saved progress, Bible reading, and Bible quote practice.
 
 ## Play
 
@@ -12,4 +12,6 @@ The public-domain KJV text is included for complete Bible reading and quote prac
 
 ## Sound Credits
 
-Keyboard samples come from the MIT-licensed [Keyboard Sounds Pro](https://github.com/keyboard-sounds/keyboardsounds-pro) project. The mechanical-switch recordings originated in the MIT-licensed `kbsim` sample collection by Thomas Lai. License copies are included in `assets/key-sounds`.
+The keystroke, error, and timer-warning sounds are the original files distributed by the open-source [Monkeytype](https://github.com/monkeytypegame/monkeytype) project. Monkeytype is licensed under GPL-3.0; its license is included at `assets/monkeytype-sounds/LICENSE-GPL-3.0.txt`.
+
+The Creative test includes Keyboard Disciple implementations of selected Monkeytype Funbox concepts: Weakspot, Gibberish, ASCII, Backwards, Doubled, and Random Case.
