@@ -175,6 +175,7 @@ try { storedData = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"); } catc
 const defaultPrefs = {
   mode: "adaptive",
   practiceLetters: startLetters,
+  focusLetters: [],
   wordsPerRow: 10,
   targetSpeed: 35,
   practicePreset: "balanced",
@@ -255,6 +256,10 @@ const prefs = Object.fromEntries(Object.keys(defaultPrefs).map(key => [
   storedPrefs[key] ?? defaultPrefs[key]
 ]));
 prefs.practiceLetters = Math.max(startLetters, Math.min(letterOrder.length, Number(prefs.practiceLetters) || startLetters));
+if (!Array.isArray(prefs.focusLetters)) prefs.focusLetters = [];
+prefs.focusLetters = [...new Set(prefs.focusLetters.map(letter => String(letter).toUpperCase()))]
+  .filter(letter => letterOrder.includes(letter) && letterOrder.indexOf(letter) < prefs.practiceLetters)
+  .slice(0, 5);
 prefs.testDuration = Math.max(5, Math.min(600, Number(prefs.testDuration) || defaultPrefs.testDuration));
 prefs.testWordCount = Math.max(1, Math.min(3000, Math.round(Number(prefs.testWordCount) || defaultPrefs.testWordCount)));
 prefs.errorLimit = Math.max(1, Math.min(8, Number(prefs.errorLimit) || defaultPrefs.errorLimit));
@@ -488,7 +493,8 @@ const els = Object.fromEntries([
   "letterCurveCaption", "letterChart", "adaptiveResultDetails", "adaptiveStatsChart", "adaptiveRank", "adaptiveWeakestLetter", "adaptiveWeakestDetail",
   "adaptiveStrongestLetter", "adaptiveStrongestDetail", "adaptiveFastestWpm", "adaptiveSlowestWpm", "adaptiveErrors", "adaptiveConsistency",
   "adaptiveMissedLetters", "adaptiveMissedSummary", "adaptiveTechniqueSummary", "adaptiveTechniqueList",
-  "adaptiveRecommendationName", "adaptiveRecommendationReason", "adaptiveRecommendationButton", "settingsKeyboardMap"
+  "adaptiveRecommendationName", "adaptiveRecommendationReason", "adaptiveRecommendationButton", "settingsKeyboardMap",
+  "focusLettersPicker", "focusLettersSummary"
 ].map(id => [id, document.getElementById(id)]));
 
 let saveTimer;
@@ -1067,6 +1073,18 @@ function adaptiveFocusLetter() {
   })[0];
 }
 
+function selectedAdaptiveFocusLetters() {
+  const earned = new Set(letterOrder.slice(0, Number(prefs.practiceLetters)));
+  return [...new Set((Array.isArray(prefs.focusLetters) ? prefs.focusLetters : []).map(letter => String(letter).toUpperCase()))]
+    .filter(letter => earned.has(letter))
+    .slice(0, 5);
+}
+
+function adaptiveFocusLabel() {
+  const selected = selectedAdaptiveFocusLetters();
+  return selected.length ? selected.join(" / ") : adaptiveFocusLetter();
+}
+
 function canUnlockNextLetter() {
   if (Number(prefs.practiceLetters) >= letterOrder.length) return false;
   const earned = letterOrder.slice(0, Number(prefs.practiceLetters));
@@ -1107,7 +1125,8 @@ function adaptiveRecoveryActive() {
 
 function wordDeck() {
   const unlocked = allowedSet();
-  const focusLetter = adaptiveFocusLetter().toLowerCase();
+  const selectedFocusLetters = selectedAdaptiveFocusLetters().map(letter => letter.toLowerCase());
+  const focusLetters = selectedFocusLetters.length ? selectedFocusLetters : [adaptiveFocusLetter().toLowerCase()];
   const isAllowed = word => [...word.toLowerCase()].every(ch => !/[a-z]/.test(ch) || unlocked.has(ch));
   const allNatural = [...new Set(commonWords.concat(moderateWords, rareWords, dictionaryExtra, rareLetterFocusPool))].filter(isAllowed);
   const broadCommon = prefs.naturalWords
@@ -1117,7 +1136,9 @@ function wordDeck() {
   const moderate = shuffle(moderateWords.concat(dictionaryExtra.filter(w => w.length >= 6 && w.length <= 9)).filter(isAllowed));
   const rare = shuffle(rareWords.concat(dictionaryExtra.filter(w => w.length >= 9)).filter(isAllowed));
   const rareFocus = shuffle(rareLetterFocusPool.filter(isAllowed));
-  const focus = shuffle(allNatural.filter(word => word.includes(focusLetter)));
+  const focusScore = word => focusLetters.reduce((score, letter) => score + [...word].filter(character => character === letter).length, 0);
+  const focus = shuffle(allNatural.filter(word => focusScore(word) > 0))
+    .sort((a, b) => focusScore(b) - focusScore(a));
   const weakLetters = weakestPracticeLetters();
   const weak = shuffle(allNatural.filter(word => weakLetters.some(letter => word.includes(letter))));
   const finger = shuffle(allNatural.filter(word => weakLetters.some(letter => {
@@ -1125,7 +1146,10 @@ function wordDeck() {
     return [...word].some(candidate => /^[a-z]$/i.test(candidate) && fingerZone(candidate).label === zone);
   })));
   const alternating = shuffle(allNatural.filter(alternatingWord));
-  return { common, moderate, rare, rareFocus, focus, weak, finger, alternating, focusLetter };
+  return {
+    common, moderate, rare, rareFocus, focus, weak, finger, alternating,
+    focusLetter: focusLetters[0], focusLetters: selectedFocusLetters
+  };
 }
 
 function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
@@ -1145,13 +1169,15 @@ function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
   const readiness = Math.min(1, progress.lessonHistory.length / 8) * Math.min(1, (Number(progress.avgAccuracy) || 0) / 94);
   const moderateInterval = recoveryMode ? Number.MAX_SAFE_INTEGER : readiness > .7 ? 10 : 20;
   const rareInterval = recoveryMode ? Number.MAX_SAFE_INTEGER : readiness > .88 ? 50 : 100;
+  const explicitFocus = deck.focusLetters.length > 0;
   for (let r = 0; r < rowCount; r++) {
     const words = [];
     for (let i = 0; i < Number(prefs.wordsPerRow); i++) {
       const pos = r * Number(prefs.wordsPerRow) + i + 1;
       let list = deck.common;
       let index = ci++;
-      if (presetPool.length && pos % 2 === 0) { list = presetPool; index = activePreset === "finger" ? fgi++ : activePreset === "alternation" ? ai++ : wi++; }
+      if (explicitFocus && deck.focus.length && pos % 5 !== 0) { list = deck.focus; index = fi++; }
+      else if (presetPool.length && pos % 2 === 0) { list = presetPool; index = activePreset === "finger" ? fgi++ : activePreset === "alternation" ? ai++ : wi++; }
       else if (pos % 3 === 0 && deck.focus.length) { list = deck.focus; index = fi++; }
       else if (pos % 11 === 0 && deck.rareFocus.length) { list = deck.rareFocus; index = rfi++; }
       else if (pos % rareInterval === 0 && deck.rare.length) { list = deck.rare; index = ri++; }
@@ -1545,7 +1571,7 @@ function prepareCreativeLine() {
 
 function modeCopy() {
   const copy = {
-    adaptive: ["Adaptive letters", `Focus ${adaptiveFocusLetter()} / ${prefs.targetSpeed} WPM target`],
+    adaptive: ["Adaptive letters", `Focus ${adaptiveFocusLabel()} / ${prefs.targetSpeed} WPM target`],
     time: ["Timed Test", `${prefs.testDuration} second sprint`],
     words: ["Word Test", `${prefs.testWordCount} word challenge`],
     placement: ["Placement Check", "Find your starting point"],
@@ -1585,6 +1611,7 @@ function render() {
   renderText();
   renderKeyboard();
   renderSettingsKeyboardMap();
+  renderFocusLetterPicker();
   renderLetterProgress();
   renderPerformance();
   renderLiveMetrics();
@@ -1604,14 +1631,20 @@ function renderLetterProgress() {
   const earnedLetters = new Set(letterOrder.slice(0, unlockedCount));
   const nextLetter = letterOrder[unlockedCount];
   const focusLetter = adaptiveFocusLetter();
+  const selectedFocusLetters = selectedAdaptiveFocusLetters();
   const recoveryMode = adaptiveRecoveryActive();
   const activePreset = recoveryMode ? "accuracy" : prefs.practicePreset;
   els.practiceFocusIndicator.dataset.focus = activePreset;
-  els.practiceFocusName.textContent = practicePresetLabels[activePreset] || practicePresetLabels.balanced;
-  els.practiceFocusDescription.textContent = practicePresetDescriptions[activePreset] || practicePresetDescriptions.balanced;
+  els.practiceFocusName.textContent = selectedFocusLetters.length
+    ? `Letters ${selectedFocusLetters.join(" / ")}`
+    : practicePresetLabels[activePreset] || practicePresetLabels.balanced;
+  els.practiceFocusDescription.textContent = selectedFocusLetters.length
+    ? `Upcoming words prioritize ${selectedFocusLetters.join(", ")} while staying inside the earned alphabet.`
+    : practicePresetDescriptions[activePreset] || practicePresetDescriptions.balanced;
   els.practiceFocusState.textContent = recoveryMode ? "Recovery" : "Active";
   els.unlockCount.textContent = `${unlockedCount} / ${letterOrder.length}`;
-  els.unlockNext.textContent = nextLetter ? `Focus ${focusLetter} / next ${nextLetter}` : `Focus ${focusLetter} / alphabet complete`;
+  const focusLabel = selectedFocusLetters.length ? selectedFocusLetters.join(" / ") : focusLetter;
+  els.unlockNext.textContent = nextLetter ? `Focus ${focusLabel} / next ${nextLetter}` : `Focus ${focusLabel} / alphabet complete`;
 
   let totalAttempts = 0;
   let totalCorrect = 0;
@@ -1837,12 +1870,9 @@ function fitPracticeLines(lines) {
     els.typingText.style.fontSize = "";
     return;
   }
-  requestAnimationFrame(() => {
-    const longest = Math.max(1, ...lines.map(line => [...line].length));
-    const baseSize = { small: 25, medium: 32, large: 38, xlarge: 44 }[prefs.fontSize] || 32;
-    const fitted = Math.max(13, Math.min(baseSize, els.typingText.clientWidth / (longest * .61)));
-    els.typingText.style.fontSize = `${fitted.toFixed(1)}px`;
-  });
+  // Keep the selected size intact. Word spans wrap as units when a larger
+  // setting needs more room, so a word is never clipped or split.
+  els.typingText.style.fontSize = "";
 }
 
 function renderText() {
@@ -1907,6 +1937,7 @@ function renderSettingsKeyboardMap() {
   if (!els.settingsKeyboardMap) return;
   const layout = keyboardLayouts[prefs.keyboardLayout] || keyboardLayouts.mac;
   const earned = new Set(letterOrder.slice(0, Number(prefs.practiceLetters)));
+  const focused = new Set(selectedAdaptiveFocusLetters());
   els.settingsKeyboardMap.className = `settings-keyboard-map keyboard ${prefs.keyboardSize} layout-${prefs.keyboardLayout} style-${prefs.keymapStyle}`;
   els.settingsKeyboardMap.innerHTML = layout.map((row, rowIndex) => {
     const keys = row.map(key => {
@@ -1918,11 +1949,13 @@ function renderSettingsKeyboardMap() {
       const stats = isLetter ? progress.letterStats[key.id] || { attempts: 0, correct: 0 } : null;
       const mastery = isLetter ? letterMastery(key.id) : null;
       const isEarned = isLetter && earned.has(key.id.toUpperCase());
+      const isFocus = isLetter && focused.has(key.id.toUpperCase());
       const classes = [
         "key", "settings-map-key", zone.className,
         isLetter ? "map-letter" : "modifier",
         isLetter && isEarned ? "earned" : "",
         isLetter && !isEarned ? "map-locked" : "",
+        isFocus ? "map-focus" : "",
         isLetter && stats?.attempts ? "has-progress" : ""
       ].filter(Boolean).join(" ");
       const label = isLetter ? key.id.toUpperCase() : key.label;
@@ -1934,6 +1967,23 @@ function renderSettingsKeyboardMap() {
     }).join("");
     return `<div class="key-row key-row-${rowIndex + 1}">${keys}</div>`;
   }).join("");
+}
+
+function renderFocusLetterPicker() {
+  if (!els.focusLettersPicker) return;
+  const earnedCount = Number(prefs.practiceLetters);
+  const earned = new Set(letterOrder.slice(0, earnedCount));
+  const selected = new Set(selectedAdaptiveFocusLetters());
+  els.focusLettersPicker.innerHTML = letterOrder.map(letter => {
+    const isEarned = earned.has(letter);
+    const isSelected = selected.has(letter);
+    const stateClass = isSelected ? "selected" : isEarned ? "available" : "locked";
+    const detail = isSelected ? `${letter} selected for word focus` : isEarned ? `Select ${letter} for word focus` : `${letter} unlocks later`;
+    return `<button type="button" class="focus-letter-button ${stateClass}" data-focus-letter="${letter}"${isEarned ? "" : " disabled"} aria-pressed="${isSelected}" title="${detail}">${letter}</button>`;
+  }).join("");
+  els.focusLettersSummary.textContent = selected.size
+    ? `${selected.size} / 5 selected · ${[...selected].join(" / ")}`
+    : "Optional · choose up to 5 earned letters";
 }
 
 function fingerZone(key) {
@@ -2818,6 +2868,7 @@ const settingDescriptions = {
   typingSounds: "Turns accepted-keystroke sounds on or off without changing the selected sound.",
   errorSounds: "Turns blocked-error sounds on or off without changing the selected sound.",
   practiceLetters: "Sets the starting alphabet size. Automatic unlocks still require confidence evidence.",
+  focusLetters: "Prioritizes upcoming adaptive words that contain up to five selected earned letters. Leave it empty for automatic weakest-letter focus.",
   targetSpeed: "Sets the per-letter speed needed for full confidence and the next automatic unlock.",
   recoverKeys: "Requires every earned letter to be currently above target before the next one unlocks.",
   naturalWords: "Keeps adaptive lessons inside the curated natural vocabulary; off broadens that vocabulary without using nonsense strings.",
@@ -2948,6 +2999,23 @@ function setupSettings() {
     });
   });
 
+  els.focusLettersPicker.onclick = event => {
+    const button = event.target.closest("[data-focus-letter]");
+    if (!button || button.disabled) return;
+    const letter = button.dataset.focusLetter;
+    const selected = selectedAdaptiveFocusLetters();
+    const next = selected.includes(letter)
+      ? selected.filter(item => item !== letter)
+      : selected.length >= 5
+        ? selected
+        : [...selected, letter];
+    prefs.focusLetters = letterOrder.filter(item => next.includes(item));
+    save();
+    renderFocusLetterPicker();
+    if (state.mode === "adaptive") restart();
+    else render();
+  };
+
   const toggleIds = [
     "includePunctuation", "includeNumbers", "blindMode", "quickEnd", "capsLockWarning", "focusMode", "showLiveWpm",
     "freedomMode", "strictSpace", "oppositeShiftMode", "britishEnglish", "lazyMode", "showLiveAccuracy", "showLiveRaw",
@@ -2970,6 +3038,7 @@ function setupSettings() {
 
   updateCreativeDescription();
   updatePracticePresetDescription();
+  renderFocusLetterPicker();
   installSettingDescriptions();
 }
 

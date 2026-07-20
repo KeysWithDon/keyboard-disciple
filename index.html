@@ -13,8 +13,8 @@
   <link rel="canonical" href="https://keyswithdon.github.io/keyboard-disciple/">
   <link rel="sitemap" type="application/xml" href="https://keyswithdon.github.io/keyboard-disciple/sitemap.xml">
   <link rel="icon" href="assets/keyboard-disciple-mark.png">
-  <link rel="stylesheet" href="styles.css?v=20260720-missed-map">
-  <link rel="stylesheet" href="refresh.css?v=20260720-missed-map">
+  <link rel="stylesheet" href="styles.css?v=20260720-focus-text-size">
+  <link rel="stylesheet" href="refresh.css?v=20260720-focus-text-size">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Keyboard Disciple">
   <meta property="og:title" content="Keyboard Disciple | Free Typing Practice Game">
@@ -736,6 +736,14 @@
               <label>Starting alphabet
                 <select id="practiceLetters"></select>
               </label>
+              <div class="focus-letter-setting">
+                <span>Focus letters</span>
+                <div class="focus-letter-control">
+                  <div class="focus-letter-picker" id="focusLettersPicker" role="group" aria-label="Focus letters"></div>
+                  <span class="focus-letter-summary" id="focusLettersSummary">Optional · choose up to 5 earned letters</span>
+                  <small class="setting-help">Prioritizes upcoming adaptive words that contain up to five selected earned letters. Leave it empty for automatic weakest-letter focus.</small>
+                </div>
+              </div>
               <label>Target speed
                 <select id="targetSpeed">
                   <option value="20">20 WPM</option>
@@ -831,6 +839,6 @@
     </form>
   </dialog>
 
-  <script src="app.js?v=20260720-missed-map"></script>
+  <script src="app.js?v=20260720-focus-text-size"></script>
 </body>
 </html>
