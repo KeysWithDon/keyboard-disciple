@@ -25,6 +25,12 @@ const practicePresetLabels = {
   finger: "Finger focus",
   alternation: "Hand alternation"
 };
+const lessonReminders = [
+  { kind: "posture", title: "Posture check", text: "Drop your shoulders, keep your wrists neutral, and let your hands float over the home row." },
+  { kind: "breath", title: "Breathe and relax", text: "Take one slow deep breath. Unclench your jaw, soften your grip, and return at an easy pace." },
+  { kind: "posture", title: "Relax your hands", text: "Keep your fingers curved and light. Let each key press come from a calm, balanced hand." },
+  { kind: "breath", title: "Reset your rhythm", text: "Breathe deeply, release tension in your shoulders, and let accuracy lead the next line." }
+];
 const creativeModeStyles = new Set([
   "weakspot", "58008", "mirror", "upside_down", "nausea", "round_round_baby", "simon_says", "tts",
   "choo_choo", "arrows", "rAnDoMcAsE", "sPoNgEcAsE", "capitals", "layout_mirror", "layoutfluid",
@@ -166,7 +172,11 @@ const state = {
   memoryVisible: true,
   lastQuote: null,
   lastRestReminder: 0,
-  techniqueMessageUntil: 0
+  techniqueMessageUntil: 0,
+  postureReminderNextRow: 3,
+  postureReminderUntilRow: -1,
+  postureReminder: null,
+  postureReminderLastIndex: -1
 };
 
 let storedData = {};
@@ -494,7 +504,7 @@ const els = Object.fromEntries([
   "adaptiveStrongestLetter", "adaptiveStrongestDetail", "adaptiveFastestWpm", "adaptiveSlowestWpm", "adaptiveErrors", "adaptiveConsistency",
   "adaptiveMissedLetters", "adaptiveMissedSummary", "adaptiveTechniqueSummary", "adaptiveTechniqueList", "adaptiveRepairFocusButton",
   "adaptiveRecommendationName", "adaptiveRecommendationReason", "adaptiveRecommendationButton", "settingsKeyboardMap",
-  "letterFocusCheckbox", "letterFocusHint"
+  "letterFocusCheckbox", "letterFocusHint", "postureReminder", "postureReminderTitle", "postureReminderText"
 ].map(id => [id, document.getElementById(id)]));
 
 let saveTimer;
@@ -1515,6 +1525,10 @@ async function restart() {
   state.memoryVisible = true;
   state.lastRestReminder = 0;
   state.techniqueMessageUntil = 0;
+  state.postureReminderNextRow = 2 + Math.floor(Math.random() * 3);
+  state.postureReminderUntilRow = -1;
+  state.postureReminder = null;
+  state.postureReminderLastIndex = -1;
   els.completionBanner.classList.add("hidden");
   if (state.mode === "adaptive") {
     state.targetRows = makeAdaptiveRows(rowsPerPage * 2);
@@ -1644,9 +1658,42 @@ function render() {
   els.keyboardWrap.classList.toggle("hidden", prefs.keymapMode === "off" || state.testCompleted);
 }
 
+function renderPostureReminder() {
+  if (!els.postureReminder) return;
+  const isAdaptiveLesson = state.mode === "adaptive" && !state.testCompleted;
+  if (!isAdaptiveLesson) {
+    els.postureReminder.classList.add("hidden");
+    return;
+  }
+
+  if (state.postureReminder && state.rowIndex >= state.postureReminderUntilRow) {
+    state.postureReminder = null;
+    state.postureReminderNextRow = state.rowIndex + 3 + Math.floor(Math.random() * 3);
+  }
+  if (!state.postureReminder && state.rowIndex >= state.postureReminderNextRow && state.rowIndex < rowsPerPage) {
+    let reminderIndex = Math.floor(Math.random() * lessonReminders.length);
+    if (lessonReminders.length > 1 && reminderIndex === state.postureReminderLastIndex) {
+      reminderIndex = (reminderIndex + 1) % lessonReminders.length;
+    }
+    state.postureReminderLastIndex = reminderIndex;
+    state.postureReminder = lessonReminders[reminderIndex];
+    state.postureReminderUntilRow = Math.min(rowsPerPage, state.rowIndex + 2);
+  }
+  if (!state.postureReminder) {
+    els.postureReminder.classList.add("hidden");
+    return;
+  }
+
+  els.postureReminder.dataset.kind = state.postureReminder.kind;
+  els.postureReminderTitle.textContent = state.postureReminder.title;
+  els.postureReminderText.textContent = state.postureReminder.text;
+  els.postureReminder.classList.remove("hidden");
+}
+
 function renderLetterProgress() {
   const isAdaptive = state.mode === "adaptive";
   els.letterHud.classList.toggle("hidden", !isAdaptive);
+  renderPostureReminder();
   if (!isAdaptive) return;
 
   const unlockedCount = Number(prefs.practiceLetters);

@@ -518,6 +518,46 @@ button, select, input, textarea { font-family: inherit; }
 
 .confidence-scale { display: flex; align-items: center; justify-content: flex-end; gap: 6px; color: var(--faint); font-size: 8px; text-transform: uppercase; }
 .confidence-scale i { width: 58px; height: 2px; background: linear-gradient(90deg, var(--red), var(--gold), var(--green)); }
+.lesson-reminder {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1fr);
+  align-items: center;
+  gap: 11px;
+  margin-top: 10px;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--gold) 72%, var(--line));
+  border-radius: 6px;
+  color: var(--text);
+  background: linear-gradient(110deg, color-mix(in srgb, var(--gold) 18%, transparent), color-mix(in srgb, var(--lesson-color) 9%, transparent));
+  box-shadow: 0 0 22px color-mix(in srgb, var(--gold) 13%, transparent), inset 0 1px 0 color-mix(in srgb, var(--text) 12%, transparent);
+}
+.lesson-reminder[data-kind="breath"] {
+  border-color: color-mix(in srgb, var(--cyan) 62%, var(--line));
+  background: linear-gradient(110deg, color-mix(in srgb, var(--cyan) 15%, transparent), color-mix(in srgb, var(--lesson-color) 8%, transparent));
+}
+.lesson-reminder-mark {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 50%;
+  color: var(--gold);
+  font-size: 17px;
+  line-height: 1;
+  text-shadow: 0 0 12px currentColor;
+}
+.lesson-reminder[data-kind="breath"] .lesson-reminder-mark { color: var(--cyan); }
+.lesson-reminder > div { min-width: 0; display: grid; gap: 3px; }
+.lesson-reminder strong { color: var(--gold); font-size: 11px; font-weight: 750; text-transform: uppercase; letter-spacing: .04em; }
+.lesson-reminder[data-kind="breath"] strong { color: var(--cyan); }
+.lesson-reminder p { margin: 0; color: var(--text); font-size: 11px; line-height: 1.45; }
+@media (max-width: 620px) {
+  .lesson-reminder { grid-template-columns: 28px minmax(0, 1fr); padding: 10px 11px; }
+  .lesson-reminder-mark { width: 26px; height: 26px; }
+  .lesson-reminder p { font-size: 10px; }
+}
 .unlock-meter { height: 1px; overflow: hidden; background: var(--line); }
 .unlock-meter span { display: block; height: 100%; background: var(--gold); transition: width 180ms ease; }
 

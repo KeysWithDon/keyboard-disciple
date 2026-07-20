@@ -13,8 +13,8 @@
   <link rel="canonical" href="https://keyswithdon.github.io/keyboard-disciple/">
   <link rel="sitemap" type="application/xml" href="https://keyswithdon.github.io/keyboard-disciple/sitemap.xml">
   <link rel="icon" href="assets/keyboard-disciple-mark.png">
-  <link rel="stylesheet" href="styles.css?v=20260720-repair-focus">
-  <link rel="stylesheet" href="refresh.css?v=20260720-repair-focus">
+  <link rel="stylesheet" href="styles.css?v=20260720-posture-reminders">
+  <link rel="stylesheet" href="refresh.css?v=20260720-posture-reminders">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Keyboard Disciple">
   <meta property="og:title" content="Keyboard Disciple | Free Typing Practice Game">
@@ -119,6 +119,13 @@
         <div class="letter-heatmap" id="letterHeatmap"></div>
         <div class="confidence-scale" aria-hidden="true">
           <span>learning</span><i></i><span>target</span>
+        </div>
+        <div class="lesson-reminder hidden" id="postureReminder" role="status" aria-live="polite">
+          <span class="lesson-reminder-mark" aria-hidden="true">+</span>
+          <div>
+            <strong id="postureReminderTitle">Posture check</strong>
+            <p id="postureReminderText">Relax your shoulders and keep your wrists neutral.</p>
+          </div>
         </div>
       </section>
 
@@ -839,6 +846,6 @@
     </form>
   </dialog>
 
-  <script src="app.js?v=20260720-repair-focus"></script>
+  <script src="app.js?v=20260720-posture-reminders"></script>
 </body>
 </html>
