@@ -13,8 +13,8 @@
   <link rel="canonical" href="https://keyswithdon.github.io/keyboard-disciple/">
   <link rel="sitemap" type="application/xml" href="https://keyswithdon.github.io/keyboard-disciple/sitemap.xml">
   <link rel="icon" href="assets/keyboard-disciple-mark.png">
-  <link rel="stylesheet" href="styles.css?v=20260720-posture-layout">
-  <link rel="stylesheet" href="refresh.css?v=20260720-posture-layout">
+  <link rel="stylesheet" href="styles.css?v=20260720-adaptive-modes-specials">
+  <link rel="stylesheet" href="refresh.css?v=20260720-adaptive-modes-specials">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Keyboard Disciple">
   <meta property="og:title" content="Keyboard Disciple | Free Typing Practice Game">
@@ -120,6 +120,13 @@
         <div class="confidence-scale" aria-hidden="true">
           <span>learning</span><i></i><span>target</span>
         </div>
+        <section class="special-progress" aria-labelledby="specialProgressTitle">
+          <header>
+            <span id="specialProgressTitle">Numbers & symbols</span>
+            <small>Samples develop their own accuracy heatmap.</small>
+          </header>
+          <div class="special-heatmap" id="specialHeatmap"></div>
+        </section>
         <div class="lesson-reminder hidden" id="postureReminder" role="status" aria-live="polite">
           <span class="lesson-reminder-mark" aria-hidden="true">+</span>
           <div>
@@ -234,7 +241,8 @@
               <h3 id="adaptiveRecommendationTitle"><span id="adaptiveRecommendationName">Balanced</span></h3>
               <p id="adaptiveRecommendationReason">Complete three adaptive lessons to unlock a more specific recommendation.</p>
             </div>
-            <button class="primary-button" id="adaptiveRecommendationButton" type="button">Use Balanced</button>
+            <div class="adaptive-mode-picker" id="adaptiveModePicker" aria-label="Suggested next-lesson modes"></div>
+            <button class="primary-button" id="adaptiveRecommendationButton" type="button">Start selected lesson</button>
           </section>
         </div>
         <button class="primary-button" id="resultRestartBtn" type="button">Restart</button>
@@ -853,6 +861,6 @@
     </form>
   </dialog>
 
-  <script src="app.js?v=20260720-posture-layout"></script>
+  <script src="app.js?v=20260720-adaptive-modes-specials"></script>
 </body>
 </html>

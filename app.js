@@ -1,4 +1,10 @@
 const letterOrder = "ENIARLTOSUDYCGHPMKBWFZVXQJ".split("");
+const specialProgressKeys = [
+  { key: " ", label: "Space", glyph: "·" },
+  ..."0123456789".split("").map(key => ({ key, label: key, glyph: key })),
+  ...[".", ",", "!", "?", ";", ":", "'", "\"", "-", "_", "/", "\\", "(", ")", "[", "]", "{", "}", "@", "#", "$", "%", "&", "*", "+", "="]
+    .map(key => ({ key, label: key, glyph: key }))
+];
 const startLetters = 6;
 const rowsPerPage = 10;
 const adaptiveLinesPerLesson = rowsPerPage;
@@ -200,6 +206,7 @@ const defaultPrefs = {
   wordsPerRow: 10,
   targetSpeed: 35,
   practicePreset: "balanced",
+  practicePresets: ["balanced"],
   recoverKeys: true,
   naturalWords: true,
   dailyGoalMinutes: 15,
@@ -296,6 +303,10 @@ if (!rewardSoundStyles.has(prefs.rewardStyle)) prefs.rewardStyle = defaultPrefs.
 if (!reminderSoundStyles.has(prefs.reminderSound)) prefs.reminderSound = defaultPrefs.reminderSound;
 if (!errorSoundStyles.has(prefs.errorStyle)) prefs.errorStyle = defaultPrefs.errorStyle;
 if (!practicePresetStyles.has(prefs.practicePreset)) prefs.practicePreset = defaultPrefs.practicePreset;
+if (!Array.isArray(prefs.practicePresets)) prefs.practicePresets = [prefs.practicePreset];
+prefs.practicePresets = [...new Set(prefs.practicePresets.filter(preset => practicePresetStyles.has(preset)))].slice(0, 3);
+if (!prefs.practicePresets.length) prefs.practicePresets = [prefs.practicePreset];
+prefs.practicePreset = prefs.practicePresets[0];
 if (!creativeModeStyles.has(prefs.creativeMode)) prefs.creativeMode = defaultPrefs.creativeMode;
 if (!themeStyles.has(prefs.theme)) prefs.theme = defaultPrefs.theme;
 if (!lessonColorStyles.has(prefs.lessonColor)) prefs.lessonColor = defaultPrefs.lessonColor;
@@ -344,6 +355,7 @@ const progress = Object.assign({
   avgWpm: 0,
   avgAccuracy: 100,
   letterStats: {},
+  characterStats: {},
   lessonHistory: [],
   adaptiveLessonHistory: [],
   letterHistory: {},
@@ -353,6 +365,7 @@ const progress = Object.assign({
   placement: null
 }, storedData.progress || {});
 if (!progress.letterStats || typeof progress.letterStats !== "object") progress.letterStats = {};
+if (!progress.characterStats || typeof progress.characterStats !== "object" || Array.isArray(progress.characterStats)) progress.characterStats = {};
 if (!Array.isArray(progress.lessonHistory)) progress.lessonHistory = [];
 if (!Array.isArray(progress.adaptiveLessonHistory)) progress.adaptiveLessonHistory = [];
 if (!progress.letterHistory || typeof progress.letterHistory !== "object" || Array.isArray(progress.letterHistory)) progress.letterHistory = {};
@@ -362,6 +375,7 @@ if (!Number.isFinite(Number(progress.cleanLines))) progress.cleanLines = 0;
 
 const commonWords = `a able about act add after again air all also always am an and any are area arm around as ask at back base be bed been best big bit blue book both bring build but by call came can care carry case change child city clear close come cost could course cut day did do door down draw dream drive during each early ease east eat end enough even ever every eye face fact fall far feel few field find fine fire first five for form found four free friend from full game gave get give go good got great green ground group grow had hand hard has have he head hear help her here high him his hold home hope hour house how i idea if in into is it job join just keep key kind know land large last late lead lean learn leave left less let life light like line list little live long look love made make man many mark may me mean men mind miss money more most move much must my name near need never new next night no not note now of off old on once one only open or our out over own page part pass pay people place plan play point power press put quick rain ran read real right river road room run said same saw say school see seem send set she short show side small so some sound stand start stay still story strong study such sure take talk tell than that the their them then there these they thing think this those time to told too took top tree true try turn two type under up use very view voice wait walk want war warm was watch water way we well went were what when where which while white who why will with word work world would write yard year yes yet you young your`.split(" ");
 const moderateWords = `abide accent active admire adore advice alert anchor answer arena arise attend balance banner beacon belong better border borrow branch calmly captain careful center chance chosen circle comfort common corner courage custom daily decide delight detail direct divide double eager earnest effect effort either enable ending energy engine entire escape estate expand expect fabric faith family favor fellow figure filter finish flower follow future gather gentle glory golden handle harbor honest humble improve indeed inside intent island joyful keeper kingdom ladder leader lesson letter linger listen living matter memory middle modern moment motion notice number office origin palace patient pattern period phrase planet plenty polish ponder proper public quiet reason record remain rescue rhythm sample season second secret signal simple single smooth steady stream strength summer supply surely temple tender thread travel useful valley virtue window wonder worthy`.split(" ");
+const expandedWords = `abandon ability abroad absence absolute absorb abstract academic accent access accident accompany accomplish accurate achieve acquire across adapt addition adequate adjacent adjust admire admission adopt affordable agenda aggressive agriculture aircraft album alert allocate alter alternative ambition ambitious analysis annual anxious apparent appreciate approach appropriate approval architect architecture argument arise arrangement arrival article assemble assess assign assist assume atmosphere attach attempt attitude audience authorize autumn available average avoid awake awareness awkward balance ballot bamboo barrier basic battery battle bedroom behavior beneath biological boundary breakfast brilliant broad budget bulletin burden cabinet calculate calendar capable capital capture career careful cargo category ceiling ceremony chamber champion channel charity chemical chemistry childhood circular circumstance clarify classic climate clinical closet cluster coach coastal collaborate colleague collect collision column combine comfort commercial commission commit communicate community companion comparison compete complete complex component compose compound concentrate concept conclude condition conference confidence confirm connect consequence consider constant construct consult contact contain contemporary context continue contract contrast contribution convert coordinate curiosity curious currency cycle database decade declare decline decrease defeat defend definition deliver demonstrate departure describe design desire despite develop device diagram difference difficult digital dignity discover discuss distance distinct distribute district diverse divide document domestic dominate dramatic durable dynamic eager ecology edition educate effective elaborate election element eliminate embrace emerge emotion emphasis employ enable encounter encourage endure engage enhance enormous ensure entrance equal equipment essential establish estimate evaluate eventual evidence examine example exchange excite exclude executive exhibit expand expectation experience experiment expert explain explore express extension external facility familiar feature festival flexible flourish forecast foreign forgive foundation fragment frequent function generous genuine geography graceful graduate grateful guarantee guidance habit habitat harmony healthy hesitate highlight historic identity illustrate imagine immediate impact implement impressive improve include increase independent influence inform ingredient initial insight inspire install instance instruct instrument insurance intelligent intend intense interact internal interpret interval introduce invent invest invite involve isolate jacket journal journey justice keyboard language launch layer lecture legend leisure liberal license lifetime likely limit literature locate logical maintain major manual margin material mature measure mechanism medical mention method migrate minimum ministry minor miracle mixture mobile modify monitor motivate multiple museum mutual mystery narrow native natural navigate nearby negotiate neither neutral nevertheless normal observe obtain obvious occasion occupy official operate option ordinary organize outcome outline overcome ownership parallel passage perceive perfect perform persist persuade physical pioneer pleasant plenty pocket portion practical precious prefer prepare presence preserve primary principle priority procedure process produce profession progress promise promote proportion protect protocol provide publish purpose qualify quantity quarter rapid rare reaction realize receive recent recognize recommend recover reduce reference reflect regular reject relate release relevant reliable remain remove repair replace request require research reserve respect respond restore reveal revenue review revise routine sacred safety salary satisfy schedule secure segment select senior separate sequence session settle shadow shelter shift signal similar sincere society source specific stable standard strategy strengthen structure submit succeed sufficient suggest suitable summary survive symbol target technique temporary tendency theory therefore threshold translate treasure typical unique universal update urgent useful vacuum valuable variety vehicle version victory video visible volunteer weather wherever whether whole willing withdraw witness wonderful workshop widespread yearn youth zero`.split(" ");
 const rareWords = `abeyance acumen adroit aegis alacrity amity apprise ardor askance behoove benison bereft blithe boon celerity comely cordial doughty dulcet efface emprise erstwhile fallow fervor forbear forthright gallant halcyon inure lissome morrow obeisance pensive prudent quaint quell redolent resolute sagacity sallow sojourn stately succor sundry verdant winsome`.split(" ");
 const dictionaryExtra = `ability absence account address advance advice affair agency agreement animal answer appeal arrival article artist aspect attempt balance beauty benefit brother budget camera career ceiling channel chapter charity choice church citizen comfort command company concern conduct courage cousin culture damage danger dealer debate degree demand desire detail device dinner doctor effort energy engine estate evening event family father figure flower garden glory habit harbor heaven history honor income island journey kingdom ladder leader lesson letter liberty member memory mercy minute modern moment morning motion mother nation notice number office option palace parent pastor patient pattern period person phrase planet player plenty prayer promise public purpose reason record refuge return rhythm river safety season second secret servant service signal sister spirit station story student summer supply teacher temple tender theory thread travel valley virtue vision window wisdom wonder worker worship writer`.split(" ");
 const rareLetterFocusWords = {
@@ -511,12 +525,12 @@ const els = Object.fromEntries([
   "dailyGoalFill", "cleanLines", "reviewErrorsBtn", "techniqueCue", "resultPanel", "resultEyebrow", "resultTitle", "resultScore", "resultWpm", "resultRaw",
   "resultAccuracy", "resultConsistency", "resultCharacters", "resultTime", "resultRestartBtn", "settingsDialog", "settingsBtn",
   "statsDialog", "statsBtn", "fullscreenBtn", "restartBtn", "letterHud", "unlockNext", "unlockCount",
-  "practiceFocusIndicator", "practiceFocusName", "practiceFocusDescription", "practiceFocusState", "letterHeatmap", "heatmapSummary", "letterDialog", "letterDetailBadge", "letterDetailTitle",
+  "practiceFocusIndicator", "practiceFocusName", "practiceFocusDescription", "practiceFocusState", "letterHeatmap", "heatmapSummary", "specialHeatmap", "letterDialog", "letterDetailBadge", "letterDetailTitle",
   "letterMastery", "letterLastSpeed", "letterTopSpeed", "letterAccuracy", "letterLearningRate", "letterLessons",
   "letterCurveCaption", "letterChart", "adaptiveResultDetails", "adaptiveStatsChart", "adaptiveRank", "adaptiveWeakestLetter", "adaptiveWeakestDetail",
   "adaptiveStrongestLetter", "adaptiveStrongestDetail", "adaptiveFastestWpm", "adaptiveSlowestWpm", "adaptiveErrors", "adaptiveConsistency",
   "adaptiveMissedLetters", "adaptiveMissedSummary", "adaptiveTechniqueSummary", "adaptiveTechniqueList", "adaptiveRepairFocusButton",
-  "adaptiveRecommendationName", "adaptiveRecommendationReason", "adaptiveRecommendationButton", "settingsKeyboardMap",
+  "adaptiveRecommendationName", "adaptiveRecommendationReason", "adaptiveModePicker", "adaptiveRecommendationButton", "settingsKeyboardMap",
   "letterFocusCheckbox", "letterFocusHint", "postureReminder", "postureReminderTitle", "postureReminderText"
 ].map(id => [id, document.getElementById(id)]));
 
@@ -999,6 +1013,52 @@ function renderAdaptiveMissedLetters(result) {
   renderAdaptiveRepairPlan(result, missedLetters);
 }
 
+function suggestedAdaptivePresets(recommendation) {
+  const combinations = {
+    accuracy: ["accuracy", "weak", "alternation"],
+    weak: ["weak", "accuracy", "finger"],
+    speed: ["speed", "alternation", "balanced"],
+    finger: ["finger", "weak", "speed"],
+    alternation: ["alternation", "speed", "balanced"],
+    balanced: ["balanced", "weak", "speed"]
+  };
+  return [...new Set(combinations[recommendation.id] || combinations.balanced)];
+}
+
+function adaptiveModeSelection() {
+  if (!els.adaptiveModePicker) return [];
+  return [...els.adaptiveModePicker.querySelectorAll("input[data-adaptive-mode]:checked")]
+    .map(input => input.value)
+    .filter(preset => practicePresetStyles.has(preset))
+    .slice(0, 3);
+}
+
+function syncAdaptiveModeButton() {
+  if (!els.adaptiveRecommendationButton) return;
+  const selected = adaptiveModeSelection();
+  els.adaptiveRecommendationButton.disabled = !selected.length;
+  els.adaptiveRecommendationButton.textContent = selected.length ? "Start selected lesson" : "Select a mode";
+}
+
+function renderAdaptiveModePicker(recommendation) {
+  if (!els.adaptiveModePicker) return;
+  const presets = suggestedAdaptivePresets(recommendation);
+  els.adaptiveModePicker.innerHTML = `
+    <p>Select one or more focuses. Combined modes shape the next adaptive word mix.</p>
+    <div class="adaptive-mode-options">
+      ${presets.map((preset, index) => `
+        <label class="adaptive-mode-option">
+          <input type="checkbox" value="${preset}" data-adaptive-mode${index === 0 ? " checked" : ""}>
+          <span>
+            <strong>${escapeHtml(practicePresetLabels[preset])}</strong>
+            <small>${escapeHtml(practicePresetDescriptions[preset])}</small>
+          </span>
+        </label>`).join("")}
+    </div>`;
+  els.adaptiveRecommendationButton.dataset.preset = recommendation.id;
+  syncAdaptiveModeButton();
+}
+
 function renderAdaptiveLessonResult(result) {
   const recommendation = result.recommendation || recommendAdaptiveFocus(progress.adaptiveLessonHistory);
   const rank = Number.isFinite(Number(result.rank))
@@ -1022,8 +1082,7 @@ function renderAdaptiveLessonResult(result) {
   renderAdaptiveMissedLetters(result);
   els.adaptiveRecommendationName.textContent = recommendation.label;
   els.adaptiveRecommendationReason.textContent = recommendation.reason;
-  els.adaptiveRecommendationButton.textContent = `Use ${recommendation.label}`;
-  els.adaptiveRecommendationButton.dataset.preset = recommendation.id;
+  renderAdaptiveModePicker(recommendation);
   renderAdaptiveStatsChart(result);
 }
 
@@ -1113,6 +1172,12 @@ function selectedAdaptiveFocusLetters() {
     .slice(0, 5);
 }
 
+function selectedAdaptivePracticePresets() {
+  const selected = Array.isArray(prefs.practicePresets) ? prefs.practicePresets : [prefs.practicePreset];
+  const valid = [...new Set(selected.filter(preset => practicePresetStyles.has(preset)))].slice(0, 3);
+  return valid.length ? valid : [defaultPrefs.practicePreset];
+}
+
 function adaptiveFocusLabel() {
   const selected = selectedAdaptiveFocusLetters();
   return selected.length ? selected.join(" / ") : adaptiveFocusLetter();
@@ -1161,14 +1226,14 @@ function wordDeck() {
   const selectedFocusLetters = selectedAdaptiveFocusLetters().map(letter => letter.toLowerCase());
   const focusLetters = selectedFocusLetters.length ? selectedFocusLetters : [adaptiveFocusLetter().toLowerCase()];
   const isAllowed = word => [...word.toLowerCase()].every(ch => !/[a-z]/.test(ch) || unlocked.has(ch));
-  const allNatural = [...new Set(commonWords.concat(moderateWords, rareWords, dictionaryExtra, rareLetterFocusPool))].filter(isAllowed);
+  const allNatural = [...new Set(commonWords.concat(expandedWords, moderateWords, rareWords, dictionaryExtra, rareLetterFocusPool))].filter(isAllowed);
   const broadCommon = prefs.naturalWords
-    ? commonWords.concat(dictionaryExtra.filter(w => w.length <= 6))
-    : commonWords.concat(moderateWords, dictionaryExtra);
-  const common = shuffle(broadCommon.filter(isAllowed));
-  const moderate = shuffle(moderateWords.concat(dictionaryExtra.filter(w => w.length >= 6 && w.length <= 9)).filter(isAllowed));
-  const rare = shuffle(rareWords.concat(dictionaryExtra.filter(w => w.length >= 9)).filter(isAllowed));
-  const rareFocus = shuffle(rareLetterFocusPool.filter(isAllowed));
+    ? commonWords.concat(expandedWords.filter(w => w.length <= 8), dictionaryExtra.filter(w => w.length <= 6))
+    : commonWords.concat(expandedWords, moderateWords, dictionaryExtra);
+  const common = shuffle([...new Set(broadCommon.filter(isAllowed))]);
+  const moderate = shuffle([...new Set(moderateWords.concat(expandedWords.filter(w => w.length >= 6 && w.length <= 11), dictionaryExtra.filter(w => w.length >= 6 && w.length <= 9)).filter(isAllowed))]);
+  const rare = shuffle([...new Set(rareWords.concat(expandedWords.filter(w => w.length >= 12), dictionaryExtra.filter(w => w.length >= 9)).filter(isAllowed))]);
+  const rareFocus = shuffle([...new Set(rareLetterFocusPool.filter(isAllowed))]);
   const focusScore = word => focusLetters.reduce((score, letter) => score + [...word].filter(character => character === letter).length, 0);
   const focus = shuffle(allNatural.filter(word => focusScore(word) > 0))
     .sort((a, b) => focusScore(b) - focusScore(a));
@@ -1187,10 +1252,12 @@ function wordDeck() {
 
 function visibleWordsPerRow(minimum = 2) {
   const requested = Math.max(minimum, Number(prefs.wordsPerRow) || 10);
-  const density = { small: 1, medium: .85, large: .6, xlarge: .5 }[prefs.fontSize] || 1;
+  const density = state.mode === "adaptive"
+    ? 1
+    : { small: 1, medium: .85, large: .6, xlarge: .5 }[prefs.fontSize] || 1;
   const viewport = window.innerWidth || 1200;
   const viewportCap = viewport <= 620
-    ? { small: 8, medium: 6, large: 3, xlarge: 3 }[prefs.fontSize]
+    ? { small: 8, medium: 4, large: 3, xlarge: 2 }[prefs.fontSize]
     : viewport <= 900
       ? { small: 10, medium: 8, large: 5, xlarge: 5 }[prefs.fontSize]
       : Infinity;
@@ -1202,16 +1269,20 @@ function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
   const rows = [];
   const wordsPerRow = visibleWordsPerRow();
   let ci = 0, mi = 0, ri = 0, fi = 0, rfi = 0;
-  let wi = 0, fgi = 0, ai = 0;
+  let wi = 0;
   const recoveryMode = adaptiveRecoveryActive();
-  const activePreset = recoveryMode ? "accuracy" : prefs.practicePreset;
-  const presetPool = {
-    weak: deck.weak,
-    accuracy: deck.weak,
-    finger: deck.finger,
-    alternation: deck.alternating,
-    speed: deck.moderate
-  }[activePreset] || [];
+  const activePresets = recoveryMode ? ["accuracy"] : selectedAdaptivePracticePresets();
+  const presetPools = activePresets.map(preset => ({
+    preset,
+    words: {
+      weak: deck.weak,
+      accuracy: deck.weak,
+      finger: deck.finger,
+      alternation: deck.alternating,
+      speed: deck.moderate
+    }[preset] || []
+  })).filter(item => item.words.length);
+  const presetPool = shuffle([...new Set(presetPools.flatMap(item => item.words))]);
   const readiness = Math.min(1, progress.lessonHistory.length / 8) * Math.min(1, (Number(progress.avgAccuracy) || 0) / 94);
   const moderateInterval = recoveryMode ? Number.MAX_SAFE_INTEGER : readiness > .7 ? 10 : 20;
   const rareInterval = recoveryMode ? Number.MAX_SAFE_INTEGER : readiness > .88 ? 50 : 100;
@@ -1223,7 +1294,7 @@ function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
       let list = deck.common;
       let index = ci++;
       if (explicitFocus && deck.focus.length && pos % 5 !== 0) { list = deck.focus; index = fi++; }
-      else if (presetPool.length && pos % 2 === 0) { list = presetPool; index = activePreset === "finger" ? fgi++ : activePreset === "alternation" ? ai++ : wi++; }
+      else if (presetPool.length && pos % 2 === 0) { list = presetPool; index = wi++; }
       else if (pos % 3 === 0 && deck.focus.length) { list = deck.focus; index = fi++; }
       else if (pos % 11 === 0 && deck.rareFocus.length) { list = deck.rareFocus; index = rfi++; }
       else if (pos % rareInterval === 0 && deck.rare.length) { list = deck.rare; index = ri++; }
@@ -1237,7 +1308,7 @@ function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
 }
 
 function makePlacementRows() {
-  const pool = shuffle([...new Set(commonWords.concat(moderateWords, dictionaryExtra))]);
+  const pool = shuffle([...new Set(commonWords.concat(expandedWords, moderateWords, dictionaryExtra))]);
   const words = Array.from({ length: 80 }, (_, index) => {
     if ((index + 1) % 7 === 0 && rareLetterFocusPool.length) return rareLetterFocusPool[index % rareLetterFocusPool.length];
     return pool[index % Math.max(1, pool.length)] || "practice";
@@ -1249,9 +1320,9 @@ function makePlacementRows() {
 }
 
 function testWordPool() {
-  if (prefs.difficulty === "master") return commonWords.concat(moderateWords, rareWords, dictionaryExtra);
-  if (prefs.difficulty === "expert") return commonWords.concat(moderateWords, dictionaryExtra);
-  return commonWords.concat(dictionaryExtra.filter(word => word.length <= 8));
+  if (prefs.difficulty === "master") return commonWords.concat(expandedWords, moderateWords, rareWords, dictionaryExtra);
+  if (prefs.difficulty === "expert") return commonWords.concat(expandedWords, moderateWords, dictionaryExtra);
+  return commonWords.concat(expandedWords.filter(word => word.length <= 10), dictionaryExtra.filter(word => word.length <= 8));
 }
 
 function decorateTestWords(words) {
@@ -1747,6 +1818,26 @@ function renderPostureReminder() {
   els.postureReminder.classList.remove("hidden");
 }
 
+function renderSpecialProgress() {
+  if (!els.specialHeatmap) return;
+  els.specialHeatmap.innerHTML = specialProgressKeys.map(({ key, label, glyph }) => {
+    const stats = progress.characterStats[key] || { attempts: 0, correct: 0 };
+    const attempts = Number(stats.attempts) || 0;
+    const correct = Number(stats.correct) || 0;
+    const accuracy = attempts ? correct / attempts : 0;
+    const progressScore = attempts ? Math.min(1, attempts / 60) * accuracy : 0;
+    const hue = Math.round(progressScore * 120);
+    const deepHue = Math.min(120, hue + 12);
+    const hasProgress = attempts > 0;
+    const heatColor = hasProgress ? `hsl(${hue} 78% 48%)` : "var(--panel-strong)";
+    const heatColorDeep = hasProgress ? `hsl(${deepHue} 76% 34%)` : "var(--panel-strong)";
+    const detail = attempts
+      ? `${Math.round(accuracy * 100)}% accuracy, ${attempts} attempts`
+      : "No samples yet";
+    return `<span class="special-key ${hasProgress ? "sampled" : "unseen"}" style="--special-color:${heatColor};--special-color-deep:${heatColorDeep}" title="${escapeHtml(label)}: ${detail}" aria-label="${escapeHtml(label)}: ${detail}">${escapeHtml(glyph)}</span>`;
+  }).join("");
+}
+
 function renderLetterProgress() {
   const isAdaptive = state.mode === "adaptive";
   els.letterHud.classList.toggle("hidden", !isAdaptive);
@@ -1759,14 +1850,15 @@ function renderLetterProgress() {
   const focusLetter = adaptiveFocusLetter();
   const selectedFocusLetters = selectedAdaptiveFocusLetters();
   const recoveryMode = adaptiveRecoveryActive();
-  const activePreset = recoveryMode ? "accuracy" : prefs.practicePreset;
+  const activePresets = recoveryMode ? ["accuracy"] : selectedAdaptivePracticePresets();
+  const activePreset = activePresets[0];
   els.practiceFocusIndicator.dataset.focus = activePreset;
   els.practiceFocusName.textContent = selectedFocusLetters.length
     ? `Letters ${selectedFocusLetters.join(" / ")}`
-    : practicePresetLabels[activePreset] || practicePresetLabels.balanced;
+    : activePresets.map(preset => practicePresetLabels[preset] || practicePresetLabels.balanced).join(" + ");
   els.practiceFocusDescription.textContent = selectedFocusLetters.length
     ? `Upcoming words prioritize ${selectedFocusLetters.join(", ")} while staying inside the earned alphabet.`
-    : practicePresetDescriptions[activePreset] || practicePresetDescriptions.balanced;
+    : activePresets.map(preset => practicePresetDescriptions[preset] || practicePresetDescriptions.balanced).join(" ");
   els.practiceFocusState.textContent = recoveryMode ? "Recovery" : "Active";
   els.unlockCount.textContent = `${unlockedCount} / ${letterOrder.length}`;
   const focusLabel = selectedFocusLetters.length ? selectedFocusLetters.join(" / ") : focusLetter;
@@ -1803,13 +1895,24 @@ function renderLetterProgress() {
     const deepHue = Math.min(120, hue + 12);
     const heatColor = hasEvidence ? `hsl(${hue} 78% 48%)` : "var(--panel-strong)";
     const heatColorDeep = hasEvidence ? `hsl(${deepHue} 76% 34%)` : "var(--panel-strong)";
-    const fill = hasEvidence ? `background:linear-gradient(145deg,${heatColor},${heatColorDeep});` : "";
+  const fill = hasEvidence ? `background:linear-gradient(145deg,${heatColor},${heatColorDeep});` : "";
     return `<button type="button" class="heat-key ${strength} ${status}" data-letter="${letter}" style="--confidence:${mastery.visualScore.toFixed(3)};--heat-color:${heatColor};--heat-color-deep:${heatColorDeep};${fill}"${disabled} title="${letter}: ${detail}" aria-label="${letter}: ${detail}">${letter}</button>`;
   }).join("");
   els.letterHeatmap.innerHTML = `<div class="heat-row">${keys}</div>`;
+  renderSpecialProgress();
   els.heatmapSummary.textContent = totalAttempts
     ? `${Math.round((totalMastery / Math.max(1, sampledLetters)) * 100)}% confidence / ${Math.round((totalCorrect / totalAttempts) * 100)}% accuracy`
     : `Build ${focusLetter} toward ${prefs.targetSpeed} WPM`;
+}
+
+function recordCharacterAttempt(expected, isCorrect) {
+  const character = String(expected || "");
+  if (!specialProgressKeys.some(item => item.key === character)) return;
+  const stats = progress.characterStats[character] ||= { attempts: 0, correct: 0, lastPracticedAt: 0 };
+  stats.attempts++;
+  if (isCorrect) stats.correct++;
+  stats.lastPracticedAt = Date.now();
+  scheduleSave();
 }
 
 function recordLetterAttempt(expected, isCorrect, recordedAt = performance.now()) {
@@ -2012,9 +2115,16 @@ function fitPracticeLines(lines) {
     els.typingText.style.fontSize = "";
     return;
   }
-  // Row density adapts to the selected font size, so the preset stays visible
-  // instead of being silently reduced to make a crowded line fit.
   els.typingText.style.fontSize = "";
+  const availableWidth = els.typingText.clientWidth;
+  const lineWidths = [...els.typingText.querySelectorAll(".practice-line")]
+    .map(line => line.scrollWidth)
+    .filter(width => width > 0);
+  const widestLine = Math.max(...lineWidths, 0);
+  if (!availableWidth || widestLine <= availableWidth) return;
+  const baseSize = Number.parseFloat(getComputedStyle(els.typingText).fontSize) || 24;
+  const fittedSize = Math.max(12, baseSize * (availableWidth / widestLine));
+  els.typingText.style.fontSize = `${fittedSize.toFixed(2)}px`;
 }
 
 function renderText() {
@@ -2280,6 +2390,7 @@ function handleKey(event) {
     if (state.characterErrors < Number(prefs.errorLimit)) {
       state.errors++;
       state.characterErrors++;
+      recordCharacterAttempt(expected, false);
       recordLetterAttempt(expected, false, recordedAt);
     }
     flashMistakeKey(keyId);
@@ -2296,7 +2407,10 @@ function handleKey(event) {
     renderLiveMetrics();
     return;
   }
-  if (state.mode !== "zen") recordLetterAttempt(expected, true, recordedAt);
+  if (state.mode !== "zen") {
+    recordCharacterAttempt(expected, true);
+    recordLetterAttempt(expected, true, recordedAt);
+  }
   state.characterErrors = 0;
   state.input += key;
   state.charsTyped++;
@@ -2999,6 +3113,7 @@ const settingDescriptions = {
   indicateTypos: "Controls how a blocked incorrect key is shown. Incorrect letters are never added.",
   includePunctuation: "Adds sentence marks to generated Time and Words tests.",
   includeNumbers: "Mixes number groups into generated Time and Words tests.",
+  practicePreset: "Sets the default adaptive focus. The lesson summary can combine up to three suggested focuses before the next lesson begins.",
   confidenceMode: "Limits backspacing to the current word or disables it completely.",
   errorLimit: "Caps repeated errors on one character so accidental key holds cannot ruin statistics.",
   blindMode: "Hides feedback on completed characters to encourage rhythm over correction.",
@@ -3150,6 +3265,7 @@ function setupSettings() {
         document.getElementById("bibleEnd").value = String(prefs.bibleEnd);
       }
       if (id === "practiceMode") state.mode = prefs.mode;
+      if (id === "practicePreset") prefs.practicePresets = [prefs.practicePreset];
       save();
       if (id === "theme") applyTheme();
       if (id === "fontFamily") applyFont();
@@ -3242,10 +3358,12 @@ function startErrorReview() {
 }
 
 function startRecommendedAdaptiveFocus() {
-  const preset = els.adaptiveRecommendationButton.dataset.preset;
-  if (!practicePresetStyles.has(preset)) return;
+  const selected = adaptiveModeSelection();
+  const fallback = els.adaptiveRecommendationButton.dataset.preset;
+  const presets = selected.length ? selected : practicePresetStyles.has(fallback) ? [fallback] : [defaultPrefs.practicePreset];
+  prefs.practicePresets = presets;
+  prefs.practicePreset = presets[0];
   prefs.mode = "adaptive";
-  prefs.practicePreset = preset;
   state.mode = "adaptive";
   save();
   restart();
@@ -3298,6 +3416,7 @@ els.restartBtn.addEventListener("click", () => {
 });
 els.resultRestartBtn.addEventListener("click", restart);
 els.adaptiveRecommendationButton.addEventListener("click", startRecommendedAdaptiveFocus);
+els.adaptiveModePicker.addEventListener("change", syncAdaptiveModeButton);
 els.adaptiveRepairFocusButton.addEventListener("click", startAdaptiveRepairFocus);
 els.statsBtn.addEventListener("click", () => els.statsDialog.showModal());
 els.reviewErrorsBtn.addEventListener("click", startErrorReview);

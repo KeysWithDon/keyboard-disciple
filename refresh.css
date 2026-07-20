@@ -858,7 +858,8 @@ body[data-mode="quote"] .typing-text {
 .settings-keyboard-map .settings-map-key.map-focus { outline: 2px solid var(--gold); outline-offset: -2px; box-shadow: 0 0 0 1px color-mix(in srgb, var(--gold) 42%, transparent); }
 
 .adaptive-recommendation {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(155px, auto);
   align-items: center;
   justify-content: space-between;
   gap: 18px;
@@ -868,10 +869,81 @@ body[data-mode="quote"] .typing-text {
   background: linear-gradient(110deg, color-mix(in srgb, var(--lesson-color) 11%, transparent), transparent 74%);
 }
 .adaptive-recommendation > div { min-width: 0; }
+.adaptive-recommendation > div:first-child { grid-column: 1 / -1; }
 .adaptive-recommendation > div > span { color: var(--gold); font-size: 9px; font-weight: 700; text-transform: uppercase; }
 .adaptive-recommendation h3 { margin: 4px 0; color: var(--lesson-color); font-size: 16px; font-weight: 650; }
 .adaptive-recommendation p { max-width: 70ch; margin: 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
-.adaptive-recommendation .primary-button { flex: 0 0 auto; min-width: 135px; }
+.adaptive-mode-picker { grid-column: 1; min-width: 0; margin-top: 0; }
+.adaptive-mode-picker > p { max-width: none; margin-bottom: 8px; color: var(--faint); }
+.adaptive-mode-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.adaptive-mode-option {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--panel) 44%, transparent);
+  cursor: pointer;
+}
+.adaptive-mode-option:has(input:checked) {
+  border-color: color-mix(in srgb, var(--lesson-color) 62%, var(--line));
+  background: color-mix(in srgb, var(--lesson-color) 12%, transparent);
+}
+.adaptive-mode-option input { margin: 2px 0 0; accent-color: var(--lesson-color); }
+.adaptive-mode-option span { min-width: 0; display: grid; gap: 3px; }
+.adaptive-mode-option strong { color: var(--text); font-size: 11px; font-weight: 650; }
+.adaptive-mode-option small { color: var(--muted); font-size: 9px; line-height: 1.35; }
+.adaptive-recommendation .primary-button { grid-column: 2; align-self: end; min-width: 155px; }
+
+.special-progress {
+  display: grid;
+  gap: 7px;
+  margin-top: 12px;
+}
+.special-progress > header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+.special-progress > header span {
+  color: var(--faint);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.special-progress > header small {
+  color: var(--faint);
+  font-size: 9px;
+}
+.special-heatmap {
+  display: grid;
+  grid-template-columns: repeat(16, minmax(24px, 1fr));
+  gap: 4px;
+}
+.special-key {
+  --special-color: var(--panel-strong);
+  --special-color-deep: var(--panel-strong);
+  min-width: 0;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  color: var(--faint);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--special-color) 88%, var(--panel-strong)), color-mix(in srgb, var(--special-color-deep) 82%, var(--panel-strong)));
+  font-size: 11px;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.special-key.sampled {
+  color: #fff;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 42%);
+}
 
 .settings-dialog,
 .stats-dialog,
@@ -1107,7 +1179,11 @@ body[data-mode="quote"] .typing-text {
   .adaptive-missed-row { grid-template-columns: 20px 24px minmax(70px, 1fr); gap: 7px; }
   .adaptive-missed-detail { grid-column: 3; }
   .adaptive-technique-list { grid-template-columns: 1fr; gap: 12px; }
-  .adaptive-recommendation { align-items: stretch; flex-direction: column; }
+  .adaptive-recommendation { display: flex; align-items: stretch; flex-direction: column; }
+  .adaptive-mode-options { grid-template-columns: 1fr; }
+  .adaptive-mode-picker { min-width: 0; margin-top: 13px; }
+  .special-progress > header { align-items: flex-start; flex-direction: column; gap: 3px; }
+  .special-heatmap { grid-template-columns: repeat(8, minmax(0, 1fr)); }
   .adaptive-recommendation .primary-button { width: 100%; }
   .settings-dialog { width: calc(100vw - 16px); }
   .settings-pane { padding: 26px 18px; }
