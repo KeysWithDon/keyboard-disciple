@@ -1542,7 +1542,7 @@ function visualKeyId(event) {
 
 let pressedKeyTimer;
 let mistakeKeyTimer;
-let lastErrorSoundAt = 0;
+let lastErrorSoundAt = -Infinity;
 
 function setKeyboardKeyClass(key, className, isActive) {
   const element = keyboardElements.get(key) || [...els.keyboard.querySelectorAll("[data-key]")].find(item => item.dataset.key === key);
@@ -1912,34 +1912,63 @@ function finishTest() {
 }
 
 let audioCtx;
+let audioUnlockStarted = false;
 function ctx() {
   audioCtx ||= new (window.AudioContext || window.webkitAudioContext)();
   return audioCtx;
 }
+function unlockAudio() {
+  try {
+    const c = ctx();
+    if (c.state === "suspended") c.resume().catch(() => {});
+    if (!audioUnlockStarted) {
+      audioUnlockStarted = true;
+      preloadKeySounds();
+    }
+  } catch (error) {
+    console.warn("Audio is unavailable.", error);
+  }
+}
+function withAudioReady(action) {
+  try {
+    const c = ctx();
+    if (c.state === "suspended") c.resume().then(() => action(c)).catch(() => {});
+    else action(c);
+  } catch (error) {
+    console.warn("Audio is unavailable.", error);
+  }
+}
 function tone(freq, dur, type = "square", gain = .045, delay = 0) {
-  const c = ctx();
-  if (c.state === "suspended") c.resume().catch(() => {});
-  const start = c.currentTime + delay;
-  const osc = c.createOscillator();
-  const g = c.createGain();
-  osc.type = type;
-  osc.frequency.value = freq;
-  g.gain.setValueAtTime(gain * Number(prefs.soundVolume), start);
-  g.gain.exponentialRampToValueAtTime(.0001, start + dur);
-  osc.connect(g).connect(c.destination);
-  osc.start(start);
-  osc.stop(start + dur);
+  withAudioReady(c => {
+    const start = c.currentTime + delay;
+    const osc = c.createOscillator();
+    const g = c.createGain();
+    osc.type = type;
+    osc.frequency.value = freq;
+    g.gain.setValueAtTime(gain * Number(prefs.soundVolume), start);
+    g.gain.exponentialRampToValueAtTime(.0001, start + dur);
+    osc.connect(g).connect(c.destination);
+    osc.start(start);
+    osc.stop(start + dur);
+  });
 }
 function playDecodedBuffer(buffer, gainValue = 1) {
   if (!buffer) return false;
   const c = ctx();
-  if (c.state === "suspended") c.resume().catch(() => {});
-  const source = c.createBufferSource();
-  const gain = c.createGain();
-  source.buffer = buffer;
-  gain.gain.value = gainValue * Number(prefs.soundVolume);
-  source.connect(gain).connect(c.destination);
-  source.start();
+  const play = () => {
+    try {
+      const source = c.createBufferSource();
+      const gain = c.createGain();
+      source.buffer = buffer;
+      gain.gain.value = gainValue * Number(prefs.soundVolume);
+      source.connect(gain).connect(c.destination);
+      source.start();
+    } catch (error) {
+      console.warn("Audio buffer could not play.", error);
+    }
+  };
+  if (c.state === "suspended") c.resume().then(play).catch(() => {});
+  else play();
   return true;
 }
 
@@ -1959,19 +1988,19 @@ const scaleSoundState = {
 };
 
 function playMappedTone(code = "KeyQ", oscillatorType = "sine", shifted = false) {
-  const c = ctx();
-  if (c.state === "suspended") c.resume().catch(() => {});
-  const semitone = (keyboardCodeSemitones[code] ?? keyboardCodeSemitones.KeyQ) + (shifted ? 12 : 0);
-  const frequency = 130.81 * (2 ** (semitone / 12));
-  const oscillator = c.createOscillator();
-  const gain = c.createGain();
-  oscillator.type = oscillatorType;
-  oscillator.frequency.value = frequency;
-  gain.gain.value = Number(prefs.soundVolume) / 10;
-  oscillator.connect(gain).connect(c.destination);
-  oscillator.start(c.currentTime);
-  gain.gain.setTargetAtTime(0, c.currentTime, .15);
-  oscillator.stop(c.currentTime + .5);
+  withAudioReady(c => {
+    const semitone = (keyboardCodeSemitones[code] ?? keyboardCodeSemitones.KeyQ) + (shifted ? 12 : 0);
+    const frequency = 130.81 * (2 ** (semitone / 12));
+    const oscillator = c.createOscillator();
+    const gain = c.createGain();
+    oscillator.type = oscillatorType;
+    oscillator.frequency.value = frequency;
+    gain.gain.value = Number(prefs.soundVolume) / 10;
+    oscillator.connect(gain).connect(c.destination);
+    oscillator.start(c.currentTime);
+    gain.gain.setTargetAtTime(0, c.currentTime, .15);
+    oscillator.stop(c.currentTime + .5);
+  });
 }
 
 function playScaleSound(style) {
@@ -1983,20 +2012,21 @@ function playScaleSound(style) {
   if (scale.octave <= 4) scale.direction = 1;
   const semitone = notes[Math.floor(Math.random() * notes.length)] || 0;
   const frequency = 261.63 * (2 ** (scale.octave - 4)) * (2 ** (semitone / 12));
-  const c = ctx();
-  if (c.state === "suspended") c.resume().catch(() => {});
-  const oscillator = c.createOscillator();
-  const gain = c.createGain();
-  oscillator.type = "sine";
-  oscillator.frequency.value = frequency;
-  gain.gain.value = Number(prefs.soundVolume) / 10;
-  oscillator.connect(gain).connect(c.destination);
-  oscillator.start(c.currentTime);
-  gain.gain.setTargetAtTime(0, c.currentTime, .3);
-  oscillator.stop(c.currentTime + 2);
+  withAudioReady(c => {
+    const oscillator = c.createOscillator();
+    const gain = c.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.value = frequency;
+    gain.gain.value = Number(prefs.soundVolume) / 10;
+    oscillator.connect(gain).connect(c.destination);
+    oscillator.start(c.currentTime);
+    gain.gain.setTargetAtTime(0, c.currentTime, .3);
+    oscillator.stop(c.currentTime + 2);
+  });
 }
 
 function playKey(code = "KeyQ", shifted = false) {
+  unlockAudio();
   const style = prefs.soundStyle;
   if (style === "off") return;
   if (oscillatorSoundStyles[style]) {
@@ -2010,17 +2040,20 @@ function playKey(code = "KeyQ", shifted = false) {
   const buffers = keyboardSoundBuffers[style];
   if (!buffers?.length) {
     ensureKeySoundStyle(style);
+    playMappedTone(code, "square", shifted);
     return;
   }
   playDecodedBuffer(buffers[Math.floor(Math.random() * buffers.length)]);
 }
 
 function playError() {
+  unlockAudio();
   const style = prefs.errorStyle;
   if (style === "off") return;
   const buffers = errorSoundBuffers[style];
   if (!buffers?.length) {
     ensureErrorSoundStyle(style);
+    tone(165, .075, "square", .065);
     return;
   }
   playDecodedBuffer(buffers[Math.floor(Math.random() * buffers.length)]);
@@ -2480,6 +2513,8 @@ els.reviewErrorsBtn.addEventListener("click", startErrorReview);
 els.fullscreenBtn.addEventListener("click", toggleFullscreen);
 document.addEventListener("fullscreenchange", syncFullscreenButton);
 document.addEventListener("webkitfullscreenchange", syncFullscreenButton);
+document.addEventListener("pointerdown", unlockAudio, { passive: true });
+document.addEventListener("keydown", unlockAudio, { capture: true });
 document.addEventListener("keydown", handleKey);
 document.addEventListener("keyup", event => {
   if (event.key === "Shift") state.shiftSide = "";
