@@ -494,7 +494,7 @@ const els = Object.fromEntries([
   "adaptiveStrongestLetter", "adaptiveStrongestDetail", "adaptiveFastestWpm", "adaptiveSlowestWpm", "adaptiveErrors", "adaptiveConsistency",
   "adaptiveMissedLetters", "adaptiveMissedSummary", "adaptiveTechniqueSummary", "adaptiveTechniqueList",
   "adaptiveRecommendationName", "adaptiveRecommendationReason", "adaptiveRecommendationButton", "settingsKeyboardMap",
-  "focusLettersPicker", "focusLettersSummary"
+  "letterFocusCheckbox", "letterFocusHint"
 ].map(id => [id, document.getElementById(id)]));
 
 let saveTimer;
@@ -1152,9 +1152,22 @@ function wordDeck() {
   };
 }
 
+function visibleWordsPerRow(minimum = 2) {
+  const requested = Math.max(minimum, Number(prefs.wordsPerRow) || 10);
+  const density = { small: 1, medium: .85, large: .6, xlarge: .5 }[prefs.fontSize] || 1;
+  const viewport = window.innerWidth || 1200;
+  const viewportCap = viewport <= 620
+    ? { small: 8, medium: 6, large: 3, xlarge: 3 }[prefs.fontSize]
+    : viewport <= 900
+      ? { small: 10, medium: 8, large: 5, xlarge: 5 }[prefs.fontSize]
+      : Infinity;
+  return Math.max(minimum, Math.min(requested, Math.round(requested * density), viewportCap || Infinity));
+}
+
 function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
   const deck = wordDeck();
   const rows = [];
+  const wordsPerRow = visibleWordsPerRow();
   let ci = 0, mi = 0, ri = 0, fi = 0, rfi = 0;
   let wi = 0, fgi = 0, ai = 0;
   const recoveryMode = adaptiveRecoveryActive();
@@ -1172,8 +1185,8 @@ function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
   const explicitFocus = deck.focusLetters.length > 0;
   for (let r = 0; r < rowCount; r++) {
     const words = [];
-    for (let i = 0; i < Number(prefs.wordsPerRow); i++) {
-      const pos = r * Number(prefs.wordsPerRow) + i + 1;
+    for (let i = 0; i < wordsPerRow; i++) {
+      const pos = r * wordsPerRow + i + 1;
       let list = deck.common;
       let index = ci++;
       if (explicitFocus && deck.focus.length && pos % 5 !== 0) { list = deck.focus; index = fi++; }
@@ -1196,7 +1209,7 @@ function makePlacementRows() {
     if ((index + 1) % 7 === 0 && rareLetterFocusPool.length) return rareLetterFocusPool[index % rareLetterFocusPool.length];
     return pool[index % Math.max(1, pool.length)] || "practice";
   });
-  const size = Math.max(8, Number(prefs.wordsPerRow) || 10);
+  const size = visibleWordsPerRow();
   const rows = [];
   for (let index = 0; index < words.length; index += size) rows.push(transformText(words.slice(index, index + size).join(" ")));
   return rows;
@@ -1245,7 +1258,7 @@ function makeTestWords(count) {
 function makeWordSections(count) {
   const words = makeTestWords(count);
   const sections = [];
-  const size = Math.max(2, Number(prefs.wordsPerRow) || 10);
+  const size = visibleWordsPerRow();
   for (let index = 0; index < words.length; index += size) {
     sections.push(transformText(words.slice(index, index + size).join(" ")));
   }
@@ -1359,7 +1372,7 @@ function makeCreativeWords(count) {
 function makeCreativeSections(count) {
   const words = makeCreativeWords(count);
   const sections = [];
-  const size = Math.max(2, Number(prefs.wordsPerRow) || 10);
+  const size = visibleWordsPerRow();
   for (let index = 0; index < words.length; index += size) {
     let text = words.slice(index, index + size).join(" ");
     if (prefs.creativeMode === "nospace") text = text.replaceAll(" ", "");
@@ -1371,7 +1384,7 @@ function makeCreativeSections(count) {
 
 function makeTimedRows() {
   const words = makeTestWords(600);
-  const size = Math.max(4, Number(prefs.wordsPerRow) || 10);
+  const size = visibleWordsPerRow();
   const rows = [];
   for (let index = 0; index < words.length; index += size) {
     rows.push(transformText(words.slice(index, index + size).join(" ")));
@@ -1611,7 +1624,6 @@ function render() {
   renderText();
   renderKeyboard();
   renderSettingsKeyboardMap();
-  renderFocusLetterPicker();
   renderLetterProgress();
   renderPerformance();
   renderLiveMetrics();
@@ -1810,11 +1822,27 @@ function openLetterDetails(letter) {
   els.letterAccuracy.textContent = accuracy === null ? "--" : `${accuracy}%`;
   els.letterLearningRate.textContent = formatLearningRate(history);
   els.letterLessons.textContent = `${history.length} / ${masteryRequiredPages}`;
+  syncLetterFocusControl(upperLetter);
   els.letterCurveCaption.textContent = mastery.score >= .98
     ? "Target confidence earned"
     : `${mastery.pagesRemaining} evidence pages / ${mastery.attemptsRemaining} keystrokes remaining`;
   renderLetterChart(upperLetter, history, lifetimeStats);
   if (!els.letterDialog.open) els.letterDialog.showModal();
+}
+
+function syncLetterFocusControl(letter) {
+  if (!els.letterFocusCheckbox || !els.letterFocusHint) return;
+  const upperLetter = String(letter || "").toUpperCase();
+  const selected = selectedAdaptiveFocusLetters();
+  const isSelected = selected.includes(upperLetter);
+  const atLimit = selected.length >= 5 && !isSelected;
+  els.letterFocusCheckbox.checked = isSelected;
+  els.letterFocusCheckbox.disabled = atLimit;
+  els.letterFocusHint.textContent = isSelected
+    ? `${selected.length} of 5 focus slots used. Upcoming adaptive words prioritize ${upperLetter}.`
+    : atLimit
+      ? "Five focus letters are already selected. Uncheck one before adding this letter."
+      : "Add this earned letter to the adaptive focus rotation.";
 }
 
 function renderInteractiveTarget(target) {
@@ -1870,15 +1898,9 @@ function fitPracticeLines(lines) {
     els.typingText.style.fontSize = "";
     return;
   }
-  // Keep every practice line on one physical row. The selected preset is the
-  // ceiling; only unusually long rows are reduced enough to fit their width.
-  const baseSize = parseFloat(getComputedStyle(els.typingText).fontSize) || 32;
-  els.typingText.style.fontSize = `${baseSize}px`;
-  const availableWidth = els.typingText.clientWidth;
-  const widestLine = Math.max(0, ...[...els.typingText.querySelectorAll(".practice-line")].map(line => line.scrollWidth));
-  if (availableWidth && widestLine > availableWidth) {
-    els.typingText.style.fontSize = `${Math.max(12, baseSize * availableWidth / widestLine).toFixed(2)}px`;
-  }
+  // Row density adapts to the selected font size, so the preset stays visible
+  // instead of being silently reduced to make a crowded line fit.
+  els.typingText.style.fontSize = "";
 }
 
 function renderText() {
@@ -1973,23 +1995,6 @@ function renderSettingsKeyboardMap() {
     }).join("");
     return `<div class="key-row key-row-${rowIndex + 1}">${keys}</div>`;
   }).join("");
-}
-
-function renderFocusLetterPicker() {
-  if (!els.focusLettersPicker) return;
-  const earnedCount = Number(prefs.practiceLetters);
-  const earned = new Set(letterOrder.slice(0, earnedCount));
-  const selected = new Set(selectedAdaptiveFocusLetters());
-  els.focusLettersPicker.innerHTML = letterOrder.map(letter => {
-    const isEarned = earned.has(letter);
-    const isSelected = selected.has(letter);
-    const stateClass = isSelected ? "selected" : isEarned ? "available" : "locked";
-    const detail = isSelected ? `${letter} selected for word focus` : isEarned ? `Select ${letter} for word focus` : `${letter} unlocks later`;
-    return `<button type="button" class="focus-letter-button ${stateClass}" data-focus-letter="${letter}"${isEarned ? "" : " disabled"} aria-pressed="${isSelected}" title="${detail}">${letter}</button>`;
-  }).join("");
-  els.focusLettersSummary.textContent = selected.size
-    ? `${selected.size} / 5 selected · ${[...selected].join(" / ")}`
-    : "Optional · choose up to 5 earned letters";
 }
 
 function fingerZone(key) {
@@ -2874,11 +2879,10 @@ const settingDescriptions = {
   typingSounds: "Turns accepted-keystroke sounds on or off without changing the selected sound.",
   errorSounds: "Turns blocked-error sounds on or off without changing the selected sound.",
   practiceLetters: "Sets the starting alphabet size. Automatic unlocks still require confidence evidence.",
-  focusLetters: "Prioritizes upcoming adaptive words that contain up to five selected earned letters. Leave it empty for automatic weakest-letter focus.",
   targetSpeed: "Sets the per-letter speed needed for full confidence and the next automatic unlock.",
   recoverKeys: "Requires every earned letter to be currently above target before the next one unlocks.",
   naturalWords: "Keeps adaptive lessons inside the curated natural vocabulary; off broadens that vocabulary without using nonsense strings.",
-  wordsPerRow: "Sets the target word count for each adaptive row.",
+  wordsPerRow: "Sets the maximum word count per row. Larger text sizes automatically use fewer words so each row stays on one line.",
   dailyGoalMinutes: "Sets the amount of active typing time needed to complete the daily goal."
 };
 
@@ -3005,23 +3009,6 @@ function setupSettings() {
     });
   });
 
-  els.focusLettersPicker.onclick = event => {
-    const button = event.target.closest("[data-focus-letter]");
-    if (!button || button.disabled) return;
-    const letter = button.dataset.focusLetter;
-    const selected = selectedAdaptiveFocusLetters();
-    const next = selected.includes(letter)
-      ? selected.filter(item => item !== letter)
-      : selected.length >= 5
-        ? selected
-        : [...selected, letter];
-    prefs.focusLetters = letterOrder.filter(item => next.includes(item));
-    save();
-    renderFocusLetterPicker();
-    if (state.mode === "adaptive") restart();
-    else render();
-  };
-
   const toggleIds = [
     "includePunctuation", "includeNumbers", "blindMode", "quickEnd", "capsLockWarning", "focusMode", "showLiveWpm",
     "freedomMode", "strictSpace", "oppositeShiftMode", "britishEnglish", "lazyMode", "showLiveAccuracy", "showLiveRaw",
@@ -3044,7 +3031,6 @@ function setupSettings() {
 
   updateCreativeDescription();
   updatePracticePresetDescription();
-  renderFocusLetterPicker();
   installSettingDescriptions();
 }
 
@@ -3098,6 +3084,23 @@ els.letterHeatmap.addEventListener("click", event => {
   const key = event.target.closest("[data-letter]");
   if (!key || key.disabled) return;
   openLetterDetails(key.dataset.letter);
+});
+els.letterFocusCheckbox.addEventListener("change", event => {
+  const letter = els.letterDetailBadge.textContent.toUpperCase();
+  const selected = selectedAdaptiveFocusLetters();
+  if (event.target.checked && !selected.includes(letter) && selected.length >= 5) {
+    event.target.checked = false;
+    syncLetterFocusControl(letter);
+    return;
+  }
+  const next = event.target.checked
+    ? [...selected, letter]
+    : selected.filter(item => item !== letter);
+  prefs.focusLetters = letterOrder.filter(item => next.includes(item));
+  save();
+  render();
+  syncLetterFocusControl(letter);
+  if (state.mode === "adaptive") restart();
 });
 els.adaptiveMissedLetters.addEventListener("click", event => {
   const key = event.target.closest("[data-letter]");

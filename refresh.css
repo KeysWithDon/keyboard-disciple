@@ -803,30 +803,6 @@ body[data-mode="quote"] .typing-text {
 .settings-keyboard-map .settings-map-key.has-progress { box-shadow: inset 0 -4px 0 color-mix(in srgb, var(--lesson-color) 72%, transparent); }
 .settings-map-spacer { min-width: 0; }
 .settings-map-legend { margin-top: 10px; }
-.focus-letter-control { min-width: 0; display: grid; gap: 7px; }
-.focus-letter-picker {
-  display: grid;
-  grid-template-columns: repeat(13, minmax(24px, 1fr));
-  gap: 4px;
-}
-.focus-letter-button {
-  min-width: 0;
-  height: 28px;
-  padding: 0;
-  border: 1px solid var(--line);
-  border-radius: 3px;
-  color: var(--muted);
-  background: color-mix(in srgb, var(--panel) 76%, transparent);
-  font-family: var(--app-font);
-  font-size: 10px;
-  font-weight: 700;
-  cursor: pointer;
-}
-.focus-letter-button.available:hover,
-.focus-letter-button.available:focus-visible { border-color: var(--gold); color: var(--text); outline: 0; }
-.focus-letter-button.selected { border-color: var(--gold); color: #17130a; background: var(--gold); box-shadow: 0 0 0 1px color-mix(in srgb, var(--gold) 35%, transparent); }
-.focus-letter-button.locked { opacity: .34; cursor: not-allowed; }
-.focus-letter-summary { color: var(--faint); font-size: 9px; line-height: 1.35; }
 .settings-keyboard-map .settings-map-key.map-focus { outline: 2px solid var(--gold); outline-offset: -2px; box-shadow: 0 0 0 1px color-mix(in srgb, var(--gold) 42%, transparent); }
 
 .adaptive-recommendation {
@@ -927,18 +903,6 @@ body[data-mode="quote"] .typing-text {
   font-weight: 500;
 }
 .settings-page .settings-grid > label:focus-within { border-color: color-mix(in srgb, var(--gold) 50%, var(--line)); background: transparent; }
-.settings-page .settings-grid > .focus-letter-setting {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: minmax(110px, .8fr) minmax(150px, 1.2fr);
-  align-items: start;
-  gap: 10px;
-  padding: 9px 0 12px;
-  border-bottom: 1px solid color-mix(in srgb, var(--line) 65%, transparent);
-  color: var(--muted);
-  font-size: 11px;
-  font-weight: 500;
-}
 .settings-grid.compact-grid > label { grid-template-columns: 1fr; align-items: stretch; }
 .settings-page .settings-grid select,
 .settings-page .settings-grid input,
@@ -988,6 +952,23 @@ body[data-mode="quote"] .typing-text {
 .subsettings-title span { color: var(--gold); font-size: 9px; }
 
 .letter-metrics { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.letter-focus-toggle {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 11px 13px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--panel) 62%, transparent);
+  cursor: pointer;
+}
+.letter-focus-toggle:focus-within { border-color: color-mix(in srgb, var(--gold) 58%, var(--line)); }
+.letter-focus-toggle input { width: 17px; height: 17px; flex: 0 0 auto; accent-color: var(--gold); }
+.letter-focus-toggle span { min-width: 0; display: grid; gap: 3px; }
+.letter-focus-toggle strong { color: var(--text); font-size: 11px; font-weight: 650; }
+.letter-focus-toggle small { color: var(--faint); font-size: 9px; line-height: 1.4; }
 .curve-section { border-color: var(--line); background: var(--panel); }
 .curve-target-line { stroke: var(--gold); stroke-width: 1.5; stroke-dasharray: 5 5; opacity: .75; }
 .curve-target-label { fill: var(--gold); font-size: 10px; }
@@ -1078,11 +1059,8 @@ body[data-mode="quote"] .typing-text {
   .adaptive-recommendation .primary-button { width: 100%; }
   .settings-dialog { width: calc(100vw - 16px); }
   .settings-pane { padding: 26px 18px; }
-  .settings-grid > label,
-  .settings-grid > .focus-letter-setting { grid-template-columns: 1fr; align-items: stretch; }
+  .settings-grid > label { grid-template-columns: 1fr; align-items: stretch; }
   .settings-grid.compact-grid { grid-template-columns: 1fr 1fr; }
-  .focus-letter-picker { grid-template-columns: repeat(13, minmax(18px, 1fr)); gap: 3px; }
-  .focus-letter-button { height: 26px; font-size: 9px; }
   .toggle-list { grid-template-columns: 1fr; }
   .letter-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .letter-hud .letter-heatmap { grid-template-columns: repeat(13, minmax(0, 1fr)); gap: 3px; overflow: visible; }

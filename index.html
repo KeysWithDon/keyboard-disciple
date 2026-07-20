@@ -13,8 +13,8 @@
   <link rel="canonical" href="https://keyswithdon.github.io/keyboard-disciple/">
   <link rel="sitemap" type="application/xml" href="https://keyswithdon.github.io/keyboard-disciple/sitemap.xml">
   <link rel="icon" href="assets/keyboard-disciple-mark.png">
-  <link rel="stylesheet" href="styles.css?v=20260720-single-row">
-  <link rel="stylesheet" href="refresh.css?v=20260720-single-row">
+  <link rel="stylesheet" href="styles.css?v=20260720-main-focus-rows">
+  <link rel="stylesheet" href="refresh.css?v=20260720-main-focus-rows">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Keyboard Disciple">
   <meta property="og:title" content="Keyboard Disciple | Free Typing Practice Game">
@@ -730,20 +730,12 @@
           <section class="settings-pane" data-settings-panel="progress">
             <div class="settings-section-heading">
               <span>06</span>
-              <div><h3>Adaptive Learning</h3><p>Set the goal; the lesson focuses your least confident earned letter.</p></div>
+              <div><h3>Adaptive Learning</h3><p>Set the goal; choose focus letters from the main letter tracker.</p></div>
             </div>
             <div class="settings-grid">
               <label>Starting alphabet
                 <select id="practiceLetters"></select>
               </label>
-              <div class="focus-letter-setting">
-                <span>Focus letters</span>
-                <div class="focus-letter-control">
-                  <div class="focus-letter-picker" id="focusLettersPicker" role="group" aria-label="Focus letters"></div>
-                  <span class="focus-letter-summary" id="focusLettersSummary">Optional · choose up to 5 earned letters</span>
-                  <small class="setting-help">Prioritizes upcoming adaptive words that contain up to five selected earned letters. Leave it empty for automatic weakest-letter focus.</small>
-                </div>
-              </div>
               <label>Target speed
                 <select id="targetSpeed">
                   <option value="20">20 WPM</option>
@@ -829,6 +821,13 @@
         <span>Learning rate <strong id="letterLearningRate">Collecting</strong></span>
         <span>Evidence <strong id="letterLessons">0 / 27</strong></span>
       </div>
+      <label class="letter-focus-toggle">
+        <input type="checkbox" id="letterFocusCheckbox">
+        <span>
+          <strong>Focus this letter</strong>
+          <small id="letterFocusHint">Adaptive lessons can prioritize this earned letter.</small>
+        </span>
+      </label>
       <section class="curve-section" aria-labelledby="curveTitle">
         <header>
           <h3 id="curveTitle">Speed by lesson</h3>
@@ -839,6 +838,6 @@
     </form>
   </dialog>
 
-  <script src="app.js?v=20260720-single-row"></script>
+  <script src="app.js?v=20260720-main-focus-rows"></script>
 </body>
 </html>
