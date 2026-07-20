@@ -1870,9 +1870,15 @@ function fitPracticeLines(lines) {
     els.typingText.style.fontSize = "";
     return;
   }
-  // Keep the selected size intact. Word spans wrap as units when a larger
-  // setting needs more room, so a word is never clipped or split.
-  els.typingText.style.fontSize = "";
+  // Keep every practice line on one physical row. The selected preset is the
+  // ceiling; only unusually long rows are reduced enough to fit their width.
+  const baseSize = parseFloat(getComputedStyle(els.typingText).fontSize) || 32;
+  els.typingText.style.fontSize = `${baseSize}px`;
+  const availableWidth = els.typingText.clientWidth;
+  const widestLine = Math.max(0, ...[...els.typingText.querySelectorAll(".practice-line")].map(line => line.scrollWidth));
+  if (availableWidth && widestLine > availableWidth) {
+    els.typingText.style.fontSize = `${Math.max(12, baseSize * availableWidth / widestLine).toFixed(2)}px`;
+  }
 }
 
 function renderText() {
