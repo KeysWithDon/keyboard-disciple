@@ -1391,7 +1391,9 @@ function wordDeck() {
 
 function visibleWordsPerRow(minimum = 2) {
   const requested = Math.max(minimum, Number(prefs.wordsPerRow) || 10);
-  const density = { small: 1, medium: .8, large: .65, xlarge: .55 }[prefs.fontSize] || 1;
+  const density = state.mode === "adaptive"
+    ? { small: 1, medium: .72, large: .58, xlarge: .44 }[prefs.fontSize] || 1
+    : { small: 1, medium: .8, large: .65, xlarge: .55 }[prefs.fontSize] || 1;
   const viewport = window.innerWidth || 1200;
   const viewportCap = viewport <= 620
     ? { small: 8, medium: 4, large: 3, xlarge: 2 }[prefs.fontSize]

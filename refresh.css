@@ -667,6 +667,13 @@ body[data-mode="dictation"] .typing-card { justify-content: center; }
 .practice-line:nth-child(3) { opacity: .28; }
 .practice-line:nth-child(4) { opacity: .16; }
 .smooth-lines .practice-line { transition: opacity 180ms ease, transform 180ms ease; }
+
+/* Adaptive shows only the active line and one preview, so its size can lead. */
+body[data-mode="adaptive"] .typing-card[data-size="small"] .typing-text { font-size: clamp(24px, 2.2vw, 36px); }
+body[data-mode="adaptive"] .typing-card[data-size="medium"] .typing-text { font-size: clamp(32px, 3vw, 48px); }
+body[data-mode="adaptive"] .typing-card[data-size="large"] .typing-text { font-size: clamp(40px, 3.8vw, 60px); }
+body[data-mode="adaptive"] .typing-card[data-size="xlarge"] .typing-text { font-size: clamp(48px, 4.5vw, 72px); }
+
 .typing-word { display: inline-flex; white-space: nowrap; }
 .typing-space { display: inline; white-space: pre; }
 .typing-text .pending { color: color-mix(in srgb, var(--lesson-color) 30%, var(--faint)); }
@@ -1194,6 +1201,10 @@ body[data-mode="quote"] .typing-text {
   .toggle-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .letter-heatmap { grid-template-columns: repeat(26, 30px); }
   .typing-text { font-size: clamp(20px, 4vw, 28px); }
+  body[data-mode="adaptive"] .typing-card[data-size="small"] .typing-text { font-size: clamp(22px, 4vw, 32px); }
+  body[data-mode="adaptive"] .typing-card[data-size="medium"] .typing-text { font-size: clamp(28px, 4.8vw, 40px); }
+  body[data-mode="adaptive"] .typing-card[data-size="large"] .typing-text { font-size: clamp(34px, 5.4vw, 48px); }
+  body[data-mode="adaptive"] .typing-card[data-size="xlarge"] .typing-text { font-size: clamp(40px, 6vw, 56px); }
 }
 
 @media (max-width: 620px) {
@@ -1214,6 +1225,10 @@ body[data-mode="quote"] .typing-text {
   .hud-heading > div:first-child, .unlock-summary { align-items: flex-start; flex-direction: column; gap: 3px; }
   .typing-card { min-height: 270px; padding: 8px 0; }
   .typing-text { min-height: 202px; font-size: clamp(18px, 5.4vw, 23px); line-height: 1.55; }
+  body[data-mode="adaptive"] .typing-card[data-size="small"] .typing-text { font-size: clamp(20px, 5.4vw, 26px); }
+  body[data-mode="adaptive"] .typing-card[data-size="medium"] .typing-text { font-size: clamp(25px, 6.2vw, 32px); }
+  body[data-mode="adaptive"] .typing-card[data-size="large"] .typing-text { font-size: clamp(30px, 7vw, 40px); }
+  body[data-mode="adaptive"] .typing-card[data-size="xlarge"] .typing-text { font-size: clamp(36px, 7.8vw, 48px); }
   .keyboard { padding: 7px; }
   .finger-legend { display: none; }
   .adaptive-result-heading { align-items: flex-start; flex-direction: column; gap: 8px; }
