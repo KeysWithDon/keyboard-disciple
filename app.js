@@ -594,9 +594,19 @@ function letterMastery(letter) {
   const savedBest = Number(stats.bestConfidence) || 0;
   const bestConfidence = Math.max(savedBest, currentConfidence);
   const score = prefs.recoverKeys ? currentConfidence : bestConfidence;
+  // Keep the visible tile responsive to all recorded practice, even before a
+  // completed-page sample is available for the stricter mastery calculation.
+  const attemptProgress = Math.min(1, (Number(stats.attempts) || 0) / masteryRequiredAttempts);
+  const pageProgress = Math.min(1, history.length / masteryRequiredPages);
+  const evidenceProgress = Math.max(attemptProgress, pageProgress);
+  const visualScore = evidenceProgress
+    ? Math.max(score, evidenceProgress * (.35 + Math.max(0, Math.min(1, accuracy)) * .65))
+    : 0;
   return {
     score,
     percent: Math.round(score * 100),
+    visualScore: Math.max(0, Math.min(1, visualScore)),
+    visualPercent: Math.round(Math.max(0, Math.min(1, visualScore)) * 100),
     currentConfidence,
     bestConfidence,
     smoothedWpm,
@@ -1111,18 +1121,20 @@ function renderLetterProgress() {
       }
     }
     const accuracy = stats.attempts ? Math.round((stats.correct / stats.attempts) * 100) : 0;
-    const strength = isEarned && stats.attempts ? "sampled" : "unseen";
+    const hasProgress = isEarned && (Number(stats.attempts) > 0 || mastery.pages > 0 || mastery.bestConfidence > 0);
+    const strength = hasProgress ? "sampled" : "unseen";
     const status = [isEarned ? "" : isNext ? "next" : "locked", isFocus ? "focus" : ""].filter(Boolean).join(" ");
     const detail = !isEarned
       ? isNext ? "Next to unlock" : "Locked"
       : stats.attempts ? `${mastery.percent}% confidence, ${Math.round(mastery.smoothedWpm)} WPM, ${accuracy}% accuracy` : "Building baseline";
     const disabled = isEarned ? "" : " disabled";
-    const hasEvidence = isEarned && stats.attempts;
-    const hue = Math.round(mastery.score * 120);
+    const hasEvidence = Boolean(hasProgress);
+    const hue = Math.round(mastery.visualScore * 120);
     const deepHue = Math.min(120, hue + 12);
     const heatColor = hasEvidence ? `hsl(${hue} 78% 48%)` : "var(--panel-strong)";
     const heatColorDeep = hasEvidence ? `hsl(${deepHue} 76% 34%)` : "var(--panel-strong)";
-    return `<button type="button" class="heat-key ${strength} ${status}" data-letter="${letter}" style="--confidence:${mastery.score.toFixed(3)};--heat-color:${heatColor};--heat-color-deep:${heatColorDeep}"${disabled} title="${letter}: ${detail}" aria-label="${letter}: ${detail}">${letter}</button>`;
+    const fill = hasEvidence ? `background:linear-gradient(145deg,${heatColor},${heatColorDeep});` : "";
+    return `<button type="button" class="heat-key ${strength} ${status}" data-letter="${letter}" style="--confidence:${mastery.visualScore.toFixed(3)};--heat-color:${heatColor};--heat-color-deep:${heatColorDeep};${fill}"${disabled} title="${letter}: ${detail}" aria-label="${letter}: ${detail}">${letter}</button>`;
   }).join("");
   els.letterHeatmap.innerHTML = `<div class="heat-row">${keys}</div>`;
   els.heatmapSummary.textContent = totalAttempts
