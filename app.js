@@ -1,7 +1,7 @@
 const letterOrder = "ENIARLTOSUDYCGHPMKBWFZVXQJ".split("");
 const startLetters = 6;
 const rowsPerPage = 10;
-const adaptivePagesPerLesson = 10;
+const adaptiveLinesPerLesson = rowsPerPage;
 const masteryRequiredPages = 27;
 const masteryRequiredAttempts = 540;
 const STORAGE_KEY = "keyboard-disciple-web";
@@ -137,6 +137,14 @@ const state = {
   characterErrors: 0,
   lessonLetterStats: {},
   lessonErrorLetters: {},
+  lineLetterStats: {},
+  lineStartedAt: null,
+  lineCharsTyped: 0,
+  lineRawTyped: 0,
+  lineKeyIntervals: [],
+  lineLastKeyAt: null,
+  lineLastAcceptedAt: null,
+  adaptiveLessonLines: [],
   adaptiveLessonPages: [],
   lastAcceptedAt: null,
   lastActivityAt: null,
@@ -527,8 +535,8 @@ function lessonScore(wpm, accuracy) {
   return Math.round(Math.max(0, wpm) * 20 * accuracyFactor ** 2);
 }
 
-function snapshotAdaptiveLetterStats() {
-  return Object.fromEntries(Object.entries(state.lessonLetterStats).map(([letter, stats]) => [letter, {
+function snapshotAdaptiveLetterStats(source = state.lessonLetterStats) {
+  return Object.fromEntries(Object.entries(source).map(([letter, stats]) => [letter, {
     attempts: Number(stats.attempts) || 0,
     correct: Number(stats.correct) || 0,
     timedCorrect: Number(stats.timedCorrect) || 0,
@@ -566,37 +574,37 @@ function aggregateAdaptiveLetterStats(pageSamples) {
   }).sort((a, b) => b.skill - a.skill || b.attempts - a.attempts);
 }
 
-function buildAdaptiveLessonSummary(pageSamples) {
-  const pages = pageSamples.map((page, index) => ({
-    page: index + 1,
-    wpm: Number(Number(page.wpm || 0).toFixed(1)),
-    raw: Number(Number(page.raw || 0).toFixed(1)),
-    accuracy: Number(Number(page.accuracy || 0).toFixed(1)),
-    consistency: Number(Number(page.consistency || 0).toFixed(1)),
-    score: Number(page.score) || 0,
-    elapsedMs: Number(page.elapsedMs) || 0,
-    characters: Number(page.characters) || 0,
-    errors: Number(page.errors) || 0
+function buildAdaptiveLessonSummary(lineSamples) {
+  const lines = lineSamples.map((line, index) => ({
+    line: index + 1,
+    wpm: Number(Number(line.wpm || 0).toFixed(1)),
+    raw: Number(Number(line.raw || 0).toFixed(1)),
+    accuracy: Number(Number(line.accuracy || 0).toFixed(1)),
+    consistency: Number(Number(line.consistency || 0).toFixed(1)),
+    score: Number(line.score) || 0,
+    elapsedMs: Number(line.elapsedMs) || 0,
+    characters: Number(line.characters) || 0,
+    errors: Number(line.errors) || 0
   }));
-  const totalElapsedMs = pages.reduce((sum, page) => sum + page.elapsedMs, 0);
-  const totalCharacters = pages.reduce((sum, page) => sum + page.characters, 0);
-  const totalErrors = pages.reduce((sum, page) => sum + page.errors, 0);
+  const totalElapsedMs = lines.reduce((sum, line) => sum + line.elapsedMs, 0);
+  const totalCharacters = lines.reduce((sum, line) => sum + line.characters, 0);
+  const totalErrors = lines.reduce((sum, line) => sum + line.errors, 0);
   const totalAttempts = totalCharacters + totalErrors;
   const wpm = totalElapsedMs > 0 ? (totalCharacters / 5) / (totalElapsedMs / 60000) : 0;
   const raw = totalElapsedMs > 0 ? (totalAttempts / 5) / (totalElapsedMs / 60000) : 0;
   const accuracy = totalAttempts ? (totalCharacters / totalAttempts) * 100 : 100;
-  const consistency = pages.length ? pages.reduce((sum, page) => sum + page.consistency, 0) / pages.length : 100;
-  const letterBreakdown = aggregateAdaptiveLetterStats(pageSamples);
+  const consistency = lines.length ? lines.reduce((sum, line) => sum + line.consistency, 0) / lines.length : 100;
+  const letterBreakdown = aggregateAdaptiveLetterStats(lineSamples);
   const weakest = letterBreakdown.at(-1);
   const strongest = letterBreakdown[0];
-  const fastestWpm = pages.reduce((best, page) => Math.max(best, page.wpm), 0);
-  const slowestWpm = pages.reduce((slowest, page) => Math.min(slowest, page.wpm), pages[0]?.wpm || 0);
+  const fastestWpm = lines.reduce((best, line) => Math.max(best, line.wpm), 0);
+  const slowestWpm = lines.reduce((slowest, line) => Math.min(slowest, line.wpm), lines[0]?.wpm || 0);
   return {
-    at: pageSamples.at(-1)?.at || Date.now(),
+    at: lineSamples.at(-1)?.at || Date.now(),
     mode: "adaptive",
     adaptiveLesson: true,
-    pages: pages.length,
-    pageMetrics: pages,
+    lines: lines.length,
+    lineMetrics: lines,
     wpm: Number(wpm.toFixed(1)),
     raw: Number(raw.toFixed(1)),
     accuracy: Number(accuracy.toFixed(1)),
@@ -745,6 +753,33 @@ function currentMetrics(now = performance.now()) {
   return { elapsedMs, wpm, raw, accuracy, consistency, attempts };
 }
 
+function currentAdaptiveLineMetrics(now = performance.now()) {
+  const elapsedMs = state.lineStartedAt ? Math.max(1000, now - state.lineStartedAt) : 1000;
+  const elapsedMinutes = elapsedMs / 60000;
+  const attempts = state.lineRawTyped + state.lineErrors;
+  const wpm = (state.lineCharsTyped / 5) / elapsedMinutes;
+  const raw = (attempts / 5) / elapsedMinutes;
+  const accuracy = attempts ? (state.lineCharsTyped / attempts) * 100 : 100;
+  let consistency = 100;
+  if (state.lineKeyIntervals.length > 2) {
+    const mean = state.lineKeyIntervals.reduce((sum, value) => sum + value, 0) / state.lineKeyIntervals.length;
+    const variance = state.lineKeyIntervals.reduce((sum, value) => sum + (value - mean) ** 2, 0) / state.lineKeyIntervals.length;
+    consistency = Math.max(0, Math.min(100, 100 - (Math.sqrt(variance) / mean) * 100));
+  }
+  return {
+    at: Date.now(),
+    wpm: Number(wpm.toFixed(1)),
+    raw: Number(raw.toFixed(1)),
+    accuracy: Number(accuracy.toFixed(1)),
+    consistency: Number(consistency.toFixed(1)),
+    score: lessonScore(wpm, accuracy),
+    elapsedMs,
+    characters: state.lineCharsTyped,
+    errors: state.lineErrors,
+    letterStats: snapshotAdaptiveLetterStats(state.lineLetterStats)
+  };
+}
+
 function formattedSpeed(wpm) {
   if (prefs.speedUnit === "cpm") return `${Math.round(wpm * 5)} CPM`;
   if (prefs.speedUnit === "wps") return `${(wpm / 60).toFixed(1)} WPS`;
@@ -789,9 +824,12 @@ function renderLiveMetrics() {
 }
 
 function renderAdaptiveStatsChart(result) {
-  const pages = Array.isArray(result?.pageMetrics) ? result.pageMetrics : [];
-  if (!pages.length) {
-    els.adaptiveStatsChart.innerHTML = `<div class="adaptive-chart-empty">Complete a full adaptive lesson to build the page trend.</div>`;
+  const samples = Array.isArray(result?.lineMetrics)
+    ? result.lineMetrics
+    : Array.isArray(result?.pageMetrics) ? result.pageMetrics : [];
+  const unit = Array.isArray(result?.lineMetrics) ? "Line" : "Page";
+  if (!samples.length) {
+    els.adaptiveStatsChart.innerHTML = `<div class="adaptive-chart-empty">Complete a full adaptive lesson to build the line trend.</div>`;
     return;
   }
   const width = 780;
@@ -800,12 +838,12 @@ function renderAdaptiveStatsChart(result) {
   const plotWidth = width - margin.left - margin.right;
   const plotHeight = height - margin.top - margin.bottom;
   const target = Number(result.targetSpeed) || Number(prefs.targetSpeed) || defaultPrefs.targetSpeed;
-  const speeds = pages.map(page => Number(page.wpm) || 0);
+  const speeds = samples.map(sample => Number(sample.wpm) || 0);
   const minY = Math.max(0, Math.floor((Math.min(...speeds, target) - 5) / 5) * 5);
   const maxY = Math.max(minY + 10, Math.ceil((Math.max(...speeds, target) + 5) / 5) * 5);
-  const xFor = index => pages.length === 1
+  const xFor = index => samples.length === 1
     ? margin.left + plotWidth / 2
-    : margin.left + (index / (pages.length - 1)) * plotWidth;
+    : margin.left + (index / (samples.length - 1)) * plotWidth;
   const yFor = value => margin.top + ((maxY - value) / (maxY - minY)) * plotHeight;
   const points = speeds.map((speed, index) => [xFor(index), yFor(speed)]);
   const path = points.map(([x, y], index) => `${index ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
@@ -814,18 +852,18 @@ function renderAdaptiveStatsChart(result) {
     const y = yFor(value);
     return `<g><line class="adaptive-chart-grid" x1="${margin.left}" y1="${y.toFixed(1)}" x2="${width - margin.right}" y2="${y.toFixed(1)}"></line><text class="adaptive-chart-axis" x="${margin.left - 10}" y="${(y + 4).toFixed(1)}" text-anchor="end">${Math.round(value)}</text></g>`;
   }).join("");
-  const xLabels = pages.map((page, index) => {
-    if (index !== 0 && index !== pages.length - 1 && index !== Math.floor((pages.length - 1) / 2)) return "";
-    return `<text class="adaptive-chart-axis" x="${xFor(index).toFixed(1)}" y="${height - 10}" text-anchor="middle">Page ${page.page}</text>`;
+  const xLabels = samples.map((sample, index) => {
+    if (index !== 0 && index !== samples.length - 1 && index !== Math.floor((samples.length - 1) / 2)) return "";
+    return `<text class="adaptive-chart-axis" x="${xFor(index).toFixed(1)}" y="${height - 10}" text-anchor="middle">${unit} ${sample.line || sample.page || index + 1}</text>`;
   }).join("");
   const dots = points.map(([x, y], index) => {
-    const page = pages[index];
-    return `<circle class="adaptive-chart-point" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${index === pages.length - 1 ? 6 : 4}"><title>Page ${page.page}: ${Math.round(page.wpm)} WPM, ${Math.round(page.accuracy)}% accuracy</title></circle>`;
+    const sample = samples[index];
+    return `<circle class="adaptive-chart-point" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${index === samples.length - 1 ? 6 : 4}"><title>${unit} ${sample.line || sample.page || index + 1}: ${Math.round(sample.wpm)} WPM, ${Math.round(sample.accuracy)}% accuracy</title></circle>`;
   }).join("");
   const targetY = yFor(target);
   els.adaptiveStatsChart.innerHTML = `
-    <div class="adaptive-chart-legend"><span><i class="speed-key"></i>Page speed</span><span><i class="target-key"></i>${Math.round(target)} WPM target</span></div>
-    <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Adaptive lesson speed across ${pages.length} pages">
+    <div class="adaptive-chart-legend"><span><i class="speed-key"></i>${unit} speed</span><span><i class="target-key"></i>${Math.round(target)} WPM target</span></div>
+    <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Adaptive lesson speed across ${samples.length} lines">
       ${grid}
       <line class="adaptive-chart-target" x1="${margin.left}" y1="${targetY.toFixed(1)}" x2="${width - margin.right}" y2="${targetY.toFixed(1)}"></line>
       <path class="adaptive-chart-area" d="${path} L${points.at(-1)[0].toFixed(1)} ${(margin.top + plotHeight).toFixed(1)} L${points[0][0].toFixed(1)} ${(margin.top + plotHeight).toFixed(1)} Z"></path>
@@ -871,7 +909,7 @@ function renderResult() {
   if (!result) return;
   els.resultEyebrow.textContent = `${modeCopy()[0]} complete`;
   els.resultTitle.textContent = result.adaptiveLesson
-    ? "Ten-page lesson profile"
+    ? "Ten-line lesson profile"
     : result.failedReason || (result.placement ? "Baseline saved" : result.personalBest ? "New personal best" : "Results");
   els.resultScore.textContent = Number(result.score).toLocaleString();
   els.resultWpm.textContent = Math.round(result.wpm);
@@ -1320,6 +1358,14 @@ async function restart() {
   state.characterErrors = 0;
   state.lessonLetterStats = {};
   state.lessonErrorLetters = {};
+  state.lineLetterStats = {};
+  state.lineStartedAt = null;
+  state.lineCharsTyped = 0;
+  state.lineRawTyped = 0;
+  state.lineKeyIntervals = [];
+  state.lineLastKeyAt = null;
+  state.lineLastAcceptedAt = null;
+  state.adaptiveLessonLines = [];
   state.adaptiveLessonPages = [];
   state.lastAcceptedAt = null;
   state.lastActivityAt = null;
@@ -1542,9 +1588,12 @@ function recordLetterAttempt(expected, isCorrect, recordedAt = performance.now()
   }
 
   const lessonStats = state.lessonLetterStats[letter] ||= { attempts: 0, correct: 0, timedCorrect: 0, elapsedMs: 0 };
+  const lineStats = state.lineLetterStats[letter] ||= { attempts: 0, correct: 0, timedCorrect: 0, elapsedMs: 0 };
   lessonStats.attempts++;
+  lineStats.attempts++;
   if (isCorrect) {
     lessonStats.correct++;
+    lineStats.correct++;
     if (state.lastAcceptedAt) {
       const elapsed = recordedAt - state.lastAcceptedAt;
       if (elapsed > 0 && elapsed <= 12000) {
@@ -1553,6 +1602,14 @@ function recordLetterAttempt(expected, isCorrect, recordedAt = performance.now()
       }
     }
     state.lastAcceptedAt = recordedAt;
+    if (state.lineLastAcceptedAt) {
+      const elapsed = recordedAt - state.lineLastAcceptedAt;
+      if (elapsed > 0 && elapsed <= 12000) {
+        lineStats.elapsedMs += elapsed;
+        lineStats.timedCorrect++;
+      }
+    }
+    state.lineLastAcceptedAt = recordedAt;
   }
   scheduleSave();
 }
@@ -1706,7 +1763,7 @@ function renderText() {
   els.scriptureStrip.classList.toggle("hidden", !reference);
   els.scriptureRef.textContent = reference;
   const rowLabels = {
-    adaptive: `Page ${Math.min(adaptivePagesPerLesson, state.pageIndex + 1)} / ${adaptivePagesPerLesson} / line ${(state.rowIndex % rowsPerPage) + 1} of ${rowsPerPage}`,
+    adaptive: `Line ${(state.rowIndex % rowsPerPage) + 1} of ${rowsPerPage}`,
     time: `${Math.max(0, Math.ceil(state.timeRemaining))} seconds`,
     words: `Line ${state.rowIndex + 1} of ${state.targetRows.length}`,
     creative: `${creativeModeLabels[prefs.creativeMode]} / line ${state.rowIndex + 1} of ${state.targetRows.length}`,
@@ -1876,6 +1933,7 @@ function handleKey(event) {
     if (state.input.length && backspaceAllowed) {
       state.input = state.input.slice(0, -1);
       state.charsTyped = Math.max(0, state.charsTyped - 1);
+      if (state.mode === "adaptive") state.lineCharsTyped = Math.max(0, state.lineCharsTyped - 1);
       state.characterErrors = 0;
     }
     els.rowLabel.textContent = `${Math.max(0, Math.ceil(state.timeRemaining))} seconds`;
@@ -1897,6 +1955,15 @@ function handleKey(event) {
   if (!state.startedAt) {
     state.startedAt = recordedAt;
     if (state.mode === "time") startTimedTest();
+  }
+  if (state.mode === "adaptive") {
+    state.lineStartedAt ||= recordedAt;
+    if (state.lineLastKeyAt) {
+      const interval = recordedAt - state.lineLastKeyAt;
+      if (interval > 0 && interval < 5000) state.lineKeyIntervals.push(interval);
+      if (state.lineKeyIntervals.length > 100) state.lineKeyIntervals.shift();
+    }
+    state.lineLastKeyAt = recordedAt;
   }
   if (state.lastKeyAt) {
     const interval = recordedAt - state.lastKeyAt;
@@ -1938,6 +2005,10 @@ function handleKey(event) {
   state.input += key;
   state.charsTyped++;
   state.rawTyped++;
+  if (state.mode === "adaptive") {
+    state.lineCharsTyped++;
+    state.lineRawTyped++;
+  }
   if (prefs.typingSounds) playKey(event.code, event.shiftKey || state.capsLock);
   if (state.mode !== "zen" && state.input.length >= target.length) {
     finishLine();
@@ -2048,6 +2119,7 @@ function finishAdaptiveLine() {
   const completedPage = completedRow === rowsPerPage;
   let adaptiveLessonComplete = false;
   let newlyUnlocked = "";
+  if (state.mode === "adaptive") state.adaptiveLessonLines.push(currentAdaptiveLineMetrics());
   if (completedPage) {
     const metrics = currentMetrics();
     const letterStats = snapshotAdaptiveLetterStats();
@@ -2061,7 +2133,7 @@ function finishAdaptiveLine() {
       letterStats
     });
     state.adaptiveLessonPages.push(pageResult);
-    adaptiveLessonComplete = state.adaptiveLessonPages.length >= adaptivePagesPerLesson;
+    adaptiveLessonComplete = state.adaptiveLessonLines.length >= adaptiveLinesPerLesson;
     if (canUnlockNextLetter()) {
       newlyUnlocked = letterOrder[Number(prefs.practiceLetters)] || "";
       prefs.practiceLetters = Math.min(letterOrder.length, Number(prefs.practiceLetters) + 1);
@@ -2069,7 +2141,7 @@ function finishAdaptiveLine() {
       if (practiceSelector) practiceSelector.value = String(prefs.practiceLetters);
     }
     if (adaptiveLessonComplete) {
-      const summary = buildAdaptiveLessonSummary(state.adaptiveLessonPages);
+      const summary = buildAdaptiveLessonSummary(state.adaptiveLessonLines);
       summary.recommendation = recommendAdaptiveFocus(progress.adaptiveLessonHistory);
       saveAdaptiveLessonSummary(summary);
       state.result = { ...summary, ...rankAdaptiveLesson(summary) };
@@ -2085,6 +2157,13 @@ function finishAdaptiveLine() {
     els.completionBanner.classList.add("hidden");
     state.input = "";
     state.lineErrors = 0;
+    state.lineLetterStats = {};
+    state.lineStartedAt = null;
+    state.lineCharsTyped = 0;
+    state.lineRawTyped = 0;
+    state.lineKeyIntervals = [];
+    state.lineLastKeyAt = null;
+    state.lineLastAcceptedAt = null;
     if (adaptiveLessonComplete) {
       state.startedAt = null;
       state.charsTyped = 0;
