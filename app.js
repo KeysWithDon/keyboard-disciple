@@ -2581,7 +2581,7 @@ function handleKey(event) {
   const keyId = visualKeyId(event);
   flashPressedKey(keyId);
   if (event.metaKey || event.ctrlKey || event.altKey) return;
-  if (event.repeat && state.mode !== "zen") {
+  if (event.repeat && state.mode !== "zen" && event.key !== "Backspace") {
     event.preventDefault();
     return;
   }
@@ -2596,6 +2596,7 @@ function handleKey(event) {
       state.characterErrors = 0;
     }
     els.rowLabel.textContent = `${Math.max(0, Math.ceil(state.timeRemaining))} seconds`;
+    renderText();
     renderLiveMetrics();
     if (prefs.keymapMode === "next") renderKeyboard();
     return;
