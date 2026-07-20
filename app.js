@@ -216,7 +216,7 @@ prefs.testDuration = Math.max(5, Math.min(600, Number(prefs.testDuration) || def
 prefs.testWordCount = Math.max(1, Math.min(3000, Math.round(Number(prefs.testWordCount) || defaultPrefs.testWordCount)));
 prefs.errorLimit = Math.max(1, Math.min(8, Number(prefs.errorLimit) || defaultPrefs.errorLimit));
 prefs.soundVolume = Math.max(0, Math.min(1, Number(prefs.soundVolume) || defaultPrefs.soundVolume));
-prefs.targetSpeed = Math.max(10, Math.min(100, Number(prefs.targetSpeed) || defaultPrefs.targetSpeed));
+prefs.targetSpeed = Math.max(10, Math.min(300, Number(prefs.targetSpeed) || defaultPrefs.targetSpeed));
 prefs.minWpm = Math.max(0, Math.min(200, Number(prefs.minWpm) || 0));
 prefs.minAccuracy = Math.max(0, Math.min(100, Number(prefs.minAccuracy) || 0));
 prefs.minBurst = Math.max(0, Math.min(200, Number(prefs.minBurst) || 0));
@@ -1587,7 +1587,7 @@ function recordLetterLessonResults(pageWpm, completedAt) {
     const timedWpm = stats.timedCorrect >= 2 && stats.elapsedMs > 0
       ? (stats.timedCorrect / 5) / (stats.elapsedMs / 60000)
       : pageWpm;
-    const wpm = Math.max(0, Math.min(200, timedWpm));
+    const wpm = Math.max(0, Math.min(400, timedWpm));
     const history = Array.isArray(progress.letterHistory[letter]) ? progress.letterHistory[letter] : [];
     progress.letterHistory[letter] = history;
     history.push({
