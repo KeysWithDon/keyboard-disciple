@@ -13,8 +13,8 @@
   <link rel="canonical" href="https://keyswithdon.github.io/keyboard-disciple/">
   <link rel="sitemap" type="application/xml" href="https://keyswithdon.github.io/keyboard-disciple/sitemap.xml">
   <link rel="icon" href="assets/keyboard-disciple-mark.png">
-  <link rel="stylesheet" href="styles.css?v=20260720-dictation-single-row">
-  <link rel="stylesheet" href="refresh.css?v=20260720-dictation-single-row">
+  <link rel="stylesheet" href="styles.css?v=20260720-dictation-scripture-audio">
+  <link rel="stylesheet" href="refresh.css?v=20260720-dictation-scripture-audio">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Keyboard Disciple">
   <meta property="og:title" content="Keyboard Disciple | Free Typing Practice Game">
@@ -342,6 +342,18 @@
                   <option value="15">15 prompts</option>
                   <option value="20">20 prompts</option>
                   <option value="30">30 prompts</option>
+                </select>
+              </label>
+              <label>Dictation capitals
+                <select id="dictationCapitalization">
+                  <option value="exact" selected>Match capitals</option>
+                  <option value="ignore">Ignore capitals</option>
+                </select>
+              </label>
+              <label>Dictation punctuation
+                <select id="dictationPunctuation">
+                  <option value="exact" selected>Type punctuation</option>
+                  <option value="ignore">Ignore punctuation</option>
                 </select>
               </label>
               <label>Quote length
@@ -912,6 +924,6 @@
     </form>
   </dialog>
 
-  <script src="app.js?v=20260720-dictation-single-row"></script>
+  <script src="app.js?v=20260720-dictation-scripture-audio"></script>
 </body>
 </html>

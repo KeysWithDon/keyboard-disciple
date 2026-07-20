@@ -271,6 +271,8 @@ const defaultPrefs = {
   testDuration: 30,
   testWordCount: 50,
   dictationPromptCount: 10,
+  dictationCapitalization: "exact",
+  dictationPunctuation: "exact",
   quoteLength: "medium",
   difficulty: "normal",
   creativeMode: "weakspot",
@@ -356,6 +358,8 @@ prefs.focusLetters = [...new Set(prefs.focusLetters.map(letter => String(letter)
 prefs.testDuration = Math.max(5, Math.min(600, Number(prefs.testDuration) || defaultPrefs.testDuration));
 prefs.testWordCount = Math.max(1, Math.min(3000, Math.round(Number(prefs.testWordCount) || defaultPrefs.testWordCount)));
 prefs.dictationPromptCount = Math.max(5, Math.min(30, Math.round(Number(prefs.dictationPromptCount) || defaultPrefs.dictationPromptCount)));
+if (!new Set(["exact", "ignore"]).has(prefs.dictationCapitalization)) prefs.dictationCapitalization = defaultPrefs.dictationCapitalization;
+if (!new Set(["exact", "ignore"]).has(prefs.dictationPunctuation)) prefs.dictationPunctuation = defaultPrefs.dictationPunctuation;
 prefs.errorLimit = Math.max(1, Math.min(8, Number(prefs.errorLimit) || defaultPrefs.errorLimit));
 prefs.soundVolume = Math.max(0, Math.min(1, Number(prefs.soundVolume) || defaultPrefs.soundVolume));
 prefs.spokenRemindersEnabled = Boolean(prefs.spokenRemindersEnabled);
@@ -1612,8 +1616,14 @@ function makeTimedRows() {
   return rows;
 }
 
-function makeDictationRows(count = prefs.dictationPromptCount) {
-  const sentences = shuffle(dictationSentenceBank);
+async function makeDictationRows(count = prefs.dictationPromptCount) {
+  let passages = [];
+  try {
+    passages = makeBibleQuotePages(await loadKJV()).map(([, text]) => text).filter(Boolean);
+  } catch (error) {
+    console.warn("Scripture prompts could not be loaded; using the local fallback bank.", error);
+  }
+  const sentences = shuffle(passages.length ? passages : dictationSentenceBank);
   return Array.from({ length: Math.max(1, Number(count) || 1) }, (_, index) => {
     return transformText(sentences[index % sentences.length] || "Practice with patience and care.");
   });
@@ -1632,6 +1642,22 @@ function quoteForLength() {
     return count >= min && count <= max;
   });
   return shuffle(matches.length ? matches : generalQuotes)[0];
+}
+
+async function bibleQuoteForLength() {
+  const pages = makeBibleQuotePages(await loadKJV());
+  const ranges = {
+    short: [0, 11],
+    medium: [12, 20],
+    long: [21, 32],
+    epic: [33, Infinity]
+  };
+  const [min, max] = ranges[prefs.quoteLength] || ranges.medium;
+  const matches = pages.filter(([, text]) => {
+    const count = text.split(/\s+/).length;
+    return count >= min && count <= max;
+  });
+  return shuffle(matches.length ? matches : pages)[0] || ["John 3:16 KJV", "For God so loved the world, that he gave his only begotten Son."];
 }
 
 function transformText(text) {
@@ -1762,11 +1788,13 @@ async function restart() {
     state.targetRows = makePlacementRows();
     state.scripturePages = [];
   } else if (state.mode === "dictation") {
-    state.targetRows = makeDictationRows();
+    state.targetRows = await makeDictationRows();
+    if (requestId !== restartRequestId) return;
     state.scripturePages = [];
   } else if (state.mode === "quote") {
     const shouldRepeat = prefs.repeatQuotes === "always" || (prefs.repeatQuotes === "typing" && wasTyping);
-    const quote = shouldRepeat && state.lastQuote ? state.lastQuote : quoteForLength();
+    const quote = shouldRepeat && state.lastQuote ? state.lastQuote : await bibleQuoteForLength();
+    if (requestId !== restartRequestId) return;
     state.lastQuote = quote;
     state.scripturePages = [[quote[0], transformText(quote[1])]];
     state.targetRows = [];
@@ -1795,6 +1823,15 @@ function currentTarget() {
   if (["bible", "bibleQuotes", "quote"].includes(state.mode)) return state.scripturePages[state.pageIndex]?.[1] || "";
   if (state.mode === "zen") return "";
   return state.targetRows[state.rowIndex] || "";
+}
+
+function currentTypingTarget() {
+  const target = currentTarget();
+  if (state.mode !== "dictation") return target;
+  let typingTarget = target;
+  if (prefs.dictationPunctuation === "ignore") typingTarget = typingTarget.replace(/[^\w\s]/g, "");
+  if (prefs.dictationCapitalization === "ignore") typingTarget = typingTarget.toLowerCase();
+  return typingTarget;
 }
 
 function currentReference() {
@@ -1880,19 +1917,7 @@ async function playDictationPrompt() {
 }
 
 function speakBrowserDictationPrompt(text) {
-  return new Promise((resolve, reject) => {
-    if (!("speechSynthesis" in window)) {
-      reject(new Error("Browser speech is unavailable."));
-      return;
-    }
-    window.speechSynthesis.cancel();
-    const utterance = new SpeechSynthesisUtterance(cleanSpokenReminderText(text));
-    utterance.rate = .9;
-    utterance.pitch = 1;
-    utterance.onend = resolve;
-    utterance.onerror = () => reject(new Error("Browser speech playback failed."));
-    window.speechSynthesis.speak(utterance);
-  });
+  return spokenReminderManager.playBrowserSpeech(text, { rate: .9 });
 }
 
 function modeCopy() {
@@ -2378,8 +2403,11 @@ function renderText() {
 
   const streamMode = ["adaptive", "time", "words", "creative", "placement"].includes(state.mode);
   if (streamMode) {
-    const lines = [state.targetRows[state.rowIndex] || ""];
-    els.typingText.innerHTML = `<span class="practice-line active" data-line-offset="0">${renderInteractiveTarget(lines[0])}</span>`;
+    const lines = state.mode === "adaptive"
+      ? state.targetRows.slice(state.rowIndex, state.rowIndex + 2)
+      : [state.targetRows[state.rowIndex] || ""];
+    while (state.mode === "adaptive" && lines.length < 2) lines.push("");
+    els.typingText.innerHTML = lines.map((line, index) => `<span class="practice-line${index === 0 ? " active" : ""}" data-line-offset="${index}">${index === 0 ? renderInteractiveTarget(line) : renderPlainLine(line)}</span>`).join("");
     fitPracticeLines(lines);
     return;
   }
@@ -2609,14 +2637,18 @@ function handleKey(event) {
   }
   state.lastKeyAt = recordedAt;
   trackDailyActivity(recordedAt);
-  const target = currentTarget();
-  const key = arrowCharacter || event.key;
+  const target = currentTypingTarget();
+  const enteredKey = arrowCharacter || event.key;
+  const key = state.mode === "dictation" && prefs.dictationCapitalization === "ignore"
+    ? enteredKey.toLowerCase()
+    : enteredKey;
   const expected = target[state.input.length];
   const expectedLower = String(expected || "").toLowerCase();
   const expectedZone = /^[a-z]$/.test(expectedLower) ? fingerZone(expectedLower).label : "";
-  const oppositeShiftError = prefs.oppositeShiftMode && /^[A-Z]$/.test(String(expected || "")) && !["b", "y"].includes(expectedLower)
+  const oppositeShiftError = prefs.oppositeShiftMode && state.mode !== "dictation" && /^[A-Z]$/.test(String(expected || "")) && !["b", "y"].includes(expectedLower)
     && state.shiftSide !== (expectedZone.startsWith("Left") ? "right" : "left");
-  if (state.mode !== "zen" && (key !== expected || oppositeShiftError)) {
+  const isCorrect = key === expected && !oppositeShiftError;
+  if (state.mode !== "zen" && !isCorrect) {
     state.lineErrors++;
     if (state.characterErrors < Number(prefs.errorLimit)) {
       state.errors++;
@@ -2636,14 +2668,13 @@ function handleKey(event) {
     renderLetterProgress();
     renderPerformance();
     renderLiveMetrics();
-    return;
-  }
-  if (state.mode !== "zen") {
+    if (state.mode !== "dictation") return;
+  } else if (state.mode !== "zen") {
     recordCharacterAttempt(expected, true);
     recordLetterAttempt(expected, true, recordedAt);
   }
-  state.characterErrors = 0;
-  state.input += key;
+  if (isCorrect) state.characterErrors = 0;
+  state.input += enteredKey;
   state.charsTyped++;
   state.rawTyped++;
   if (state.mode === "adaptive") {
@@ -3084,7 +3115,9 @@ class SpokenReminderAudioManager {
     this.lastReminder = null;
     this.toastTimer = null;
     this.catalogLoaded = false;
+    this.catalogAvailable = false;
     this.models = [];
+    this.browserVoices = new Map();
   }
 
   apiBase() {
@@ -3226,8 +3259,19 @@ class SpokenReminderAudioManager {
   }
 
   async synthesizeAndPlay(text, options = {}) {
-    const blob = await this.synthesizeAudio(text, options);
-    await this.playBlob(blob, options);
+    const voiceId = String(options.voiceId || prefs.reminderVoiceId);
+    if (voiceId.startsWith("browser-")) {
+      await this.playBrowserSpeech(text, options);
+      return;
+    }
+    try {
+      const blob = await this.synthesizeAudio(text, options);
+      await this.playBlob(blob, options);
+    } catch (error) {
+      if (error?.name === "AbortError" || !("speechSynthesis" in window)) throw error;
+      this.updateStatus("Chatterbox is unavailable; using the selected browser voice.");
+      await this.playBrowserSpeech(text, options);
+    }
   }
 
   async playBlob(blob, options = {}) {
@@ -3252,6 +3296,23 @@ class SpokenReminderAudioManager {
       URL.revokeObjectURL(url);
       if (this.currentAudio === audio) this.currentAudio = null;
     }
+  }
+
+  async playBrowserSpeech(text, options = {}) {
+    if (!("speechSynthesis" in window)) throw new Error("Browser speech is unavailable.");
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(cleanSpokenReminderText(text));
+    const voiceId = String(options.voiceId || prefs.reminderVoiceId);
+    const voice = this.browserVoices.get(voiceId);
+    if (voice) utterance.voice = voice;
+    utterance.volume = Math.max(0, Math.min(1, Number(options.volume ?? prefs.reminderVolume) || 0));
+    utterance.rate = Number(options.rate) || .92;
+    utterance.pitch = Number(options.pitch) || 1;
+    await new Promise((resolve, reject) => {
+      utterance.onend = resolve;
+      utterance.onerror = () => reject(new Error("Browser speech playback failed."));
+      window.speechSynthesis.speak(utterance);
+    });
   }
 
   async previewVoice() {
@@ -3289,32 +3350,39 @@ class SpokenReminderAudioManager {
       if (!response.ok) throw new Error("Model catalog unavailable.");
       this.models = (await response.json()).models || [];
       this.catalogLoaded = true;
+      this.catalogAvailable = this.models.length > 0;
       this.syncModelOptions();
       await this.syncVoices();
-      this.updateStatus("Chatterbox voices ready.");
+      this.updateStatus(this.catalogAvailable ? "Chatterbox voices ready." : "Browser voices ready while Chatterbox is unavailable.");
     } catch (error) {
       console.warn("Spoken reminder catalog unavailable.", error);
-      this.updateStatus("Chatterbox service unavailable. Typing reminders still work.");
+      this.catalogAvailable = false;
       this.syncModelOptions([]);
+      this.syncFallbackVoiceOptions();
+      this.updateStatus("Browser voices ready while Chatterbox is unavailable.");
     }
+  }
+
+  fallbackModels() {
+    return [
+      { id: "chatterbox-english", name: "Chatterbox English", description: "Expressive English voice" },
+      { id: "chatterbox-turbo", name: "Chatterbox Turbo", description: "Fast English voice" },
+      { id: "chatterbox-multilingual", name: "Chatterbox Multilingual", description: "Multilingual voice" }
+    ];
   }
 
   syncModelOptions(models = this.models) {
     const select = els.reminderTtsModel;
     if (!select) return;
     select.replaceChildren();
-    if (!models.length) {
-      select.add(new Option("Service unavailable", ""));
-      select.disabled = true;
-      return;
-    }
+    const availableModels = models.length ? models : this.fallbackModels();
     select.disabled = false;
-    models.forEach(model => select.add(new Option(`${model.name} - ${model.description}`, model.id)));
-    const selected = models.some(model => model.id === prefs.reminderTtsModel)
+    availableModels.forEach(model => select.add(new Option(`${model.name} - ${model.description}`, model.id)));
+    const selected = availableModels.some(model => model.id === prefs.reminderTtsModel)
       ? prefs.reminderTtsModel
-      : models.some(model => model.id === "chatterbox-turbo")
-        ? "chatterbox-turbo"
-        : models[0].id;
+      : availableModels.some(model => model.id === "chatterbox-english")
+        ? "chatterbox-english"
+        : availableModels[0].id;
     prefs.reminderTtsModel = selected;
     select.value = selected;
     this.syncLanguageVisibility();
@@ -3323,22 +3391,64 @@ class SpokenReminderAudioManager {
   async syncVoices() {
     const select = els.reminderVoiceId;
     if (!select || !prefs.reminderTtsModel) return;
-    const response = await fetch(`${this.apiBase()}/voices?model=${encodeURIComponent(prefs.reminderTtsModel)}&language=${encodeURIComponent(prefs.reminderLanguage)}`, {
-      credentials: "include",
-      headers: { Accept: "application/json" }
-    });
-    if (!response.ok) throw new Error("Voice catalog unavailable.");
-    const voices = (await response.json()).voices || [];
-    select.replaceChildren();
-    voices.forEach(voice => select.add(new Option(voice.description ? `${voice.name} - ${voice.description}` : voice.name, voice.id)));
-    select.disabled = !voices.length;
-    if (voices.some(voice => voice.id === prefs.reminderVoiceId)) select.value = prefs.reminderVoiceId;
-    else if (voices[0]) {
-      prefs.reminderVoiceId = voices[0].id;
-      select.value = prefs.reminderVoiceId;
-      save();
+    try {
+      const response = await fetch(`${this.apiBase()}/voices?model=${encodeURIComponent(prefs.reminderTtsModel)}&language=${encodeURIComponent(prefs.reminderLanguage)}`, {
+        credentials: "include",
+        headers: { Accept: "application/json" }
+      });
+      if (!response.ok) throw new Error("Voice catalog unavailable.");
+      const voices = (await response.json()).voices || [];
+      if (!voices.length) {
+        if (this.catalogAvailable && prefs.reminderTtsModel === "chatterbox-turbo") {
+          prefs.reminderTtsModel = "chatterbox-english";
+          if (els.reminderTtsModel) els.reminderTtsModel.value = prefs.reminderTtsModel;
+          save();
+          return this.syncVoices();
+        }
+        this.catalogAvailable = false;
+        this.syncFallbackVoiceOptions();
+        this.updateStatus("No approved Chatterbox voice is available; using browser voices.");
+        return voices;
+      }
+      this.catalogAvailable = true;
+      select.replaceChildren();
+      voices.forEach(voice => select.add(new Option(voice.description ? `${voice.name} - ${voice.description}` : voice.name, voice.id)));
+      select.disabled = false;
+      if (voices.some(voice => voice.id === prefs.reminderVoiceId)) select.value = prefs.reminderVoiceId;
+      else if (voices[0]) {
+        prefs.reminderVoiceId = voices[0].id;
+        select.value = prefs.reminderVoiceId;
+        save();
+      }
+      this.updateStatus("Chatterbox voice selected.");
+      return voices;
+    } catch (error) {
+      this.catalogAvailable = false;
+      this.syncFallbackVoiceOptions();
+      this.updateStatus("Browser voices ready while Chatterbox is unavailable.");
+      return [];
     }
-    this.updateStatus(voices.length ? "Chatterbox voice selected." : "No approved voice is available for this model.");
+  }
+
+  syncFallbackVoiceOptions() {
+    const select = els.reminderVoiceId;
+    if (!select) return;
+    this.browserVoices = new Map([["browser-default", null]]);
+    const browserVoices = "speechSynthesis" in window ? window.speechSynthesis.getVoices() : [];
+    const preferredLanguage = String(prefs.reminderLanguage || "en").toLowerCase();
+    const matchingVoices = browserVoices.filter(voice => String(voice.lang || "").toLowerCase().startsWith(preferredLanguage));
+    const voices = matchingVoices.length ? matchingVoices : browserVoices;
+    select.replaceChildren(new Option("Browser default voice", "browser-default"));
+    voices.forEach((voice, index) => {
+      const id = `browser-${index}-${voice.name.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}`;
+      this.browserVoices.set(id, voice);
+      select.add(new Option(`${voice.name}${voice.lang ? ` (${voice.lang})` : ""}`, id));
+    });
+    select.disabled = false;
+    const selected = this.browserVoices.has(prefs.reminderVoiceId) ? prefs.reminderVoiceId : "browser-default";
+    prefs.reminderVoiceId = selected;
+    select.value = selected;
+    save();
   }
 
   syncLanguageVisibility() {
@@ -3676,6 +3786,8 @@ const settingDescriptions = {
   testDuration: "Sets the length of timed tests.",
   testWordCount: "Sets Words and Creative test length up to 3,000 words. Only four lines are shown at once.",
   dictationPromptCount: "Sets how many spoken prompts are in one dictation lesson. The lesson ends with the normal results page.",
+  dictationCapitalization: "Choose whether Dictation requires uppercase letters or accepts the same words in lowercase.",
+  dictationPunctuation: "Choose whether Dictation requires punctuation or accepts the spoken words without sentence marks.",
   quoteLength: "Limits general quotes to the selected length range.",
   difficulty: "Controls how broad and challenging the regular word pool is.",
   capitalization: "Controls letter case in generated practice outside Scripture.",
@@ -3807,7 +3919,7 @@ function setupSettings() {
   }
 
   const selectIds = [
-    "practiceMode", "testDuration", "testWordCount", "dictationPromptCount", "quoteLength", "difficulty", "creativeMode", "capitalization", "quickRestart",
+    "practiceMode", "testDuration", "testWordCount", "dictationPromptCount", "dictationCapitalization", "dictationPunctuation", "quoteLength", "difficulty", "creativeMode", "capitalization", "quickRestart",
     "repeatQuotes", "resultSaving", "minWpm", "minAccuracy", "minBurst", "indicateTypos", "confidenceMode", "errorLimit",
     "theme", "fontFamily", "lessonColor", "currentCue", "caretStyle", "smoothCaret", "typedEffect", "highlightMode", "fontSize",
     "lineWidth", "tapeMode", "timerStyle", "speedUnit", "keyboardLayout", "keyboardSize", "keymapMode", "keymapStyle",
@@ -3820,7 +3932,7 @@ function setupSettings() {
     "targetSpeed", "wordsPerRow", "dailyGoalMinutes", "bibleChapter", "bibleStart", "bibleEnd"
   ]);
   const restartIds = new Set([
-    "practiceMode", "testDuration", "testWordCount", "dictationPromptCount", "quoteLength", "difficulty", "creativeMode", "capitalization",
+    "practiceMode", "testDuration", "testWordCount", "dictationPromptCount", "dictationCapitalization", "dictationPunctuation", "quoteLength", "difficulty", "creativeMode", "capitalization",
     "practiceLetters", "targetSpeed", "practicePreset", "wordsPerRow", "bibleBook", "bibleChapter", "bibleStart", "bibleEnd"
   ]);
   const keyboardIds = new Set(["keyboardLayout", "keyboardSize", "keymapMode", "keymapStyle", "keymapLegend"]);
@@ -3952,6 +4064,9 @@ function setupSpokenReminderSettings() {
       if (state.dictationAudioBlob) playDictationPrompt();
       else prepareDictationPrompt(restartRequestId);
     } else spokenReminderManager.replayLastReminder();
+  });
+  window.speechSynthesis?.addEventListener("voiceschanged", () => {
+    if (!spokenReminderManager.catalogAvailable) spokenReminderManager.syncFallbackVoiceOptions();
   });
 }
 
