@@ -1118,10 +1118,11 @@ function renderLetterProgress() {
       : stats.attempts ? `${mastery.percent}% confidence, ${Math.round(mastery.smoothedWpm)} WPM, ${accuracy}% accuracy` : "Building baseline";
     const disabled = isEarned ? "" : " disabled";
     const hasEvidence = isEarned && stats.attempts;
-    const heatRedAlpha = hasEvidence ? `${Math.round(8 + (1 - mastery.score) * 28)}%` : "0%";
-    const heatGoldAlpha = hasEvidence ? `${Math.round(6 + Math.max(0, 1 - Math.abs(mastery.score - .5) * 2) * 22)}%` : "0%";
-    const heatGreenAlpha = hasEvidence ? `${Math.round(5 + mastery.score * 38)}%` : "0%";
-    return `<button type="button" class="heat-key ${strength} ${status}" data-letter="${letter}" style="--confidence:${mastery.score.toFixed(3)};--heat-red-alpha:${heatRedAlpha};--heat-gold-alpha:${heatGoldAlpha};--heat-green-alpha:${heatGreenAlpha}"${disabled} title="${letter}: ${detail}" aria-label="${letter}: ${detail}">${letter}</button>`;
+    const hue = Math.round(mastery.score * 120);
+    const deepHue = Math.min(120, hue + 12);
+    const heatColor = hasEvidence ? `hsl(${hue} 78% 48%)` : "var(--panel-strong)";
+    const heatColorDeep = hasEvidence ? `hsl(${deepHue} 76% 34%)` : "var(--panel-strong)";
+    return `<button type="button" class="heat-key ${strength} ${status}" data-letter="${letter}" style="--confidence:${mastery.score.toFixed(3)};--heat-color:${heatColor};--heat-color-deep:${heatColorDeep}"${disabled} title="${letter}: ${detail}" aria-label="${letter}: ${detail}">${letter}</button>`;
   }).join("");
   els.letterHeatmap.innerHTML = `<div class="heat-row">${keys}</div>`;
   els.heatmapSummary.textContent = totalAttempts
