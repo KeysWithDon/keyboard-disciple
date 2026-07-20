@@ -587,7 +587,8 @@ function letterMastery(letter) {
   const accuracy = stats.attempts ? stats.correct / stats.attempts : 0;
   const recentSpeeds = history.slice(-12).map(item => Number(item.wpm)).filter(Number.isFinite);
   const smoothedWpm = recentSpeeds.reduce((value, speed) => value === null ? speed : value * .82 + speed * .18, null) || 0;
-  const speedConfidence = Math.min(1, smoothedWpm / Math.max(1, Number(prefs.targetSpeed)));
+  const targetSpeed = Math.max(1, Number(prefs.targetSpeed) || defaultPrefs.targetSpeed);
+  const speedConfidence = Math.min(1, smoothedWpm / targetSpeed);
   const accuracyConfidence = Math.max(0, Math.min(1, (accuracy - .75) / .2));
   const evidence = Math.min(1, stats.attempts / masteryRequiredAttempts, history.length / masteryRequiredPages);
   const currentConfidence = Math.max(0, Math.min(1, Math.min(speedConfidence, accuracyConfidence) * evidence));
@@ -600,13 +601,17 @@ function letterMastery(letter) {
   const pageProgress = Math.min(1, history.length / masteryRequiredPages);
   const evidenceProgress = Math.max(attemptProgress, pageProgress);
   const visualScore = evidenceProgress
-    ? Math.max(score, evidenceProgress * (.35 + Math.max(0, Math.min(1, accuracy)) * .65))
+    ? recentSpeeds.length
+      ? speedConfidence * (.35 + Math.max(0, Math.min(1, accuracy)) * .65)
+      : Math.max(score, evidenceProgress * (.35 + Math.max(0, Math.min(1, accuracy)) * .65))
     : 0;
   return {
     score,
     percent: Math.round(score * 100),
     visualScore: Math.max(0, Math.min(1, visualScore)),
     visualPercent: Math.round(Math.max(0, Math.min(1, visualScore)) * 100),
+    targetSpeed,
+    targetProgress: Math.max(0, Math.min(1, speedConfidence)),
     currentConfidence,
     bestConfidence,
     smoothedWpm,
