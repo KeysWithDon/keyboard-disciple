@@ -8,6 +8,14 @@ const keyboardSoundStyles = new Set([...Array.from({ length: 26 }, (_, index) =>
 const rewardSoundStyles = new Set(["preacher", "key-bloom", "glass-keys"]);
 const errorSoundStyles = new Set(["1", "2", "3", "4", "off"]);
 const practicePresetStyles = new Set(["balanced", "weak", "accuracy", "speed", "finger", "alternation"]);
+const practicePresetDescriptions = {
+  balanced: "Mixes common words, weak-letter focus, and gradually introduced moderate vocabulary for steady progress.",
+  weak: "Repeats natural words containing your least confident earned letters so weak keys get more useful practice.",
+  accuracy: "Prioritizes letters with the most errors and keeps vocabulary simpler until clean typing returns.",
+  speed: "Introduces more moderate-length natural words to build speed while keeping your current letters in rotation.",
+  finger: "Chooses natural words that exercise the finger zone connected to your weakest letters.",
+  alternation: "Favors natural words that move between the left and right hands to build a smoother rhythm."
+};
 const creativeModeStyles = new Set([
   "weakspot", "58008", "mirror", "upside_down", "nausea", "round_round_baby", "simon_says", "tts",
   "choo_choo", "arrows", "rAnDoMcAsE", "sPoNgEcAsE", "capitals", "layout_mirror", "layoutfluid",
@@ -2250,7 +2258,6 @@ function escapeHtml(text) {
 
 const settingDescriptions = {
   practiceMode: "Changes the active typing experience. Modes are selected only here so the practice page stays focused.",
-  practicePreset: "Chooses the training emphasis while keeping every adaptive word a real natural word.",
   testDuration: "Sets the length of timed tests.",
   testWordCount: "Sets Words and Creative test length up to 3,000 words. Only four lines are shown at once.",
   quoteLength: "Limits general quotes to the selected length range.",
@@ -2375,6 +2382,11 @@ function setupSettings() {
     if (description) description.textContent = selected.description;
   }
 
+  function updatePracticePresetDescription() {
+    const description = document.getElementById("practicePresetDescription");
+    if (description) description.textContent = practicePresetDescriptions[prefs.practicePreset] || practicePresetDescriptions.balanced;
+  }
+
   const selectIds = [
     "practiceMode", "testDuration", "testWordCount", "quoteLength", "difficulty", "creativeMode", "capitalization", "quickRestart",
     "repeatQuotes", "resultSaving", "minWpm", "minAccuracy", "minBurst", "indicateTypos", "confidenceMode", "errorLimit",
@@ -2414,6 +2426,7 @@ function setupSettings() {
       if (id === "theme") applyTheme();
       if (id === "fontFamily") applyFont();
       if (id === "creativeMode") updateCreativeDescription();
+      if (id === "practicePreset") updatePracticePresetDescription();
       if (id === "soundStyle") {
         ensureKeySoundStyle(prefs.soundStyle).then(() => {
           if (prefs.typingSounds) playKey();
@@ -2458,6 +2471,7 @@ function setupSettings() {
   els.settingsBtn.addEventListener("click", () => els.settingsDialog.showModal());
 
   updateCreativeDescription();
+  updatePracticePresetDescription();
   installSettingDescriptions();
 }
 
