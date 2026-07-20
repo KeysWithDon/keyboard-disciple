@@ -1,0 +1,9 @@
+{
+  "name": "keyboard-disciple-tts-gateway",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node index.mjs",
+    "test": "node --test"
+  }
+}

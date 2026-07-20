@@ -193,7 +193,8 @@ const state = {
   postureReminderNextRow: 3,
   postureReminderAtWord: 3,
   postureReminder: null,
-  postureReminderLastIndex: -1
+  postureReminderLastIndex: -1,
+  practiceFontSize: null
 };
 
 let storedData = {};
@@ -258,6 +259,11 @@ const defaultPrefs = {
   soundVolume: .5,
   rewardStyle: "preacher",
   reminderSound: "dinner",
+  spokenRemindersEnabled: false,
+  reminderTtsModel: "chatterbox-turbo",
+  reminderVoiceId: "default-english",
+  reminderLanguage: "en",
+  reminderVolume: .85,
   errorStyle: "1",
   timeWarning: "off",
   theme: "disciple",
@@ -293,6 +299,14 @@ prefs.testDuration = Math.max(5, Math.min(600, Number(prefs.testDuration) || def
 prefs.testWordCount = Math.max(1, Math.min(3000, Math.round(Number(prefs.testWordCount) || defaultPrefs.testWordCount)));
 prefs.errorLimit = Math.max(1, Math.min(8, Number(prefs.errorLimit) || defaultPrefs.errorLimit));
 prefs.soundVolume = Math.max(0, Math.min(1, Number(prefs.soundVolume) || defaultPrefs.soundVolume));
+prefs.spokenRemindersEnabled = Boolean(prefs.spokenRemindersEnabled);
+const storedReminderVolume = Number(prefs.reminderVolume ?? defaultPrefs.reminderVolume);
+prefs.reminderVolume = Number.isFinite(storedReminderVolume)
+  ? Math.max(0, Math.min(1, storedReminderVolume))
+  : defaultPrefs.reminderVolume;
+prefs.reminderTtsModel = String(prefs.reminderTtsModel || defaultPrefs.reminderTtsModel);
+prefs.reminderVoiceId = String(prefs.reminderVoiceId || defaultPrefs.reminderVoiceId);
+prefs.reminderLanguage = String(prefs.reminderLanguage || defaultPrefs.reminderLanguage).toLowerCase();
 prefs.targetSpeed = Math.max(10, Math.min(300, Number(prefs.targetSpeed) || defaultPrefs.targetSpeed));
 prefs.minWpm = Math.max(0, Math.min(200, Number(prefs.minWpm) || 0));
 prefs.minAccuracy = Math.max(0, Math.min(100, Number(prefs.minAccuracy) || 0));
@@ -531,7 +545,10 @@ const els = Object.fromEntries([
   "adaptiveStrongestLetter", "adaptiveStrongestDetail", "adaptiveFastestWpm", "adaptiveSlowestWpm", "adaptiveErrors", "adaptiveConsistency",
   "adaptiveMissedLetters", "adaptiveMissedSummary", "adaptiveTechniqueSummary", "adaptiveTechniqueList", "adaptiveRepairFocusButton",
   "adaptiveRecommendationName", "adaptiveRecommendationReason", "adaptiveModePicker", "adaptiveFocusPicker", "adaptiveRecommendationButton", "settingsKeyboardMap",
-  "letterFocusCheckbox", "letterFocusHint", "postureReminder", "postureReminderTitle", "postureReminderText"
+  "letterFocusCheckbox", "letterFocusHint", "postureReminder", "postureReminderTitle", "postureReminderText",
+  "spokenRemindersEnabled", "reminderTtsModel", "reminderVoiceId", "reminderLanguage", "reminderVolume",
+  "previewReminderVoiceButton", "replayReminderButton", "spokenReminderStatus", "reminderLanguageRow",
+  "spokenReminderToast", "spokenReminderToastTitle", "spokenReminderToastText", "spokenReminderRetryButton"
 ].map(id => [id, document.getElementById(id)]));
 
 let saveTimer;
@@ -1615,6 +1632,7 @@ async function restart() {
   clearTestTimer();
   clearTimeout(memoryTimer);
   window.speechSynthesis?.cancel();
+  spokenReminderManager.resetSession();
   stopRewardSound();
   state.input = "";
   state.rowIndex = 0;
@@ -1653,6 +1671,7 @@ async function restart() {
   state.postureReminderAtWord = 3;
   state.postureReminder = null;
   state.postureReminderLastIndex = -1;
+  state.practiceFontSize = null;
   stopReminderSound();
   els.completionBanner.classList.add("hidden");
   if (state.mode === "adaptive") {
@@ -1770,6 +1789,7 @@ function render() {
   const [eyebrow, title] = modeCopy();
   els.modeEyebrow.textContent = eyebrow;
   els.lessonTitle.textContent = title;
+  applyDisplayPreferences();
   renderText();
   renderKeyboard();
   renderSettingsKeyboardMap();
@@ -1777,7 +1797,6 @@ function render() {
   renderPerformance();
   renderLiveMetrics();
   renderResult();
-  applyDisplayPreferences();
   els.typingCard.classList.toggle("hidden", state.testCompleted);
   els.resultPanel.classList.toggle("hidden", !state.testCompleted);
   els.keyboardWrap.classList.toggle("hidden", prefs.keymapMode === "off" || state.testCompleted);
@@ -1823,38 +1842,16 @@ function maybeShowPostureReminder() {
   state.postureReminderLastIndex = reminderIndex;
   state.postureReminder = selected.reminder;
   playReminderSound();
-  renderPostureReminder();
+  spokenReminderManager.enqueue({
+    id: `adaptive-${state.rowIndex}-${reminderIndex}`,
+    text: selected.reminder.text
+  });
 }
 
 function renderPostureReminder() {
-  if (!els.postureReminder) return;
-  const isAdaptiveLesson = state.mode === "adaptive" && !state.testCompleted;
-  if (!isAdaptiveLesson) {
-    els.postureReminder.classList.add("hidden");
-    return;
-  }
-
-  if (state.rowIndex < state.postureReminderRow) {
-    state.postureReminderRow = -1;
-    state.postureReminderNextRow = 3 + Math.floor(Math.random() * 3);
-    state.postureReminder = null;
-  }
-  if (state.postureReminderRow !== state.rowIndex) {
-    if (state.rowIndex < state.postureReminderNextRow) {
-      els.postureReminder.classList.add("hidden");
-      return;
-    }
-    preparePostureReminderRow();
-  }
-  if (!state.postureReminder) {
-    els.postureReminder.classList.add("hidden");
-    return;
-  }
-
-  els.postureReminder.dataset.kind = state.postureReminder.kind;
-  els.postureReminderTitle.textContent = state.postureReminder.title;
-  els.postureReminderText.textContent = state.postureReminder.text;
-  els.postureReminder.classList.remove("hidden");
+  // Reminder delivery is spoken or shown in the transient fallback toast.
+  // Keep this hook so the existing scheduler and render flow remain intact.
+  els.postureReminder?.classList.add("hidden");
 }
 
 function renderSpecialProgress() {
@@ -2152,6 +2149,11 @@ function renderPlainLine(line) {
 function fitPracticeLines(lines) {
   if (!["adaptive", "time", "words", "creative", "placement"].includes(state.mode)) {
     els.typingText.style.fontSize = "";
+    state.practiceFontSize = null;
+    return;
+  }
+  if (state.practiceFontSize) {
+    els.typingText.style.fontSize = `${state.practiceFontSize}px`;
     return;
   }
   els.typingText.style.fontSize = "";
@@ -2160,10 +2162,16 @@ function fitPracticeLines(lines) {
     .map(line => line.scrollWidth)
     .filter(width => width > 0);
   const widestLine = Math.max(...lineWidths, 0);
-  if (!availableWidth || widestLine <= availableWidth) return;
   const baseSize = Number.parseFloat(getComputedStyle(els.typingText).fontSize) || 24;
+  if (!availableWidth) return;
+  if (!widestLine || widestLine <= availableWidth) {
+    state.practiceFontSize = baseSize;
+    els.typingText.style.fontSize = `${state.practiceFontSize}px`;
+    return;
+  }
   const fittedSize = Math.max(12, baseSize * (availableWidth / widestLine));
-  els.typingText.style.fontSize = `${fittedSize.toFixed(2)}px`;
+  state.practiceFontSize = Number(fittedSize.toFixed(2));
+  els.typingText.style.fontSize = `${state.practiceFontSize}px`;
 }
 
 function renderText() {
@@ -2187,6 +2195,7 @@ function renderText() {
   if (state.mode === "zen") {
     els.typingText.innerHTML = `<span class="practice-line active">${escapeHtml(state.input || "\u00a0")}</span>`;
     els.typingText.style.fontSize = "";
+    state.practiceFontSize = null;
     return;
   }
 
@@ -2201,6 +2210,7 @@ function renderText() {
 
   els.typingText.innerHTML = renderInteractiveTarget(target);
   els.typingText.style.fontSize = "";
+  state.practiceFontSize = null;
 }
 
 let keyboardElements = new Map();
@@ -2759,6 +2769,7 @@ function unlockAudio() {
       audioUnlockStarted = true;
       preloadKeySounds();
     }
+    spokenReminderManager.unlock();
   } catch (error) {
     console.warn("Audio is unavailable.", error);
   }
@@ -2838,6 +2849,301 @@ function playReminderSound(style = prefs.reminderSound) {
     });
   });
 }
+
+function cleanSpokenReminderText(value) {
+  return String(value || "")
+    .replace(/<[^>]*>/g, " ")
+    .replace(/https?:\/\/\S+/g, " ")
+    .replace(/[`*_>#\[\]{}]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 300);
+}
+
+class SpokenReminderAudioManager {
+  constructor() {
+    this.queue = [];
+    this.queuedIds = new Set();
+    this.playedIds = new Set();
+    this.cache = new Map();
+    this.processing = false;
+    this.unlocked = false;
+    this.currentAudio = null;
+    this.currentRequest = null;
+    this.lastReminder = null;
+    this.toastTimer = null;
+    this.catalogLoaded = false;
+    this.models = [];
+  }
+
+  apiBase() {
+    return String(window.KD_TTS_API_BASE || "/api/tts").replace(/\/$/, "");
+  }
+
+  cacheKey(text) {
+    return JSON.stringify([
+      cleanSpokenReminderText(text),
+      prefs.reminderTtsModel,
+      prefs.reminderVoiceId,
+      prefs.reminderLanguage,
+      Number(prefs.reminderVolume).toFixed(2)
+    ]);
+  }
+
+  enqueue({ id, text }, force = false) {
+    if (!prefs.spokenRemindersEnabled) return;
+    const cleanText = cleanSpokenReminderText(text);
+    if (!cleanText) return;
+    this.lastReminder = { id: String(id || `reminder-${Date.now()}`), text: cleanText };
+    if (!force && (this.playedIds.has(this.lastReminder.id) || this.queuedIds.has(this.lastReminder.id))) return;
+    this.playedIds.add(this.lastReminder.id);
+    this.queuedIds.add(this.lastReminder.id);
+    this.queue.push(this.lastReminder);
+    if (!this.unlocked) {
+      this.showToast("Spoken reminders are ready", "Click or press a key once to enable reminder audio.", false);
+      return;
+    }
+    this.processQueue();
+  }
+
+  unlock() {
+    if (this.unlocked) return;
+    this.unlocked = true;
+    this.hideToast();
+    this.processQueue();
+  }
+
+  resetSession() {
+    this.queue = [];
+    this.queuedIds.clear();
+    this.playedIds.clear();
+    this.lastReminder = null;
+    this.stop();
+  }
+
+  stop() {
+    this.currentRequest?.abort();
+    this.currentRequest = null;
+    if (this.currentAudio) {
+      const audio = this.currentAudio;
+      audio.pause();
+      audio.dispatchEvent(new Event("ended"));
+      audio.removeAttribute("src");
+      audio.load();
+      this.currentAudio = null;
+    }
+  }
+
+  async processQueue() {
+    if (this.processing || !this.unlocked || !prefs.spokenRemindersEnabled) return;
+    this.processing = true;
+    while (this.queue.length && this.unlocked && prefs.spokenRemindersEnabled) {
+      const reminder = this.queue.shift();
+      this.queuedIds.delete(reminder.id);
+      try {
+        await this.synthesizeAndPlay(reminder.text);
+      } catch (error) {
+        if (error?.name !== "AbortError") {
+          console.warn("Spoken reminder could not play.", error);
+          this.showToast("Reminder audio unavailable", reminder.text, true);
+        }
+      }
+    }
+    this.processing = false;
+  }
+
+  async synthesize(text) {
+    const controller = new AbortController();
+    this.currentRequest = controller;
+    try {
+      const response = await fetch(`${this.apiBase()}/synthesize`, {
+        method: "POST",
+        credentials: "include",
+        signal: controller.signal,
+        headers: { "Content-Type": "application/json", Accept: "audio/wav" },
+        body: JSON.stringify({
+          text: cleanSpokenReminderText(text),
+          modelId: prefs.reminderTtsModel,
+          voiceId: prefs.reminderVoiceId,
+          language: prefs.reminderLanguage
+        })
+      });
+      if (!response.ok) {
+        let detail = "Speech generation failed.";
+        try { detail = (await response.json()).detail || detail; } catch (_) {}
+        throw new Error(detail);
+      }
+      return response.blob();
+    } finally {
+      if (this.currentRequest === controller) this.currentRequest = null;
+    }
+  }
+
+  cachedAudio(text) {
+    const key = this.cacheKey(text);
+    const item = this.cache.get(key);
+    if (!item) return null;
+    if (Date.now() - item.createdAt > 30 * 60 * 1000) {
+      this.cache.delete(key);
+      return null;
+    }
+    item.createdAt = Date.now();
+    return item.blob;
+  }
+
+  async synthesizeAndPlay(text) {
+    const blob = this.cachedAudio(text) || await this.synthesize(text);
+    if (!this.cachedAudio(text)) {
+      this.cache.set(this.cacheKey(text), { blob, createdAt: Date.now() });
+      while (this.cache.size > 24) this.cache.delete(this.cache.keys().next().value);
+    }
+    await this.playBlob(blob);
+  }
+
+  async playBlob(blob) {
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    audio.preload = "auto";
+    audio.volume = Math.max(0, Math.min(1, Number(prefs.reminderVolume) || 0));
+    this.currentAudio = audio;
+    const speechWasSpeaking = !!window.speechSynthesis?.speaking;
+    if (speechWasSpeaking) window.speechSynthesis.pause();
+    try {
+      await audio.play();
+      await new Promise((resolve, reject) => {
+        audio.addEventListener("ended", resolve, { once: true });
+        audio.addEventListener("error", () => reject(new Error("Reminder audio playback failed.")), { once: true });
+      });
+    } finally {
+      if (speechWasSpeaking) window.speechSynthesis.resume();
+      audio.pause();
+      audio.removeAttribute("src");
+      audio.load();
+      URL.revokeObjectURL(url);
+      if (this.currentAudio === audio) this.currentAudio = null;
+    }
+  }
+
+  async previewVoice() {
+    if (!prefs.reminderVoiceId || !prefs.reminderTtsModel) {
+      this.showToast("Choose a voice first", "Select an available model and voice in Audio settings.", false);
+      return;
+    }
+    const button = els.previewReminderVoiceButton;
+    if (button) {
+      button.disabled = true;
+      button.textContent = "Generating...";
+    }
+    try {
+      this.unlock();
+      await this.synthesizeAndPlay("Welcome to Keyboard Disciple. This is how your spoken reminders will sound.");
+    } catch (error) {
+      console.warn("Voice preview failed.", error);
+      this.showToast("Voice preview unavailable", "Check the Chatterbox service and try again.", false);
+    } finally {
+      if (button) {
+        button.disabled = false;
+        button.textContent = "Preview voice";
+      }
+    }
+  }
+
+  replayLastReminder() {
+    if (this.lastReminder) this.enqueue(this.lastReminder, true);
+  }
+
+  async loadCatalog() {
+    if (this.catalogLoaded) return;
+    try {
+      const response = await fetch(`${this.apiBase()}/models`, { credentials: "include", headers: { Accept: "application/json" } });
+      if (!response.ok) throw new Error("Model catalog unavailable.");
+      this.models = (await response.json()).models || [];
+      this.catalogLoaded = true;
+      this.syncModelOptions();
+      await this.syncVoices();
+      this.updateStatus("Chatterbox voices ready.");
+    } catch (error) {
+      console.warn("Spoken reminder catalog unavailable.", error);
+      this.updateStatus("Chatterbox service unavailable. Typing reminders still work.");
+      this.syncModelOptions([]);
+    }
+  }
+
+  syncModelOptions(models = this.models) {
+    const select = els.reminderTtsModel;
+    if (!select) return;
+    select.replaceChildren();
+    if (!models.length) {
+      select.add(new Option("Service unavailable", ""));
+      select.disabled = true;
+      return;
+    }
+    select.disabled = false;
+    models.forEach(model => select.add(new Option(`${model.name} - ${model.description}`, model.id)));
+    const selected = models.some(model => model.id === prefs.reminderTtsModel)
+      ? prefs.reminderTtsModel
+      : models.some(model => model.id === "chatterbox-turbo")
+        ? "chatterbox-turbo"
+        : models[0].id;
+    prefs.reminderTtsModel = selected;
+    select.value = selected;
+    this.syncLanguageVisibility();
+  }
+
+  async syncVoices() {
+    const select = els.reminderVoiceId;
+    if (!select || !prefs.reminderTtsModel) return;
+    const response = await fetch(`${this.apiBase()}/voices?model=${encodeURIComponent(prefs.reminderTtsModel)}&language=${encodeURIComponent(prefs.reminderLanguage)}`, {
+      credentials: "include",
+      headers: { Accept: "application/json" }
+    });
+    if (!response.ok) throw new Error("Voice catalog unavailable.");
+    const voices = (await response.json()).voices || [];
+    select.replaceChildren();
+    voices.forEach(voice => select.add(new Option(voice.description ? `${voice.name} - ${voice.description}` : voice.name, voice.id)));
+    select.disabled = !voices.length;
+    if (voices.some(voice => voice.id === prefs.reminderVoiceId)) select.value = prefs.reminderVoiceId;
+    else if (voices[0]) {
+      prefs.reminderVoiceId = voices[0].id;
+      select.value = prefs.reminderVoiceId;
+      save();
+    }
+    this.updateStatus(voices.length ? "Chatterbox voice selected." : "No approved voice is available for this model.");
+  }
+
+  syncLanguageVisibility() {
+    const multilingual = prefs.reminderTtsModel === "chatterbox-multilingual";
+    if (els.reminderLanguageRow) els.reminderLanguageRow.hidden = !multilingual;
+    if (!multilingual) prefs.reminderLanguage = "en";
+    if (els.reminderLanguage) els.reminderLanguage.value = prefs.reminderLanguage;
+  }
+
+  updateStatus(message) {
+    if (els.spokenReminderStatus) els.spokenReminderStatus.textContent = message;
+  }
+
+  showToast(title, text, retry) {
+    if (!els.spokenReminderToast) return;
+    els.spokenReminderToastTitle.textContent = title;
+    els.spokenReminderToastText.textContent = text;
+    els.spokenReminderRetryButton.classList.toggle("hidden", !retry);
+    els.spokenReminderToast.classList.remove("hidden");
+    clearTimeout(this.toastTimer);
+    this.toastTimer = setTimeout(() => this.hideToast(), retry ? 9000 : 5000);
+  }
+
+  hideToast() {
+    clearTimeout(this.toastTimer);
+    els.spokenReminderToast?.classList.add("hidden");
+  }
+}
+
+const spokenReminderManager = new SpokenReminderAudioManager();
+window.KeyboardDiscipleSpokenReminders = {
+  stop: () => spokenReminderManager.stop(),
+  resetSession: () => spokenReminderManager.resetSession(),
+  unlock: () => spokenReminderManager.unlock()
+};
 function playDecodedBuffer(buffer, gainValue = 1) {
   if (!buffer) return false;
   const c = ctx();
@@ -3295,6 +3601,7 @@ function setupSettings() {
     el.value = prefs[prefKey];
     el.addEventListener("change", event => {
       prefs[prefKey] = numericIds.has(id) ? Number(event.target.value) : event.target.value;
+      if (["fontSize", "lineWidth", "fontFamily"].includes(id)) state.practiceFontSize = null;
       if (id === "testWordCount") {
         prefs.testWordCount = Math.max(1, Math.min(3000, Math.round(prefs.testWordCount || defaultPrefs.testWordCount)));
         event.target.value = String(prefs.testWordCount);
@@ -3327,10 +3634,10 @@ function setupSettings() {
       if (restartIds.has(id)) restart();
       else if (keyboardIds.has(id)) render();
       else {
+        applyDisplayPreferences();
         renderText();
         renderLiveMetrics();
         renderPerformance();
-        applyDisplayPreferences();
       }
     });
   });
@@ -3353,11 +3660,61 @@ function setupSettings() {
     });
   });
 
-  els.settingsBtn.addEventListener("click", () => els.settingsDialog.showModal());
+  els.settingsBtn.addEventListener("click", () => {
+    els.settingsDialog.showModal();
+    spokenReminderManager.loadCatalog();
+  });
 
   updateCreativeDescription();
   updatePracticePresetDescription();
   installSettingDescriptions();
+}
+
+function setupSpokenReminderSettings() {
+  if (!els.spokenRemindersEnabled) return;
+  els.spokenRemindersEnabled.checked = prefs.spokenRemindersEnabled;
+  els.reminderTtsModel.value = prefs.reminderTtsModel;
+  els.reminderVoiceId.value = prefs.reminderVoiceId;
+  els.reminderLanguage.value = prefs.reminderLanguage;
+  els.reminderVolume.value = String(prefs.reminderVolume);
+  spokenReminderManager.syncLanguageVisibility();
+  spokenReminderManager.updateStatus(prefs.spokenRemindersEnabled ? "Spoken reminders are off until a service is connected." : "Spoken reminders are off.");
+
+  els.spokenRemindersEnabled.addEventListener("change", event => {
+    prefs.spokenRemindersEnabled = event.target.checked;
+    save();
+    if (!prefs.spokenRemindersEnabled) spokenReminderManager.resetSession();
+    else spokenReminderManager.loadCatalog();
+    spokenReminderManager.updateStatus(prefs.spokenRemindersEnabled ? "Spoken reminders are enabled." : "Spoken reminders are off.");
+  });
+  els.reminderTtsModel.addEventListener("change", async event => {
+    prefs.reminderTtsModel = event.target.value;
+    save();
+    spokenReminderManager.syncLanguageVisibility();
+    try { await spokenReminderManager.syncVoices(); }
+    catch (error) { spokenReminderManager.updateStatus("Voice list is unavailable."); }
+  });
+  els.reminderVoiceId.addEventListener("change", event => {
+    prefs.reminderVoiceId = event.target.value;
+    save();
+    spokenReminderManager.cache.clear();
+  });
+  els.reminderLanguage.addEventListener("change", async event => {
+    prefs.reminderLanguage = event.target.value;
+    save();
+    try { await spokenReminderManager.syncVoices(); }
+    catch (error) { spokenReminderManager.updateStatus("Voice list is unavailable."); }
+  });
+  els.reminderVolume.addEventListener("input", event => {
+    prefs.reminderVolume = Math.max(0, Math.min(1, Number(event.target.value)));
+    save();
+  });
+  els.previewReminderVoiceButton.addEventListener("click", () => spokenReminderManager.previewVoice());
+  els.replayReminderButton.addEventListener("click", () => spokenReminderManager.replayLastReminder());
+  els.spokenReminderRetryButton.addEventListener("click", () => {
+    spokenReminderManager.hideToast();
+    spokenReminderManager.replayLastReminder();
+  });
 }
 
 function fullscreenElement() {
@@ -3472,7 +3829,20 @@ document.addEventListener("keydown", handleKey);
 document.addEventListener("keyup", event => {
   if (event.key === "Shift") state.shiftSide = "";
 });
-window.addEventListener("pagehide", save);
+let resizeFitTimer;
+window.addEventListener("resize", () => {
+  clearTimeout(resizeFitTimer);
+  resizeFitTimer = setTimeout(() => {
+    if (["adaptive", "time", "words", "creative", "placement"].includes(state.mode) && !state.testCompleted) {
+      state.practiceFontSize = null;
+      renderText();
+    }
+  }, 120);
+});
+window.addEventListener("pagehide", () => {
+  spokenReminderManager.stop();
+  save();
+});
 document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") save();
 });
@@ -3480,6 +3850,7 @@ preloadRewardSounds();
 preloadKeySounds();
 applyFont();
 setupSettings();
+setupSpokenReminderSettings();
 if (!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen)) els.fullscreenBtn.hidden = true;
 syncFullscreenButton();
 save();

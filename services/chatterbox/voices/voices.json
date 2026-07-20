@@ -1,0 +1,29 @@
+[
+  {
+    "id": "default-english",
+    "name": "Clear English",
+    "description": "The default neutral English reminder voice.",
+    "models": ["chatterbox-english", "chatterbox-turbo"],
+    "language": "en",
+    "referenceAudio": "reference/default-english.wav",
+    "enabled": true
+  },
+  {
+    "id": "expressive-english",
+    "name": "Expressive English",
+    "description": "A warm, expressive English preset for longer reminders.",
+    "models": ["chatterbox-english"],
+    "language": "en",
+    "referenceAudio": null,
+    "enabled": true
+  },
+  {
+    "id": "default-multilingual",
+    "name": "Clear Multilingual",
+    "description": "A neutral preset for supported multilingual reminders.",
+    "models": ["chatterbox-multilingual"],
+    "language": "en",
+    "referenceAudio": null,
+    "enabled": true
+  }
+]

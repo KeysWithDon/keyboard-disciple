@@ -21,3 +21,10 @@ The single-page settings, test behaviors, broad font catalog, and Creative tests
 The keystroke, error, and timer-warning sounds are bundled with their GPL-3.0 license at `assets/keyboard-sounds/LICENSE-GPL-3.0.txt`.
 
 Creative tests are original Keyboard Disciple implementations built for focused, playful practice.
+
+## Spoken Reminders
+
+Spoken reminders are an optional Chatterbox-backed feature. The static frontend
+continues to work without the service and stores the new preferences locally.
+Run the FastAPI model service and Node gateway described in
+[`TTS_DEPLOYMENT.md`](TTS_DEPLOYMENT.md) to enable generated reminder audio.
