@@ -16,6 +16,14 @@ const practicePresetDescriptions = {
   finger: "Chooses natural words that exercise the finger zone connected to your weakest letters.",
   alternation: "Favors natural words that move between the left and right hands to build a smoother rhythm."
 };
+const practicePresetLabels = {
+  balanced: "Balanced",
+  weak: "Weak keys",
+  accuracy: "Accuracy repair",
+  speed: "Speed builder",
+  finger: "Finger focus",
+  alternation: "Hand alternation"
+};
 const creativeModeStyles = new Set([
   "weakspot", "58008", "mirror", "upside_down", "nausea", "round_round_baby", "simon_says", "tts",
   "choo_choo", "arrows", "rAnDoMcAsE", "sPoNgEcAsE", "capitals", "layout_mirror", "layoutfluid",
@@ -463,7 +471,7 @@ const els = Object.fromEntries([
   "dailyGoalFill", "cleanLines", "reviewErrorsBtn", "techniqueCue", "resultPanel", "resultEyebrow", "resultTitle", "resultScore", "resultWpm", "resultRaw",
   "resultAccuracy", "resultConsistency", "resultCharacters", "resultTime", "resultRestartBtn", "settingsDialog", "settingsBtn",
   "statsDialog", "statsBtn", "fullscreenBtn", "restartBtn", "letterHud", "unlockNext", "unlockCount",
-  "letterHeatmap", "heatmapSummary", "letterDialog", "letterDetailBadge", "letterDetailTitle",
+  "practiceFocusIndicator", "practiceFocusName", "practiceFocusDescription", "practiceFocusState", "letterHeatmap", "heatmapSummary", "letterDialog", "letterDetailBadge", "letterDetailTitle",
   "letterMastery", "letterLastSpeed", "letterTopSpeed", "letterAccuracy", "letterLearningRate", "letterLessons",
   "letterCurveCaption", "letterChart"
 ].map(id => [id, document.getElementById(id)]));
@@ -732,6 +740,10 @@ function alternatingWord(word) {
   return changes / Math.max(1, letters.length - 1) >= .58;
 }
 
+function adaptiveRecoveryActive() {
+  return progress.lessonHistory.length > 0 && Number(progress.avgAccuracy) < 88;
+}
+
 function wordDeck() {
   const unlocked = allowedSet();
   const focusLetter = adaptiveFocusLetter().toLowerCase();
@@ -760,7 +772,7 @@ function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
   const rows = [];
   let ci = 0, mi = 0, ri = 0, fi = 0, rfi = 0;
   let wi = 0, fgi = 0, ai = 0;
-  const recoveryMode = progress.lessonHistory.length > 0 && Number(progress.avgAccuracy) < 88;
+  const recoveryMode = adaptiveRecoveryActive();
   const activePreset = recoveryMode ? "accuracy" : prefs.practicePreset;
   const presetPool = {
     weak: deck.weak,
@@ -1221,6 +1233,12 @@ function renderLetterProgress() {
   const earnedLetters = new Set(letterOrder.slice(0, unlockedCount));
   const nextLetter = letterOrder[unlockedCount];
   const focusLetter = adaptiveFocusLetter();
+  const recoveryMode = adaptiveRecoveryActive();
+  const activePreset = recoveryMode ? "accuracy" : prefs.practicePreset;
+  els.practiceFocusIndicator.dataset.focus = activePreset;
+  els.practiceFocusName.textContent = practicePresetLabels[activePreset] || practicePresetLabels.balanced;
+  els.practiceFocusDescription.textContent = practicePresetDescriptions[activePreset] || practicePresetDescriptions.balanced;
+  els.practiceFocusState.textContent = recoveryMode ? "Recovery" : "Active";
   els.unlockCount.textContent = `${unlockedCount} / ${letterOrder.length}`;
   els.unlockNext.textContent = nextLetter ? `Focus ${focusLetter} / next ${nextLetter}` : `Focus ${focusLetter} / alphabet complete`;
 

@@ -13,8 +13,8 @@
   <link rel="canonical" href="https://keyswithdon.github.io/keyboard-disciple/">
   <link rel="sitemap" type="application/xml" href="https://keyswithdon.github.io/keyboard-disciple/sitemap.xml">
   <link rel="icon" href="assets/keyboard-disciple-mark.png">
-  <link rel="stylesheet" href="styles.css?v=20260720-lesson-glow">
-  <link rel="stylesheet" href="refresh.css?v=20260720-lesson-glow">
+  <link rel="stylesheet" href="styles.css?v=20260720-active-focus">
+  <link rel="stylesheet" href="refresh.css?v=20260720-active-focus">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Keyboard Disciple">
   <meta property="og:title" content="Keyboard Disciple | Free Typing Practice Game">
@@ -107,6 +107,15 @@
             <strong id="unlockNext">Focus T</strong>
           </div>
         </header>
+        <div class="practice-focus-indicator" id="practiceFocusIndicator" aria-live="polite">
+          <span class="practice-focus-mark" aria-hidden="true">+</span>
+          <div class="practice-focus-copy">
+            <small>Active practice focus</small>
+            <strong id="practiceFocusName">Balanced</strong>
+            <p id="practiceFocusDescription">Mixes common words, weak-letter focus, and gradually introduced moderate vocabulary for steady progress.</p>
+          </div>
+          <span class="practice-focus-state" id="practiceFocusState">Active</span>
+        </div>
         <div class="letter-heatmap" id="letterHeatmap"></div>
         <div class="confidence-scale" aria-hidden="true">
           <span>learning</span><i></i><span>target</span>
@@ -726,6 +735,6 @@
     </form>
   </dialog>
 
-  <script src="app.js?v=20260720-lesson-glow"></script>
+  <script src="app.js?v=20260720-active-focus"></script>
 </body>
 </html>
