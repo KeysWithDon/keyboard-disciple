@@ -525,7 +525,7 @@ const els = Object.fromEntries([
   "dailyGoalFill", "cleanLines", "reviewErrorsBtn", "techniqueCue", "resultPanel", "resultEyebrow", "resultTitle", "resultScore", "resultWpm", "resultRaw",
   "resultAccuracy", "resultConsistency", "resultCharacters", "resultTime", "resultRestartBtn", "settingsDialog", "settingsBtn",
   "statsDialog", "statsBtn", "fullscreenBtn", "restartBtn", "letterHud", "unlockNext", "unlockCount",
-  "practiceFocusIndicator", "practiceFocusName", "practiceFocusDescription", "practiceFocusState", "letterHeatmap", "heatmapSummary", "specialHeatmap", "letterDialog", "letterDetailBadge", "letterDetailTitle",
+  "practiceFocusIndicator", "practiceFocusName", "practiceFocusDescription", "practiceFocusState", "letterHeatmap", "letterHeatRow", "heatmapSummary", "specialHeatmap", "letterDialog", "letterDetailBadge", "letterDetailTitle",
   "letterMastery", "letterLastSpeed", "letterTopSpeed", "letterAccuracy", "letterLearningRate", "letterLessons",
   "letterCurveCaption", "letterChart", "adaptiveResultDetails", "adaptiveStatsChart", "adaptiveRank", "adaptiveWeakestLetter", "adaptiveWeakestDetail",
   "adaptiveStrongestLetter", "adaptiveStrongestDetail", "adaptiveFastestWpm", "adaptiveSlowestWpm", "adaptiveErrors", "adaptiveConsistency",
@@ -1252,9 +1252,7 @@ function wordDeck() {
 
 function visibleWordsPerRow(minimum = 2) {
   const requested = Math.max(minimum, Number(prefs.wordsPerRow) || 10);
-  const density = state.mode === "adaptive"
-    ? 1
-    : { small: 1, medium: .85, large: .6, xlarge: .5 }[prefs.fontSize] || 1;
+  const density = { small: 1, medium: .8, large: .65, xlarge: .55 }[prefs.fontSize] || 1;
   const viewport = window.innerWidth || 1200;
   const viewportCap = viewport <= 620
     ? { small: 8, medium: 4, large: 3, xlarge: 2 }[prefs.fontSize]
@@ -1898,7 +1896,7 @@ function renderLetterProgress() {
   const fill = hasEvidence ? `background:linear-gradient(145deg,${heatColor},${heatColorDeep});` : "";
     return `<button type="button" class="heat-key ${strength} ${status}" data-letter="${letter}" style="--confidence:${mastery.visualScore.toFixed(3)};--heat-color:${heatColor};--heat-color-deep:${heatColorDeep};${fill}"${disabled} title="${letter}: ${detail}" aria-label="${letter}: ${detail}">${letter}</button>`;
   }).join("");
-  els.letterHeatmap.innerHTML = `<div class="heat-row">${keys}</div>`;
+  els.letterHeatRow.innerHTML = keys;
   renderSpecialProgress();
   els.heatmapSummary.textContent = totalAttempts
     ? `${Math.round((totalMastery / Math.max(1, sampledLetters)) * 100)}% confidence / ${Math.round((totalCorrect / totalAttempts) * 100)}% accuracy`

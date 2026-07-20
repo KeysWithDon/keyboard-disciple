@@ -13,8 +13,8 @@
   <link rel="canonical" href="https://keyswithdon.github.io/keyboard-disciple/">
   <link rel="sitemap" type="application/xml" href="https://keyswithdon.github.io/keyboard-disciple/sitemap.xml">
   <link rel="icon" href="assets/keyboard-disciple-mark.png">
-  <link rel="stylesheet" href="styles.css?v=20260720-adaptive-modes-specials">
-  <link rel="stylesheet" href="refresh.css?v=20260720-adaptive-modes-specials">
+  <link rel="stylesheet" href="styles.css?v=20260720-readable-hud">
+  <link rel="stylesheet" href="refresh.css?v=20260720-readable-hud">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Keyboard Disciple">
   <meta property="og:title" content="Keyboard Disciple | Free Typing Practice Game">
@@ -116,17 +116,13 @@
           </div>
           <span class="practice-focus-state" id="practiceFocusState">Active</span>
         </div>
-        <div class="letter-heatmap" id="letterHeatmap"></div>
+        <div class="letter-heatmap" id="letterHeatmap">
+          <div class="heat-row" id="letterHeatRow"></div>
+          <div class="special-heatmap" id="specialHeatmap" aria-label="Numbers and symbols progress"></div>
+        </div>
         <div class="confidence-scale" aria-hidden="true">
           <span>learning</span><i></i><span>target</span>
         </div>
-        <section class="special-progress" aria-labelledby="specialProgressTitle">
-          <header>
-            <span id="specialProgressTitle">Numbers & symbols</span>
-            <small>Samples develop their own accuracy heatmap.</small>
-          </header>
-          <div class="special-heatmap" id="specialHeatmap"></div>
-        </section>
         <div class="lesson-reminder hidden" id="postureReminder" role="status" aria-live="polite">
           <span class="lesson-reminder-mark" aria-hidden="true">+</span>
           <div>
@@ -861,6 +857,6 @@
     </form>
   </dialog>
 
-  <script src="app.js?v=20260720-adaptive-modes-specials"></script>
+  <script src="app.js?v=20260720-readable-hud"></script>
 </body>
 </html>

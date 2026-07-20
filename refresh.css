@@ -455,14 +455,18 @@ button, select, input, textarea { font-family: inherit; }
 .letter-heatmap {
   width: 100%;
   display: grid;
-  grid-template-columns: repeat(26, minmax(28px, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 5px;
-  overflow-x: auto;
-  scrollbar-width: thin;
+  overflow: visible;
   padding: 1px;
 }
-.letter-hud .letter-heatmap { width: 100%; gap: 5px; }
+.letter-hud .letter-heatmap { width: 100%; gap: 6px; }
 .heat-row { display: contents; }
+.letter-hud .heat-row {
+  display: grid;
+  grid-template-columns: repeat(26, minmax(28px, 1fr));
+  gap: 5px;
+}
 .heat-key {
   --confidence: 0;
   --heat-color: var(--panel-strong);
@@ -520,13 +524,13 @@ button, select, input, textarea { font-family: inherit; }
 .confidence-scale i { width: 58px; height: 2px; background: linear-gradient(90deg, var(--red), var(--gold), var(--green)); }
 .lesson-reminder {
   min-width: 0;
-  height: 64px;
+  height: 48px;
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
+  grid-template-columns: 28px minmax(0, 1fr);
   align-items: center;
-  gap: 11px;
-  margin-top: 10px;
-  padding: 12px 14px;
+  gap: 8px;
+  margin-top: 6px;
+  padding: 7px 10px;
   border: 1px solid color-mix(in srgb, var(--gold) 72%, var(--line));
   border-radius: 6px;
   color: var(--text);
@@ -548,26 +552,26 @@ button, select, input, textarea { font-family: inherit; }
   background: linear-gradient(110deg, color-mix(in srgb, var(--cyan) 15%, transparent), color-mix(in srgb, var(--lesson-color) 8%, transparent));
 }
 .lesson-reminder-mark {
-  width: 30px;
-  height: 30px;
+  width: 24px;
+  height: 24px;
   display: grid;
   place-items: center;
   border: 1px solid currentColor;
   border-radius: 50%;
   color: var(--gold);
-  font-size: 17px;
+  font-size: 14px;
   line-height: 1;
   text-shadow: 0 0 12px currentColor;
 }
 .lesson-reminder[data-kind="breath"] .lesson-reminder-mark { color: var(--cyan); }
 .lesson-reminder > div { min-width: 0; display: grid; gap: 3px; }
-.lesson-reminder strong { color: var(--gold); font-size: 11px; font-weight: 750; text-transform: uppercase; letter-spacing: .04em; }
+.lesson-reminder strong { color: var(--gold); font-size: 10px; font-weight: 750; text-transform: uppercase; letter-spacing: .04em; }
 .lesson-reminder[data-kind="breath"] strong { color: var(--cyan); }
-.lesson-reminder p { margin: 0; color: var(--text); font-size: 11px; line-height: 1.45; }
+.lesson-reminder p { margin: 0; color: var(--text); font-size: 10px; line-height: 1.3; }
 @media (max-width: 620px) {
-  .lesson-reminder { height: 64px; grid-template-columns: 28px minmax(0, 1fr); padding: 10px 11px; }
-  .lesson-reminder-mark { width: 26px; height: 26px; }
-  .lesson-reminder p { font-size: 10px; }
+  .lesson-reminder { height: 48px; grid-template-columns: 24px minmax(0, 1fr); padding: 7px 9px; }
+  .lesson-reminder-mark { width: 22px; height: 22px; }
+  .lesson-reminder p { font-size: 9px; }
 }
 .unlock-meter { height: 1px; overflow: hidden; background: var(--line); }
 .unlock-meter span { display: block; height: 100%; background: var(--gold); transition: width 180ms ease; }
@@ -899,44 +903,37 @@ body[data-mode="quote"] .typing-text {
 .adaptive-mode-option small { color: var(--muted); font-size: 9px; line-height: 1.35; }
 .adaptive-recommendation .primary-button { grid-column: 2; align-self: end; min-width: 155px; }
 
-.special-progress {
+.special-heatmap {
+  position: relative;
+  width: 100%;
   display: grid;
-  gap: 7px;
-  margin-top: 12px;
+  grid-template-columns: repeat(26, minmax(24px, 1fr));
+  gap: 4px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
 }
-.special-progress > header {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-.special-progress > header span {
+.special-heatmap::before {
+  content: "Numbers & symbols";
+  position: absolute;
+  top: 4px;
+  left: 0;
   color: var(--faint);
-  font-size: 9px;
+  font-size: 8px;
   font-weight: 700;
   text-transform: uppercase;
-}
-.special-progress > header small {
-  color: var(--faint);
-  font-size: 9px;
-}
-.special-heatmap {
-  display: grid;
-  grid-template-columns: repeat(16, minmax(24px, 1fr));
-  gap: 4px;
 }
 .special-key {
   --special-color: var(--panel-strong);
   --special-color-deep: var(--panel-strong);
   min-width: 0;
-  height: 30px;
+  height: 25px;
   display: grid;
   place-items: center;
   border: 1px solid var(--line);
   border-radius: 3px;
   color: var(--faint);
   background: linear-gradient(145deg, color-mix(in srgb, var(--special-color) 88%, var(--panel-strong)), color-mix(in srgb, var(--special-color-deep) 82%, var(--panel-strong)));
-  font-size: 11px;
+  font-size: 10px;
   font-weight: 650;
   white-space: nowrap;
 }
@@ -1182,8 +1179,7 @@ body[data-mode="quote"] .typing-text {
   .adaptive-recommendation { display: flex; align-items: stretch; flex-direction: column; }
   .adaptive-mode-options { grid-template-columns: 1fr; }
   .adaptive-mode-picker { min-width: 0; margin-top: 13px; }
-  .special-progress > header { align-items: flex-start; flex-direction: column; gap: 3px; }
-  .special-heatmap { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+  .special-heatmap { grid-template-columns: repeat(13, minmax(0, 1fr)); gap: 3px; }
   .adaptive-recommendation .primary-button { width: 100%; }
   .settings-dialog { width: calc(100vw - 16px); }
   .settings-pane { padding: 26px 18px; }
@@ -1191,6 +1187,7 @@ body[data-mode="quote"] .typing-text {
   .settings-grid.compact-grid { grid-template-columns: 1fr 1fr; }
   .toggle-list { grid-template-columns: 1fr; }
   .letter-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .letter-hud .letter-heatmap { grid-template-columns: repeat(13, minmax(0, 1fr)); gap: 3px; overflow: visible; }
+  .letter-hud .letter-heatmap { grid-template-columns: minmax(0, 1fr); }
+  .letter-hud .heat-row { grid-template-columns: repeat(13, minmax(0, 1fr)); gap: 3px; }
   .letter-hud .heat-key { min-width: 0; height: 34px; font-size: 10px; }
 }
