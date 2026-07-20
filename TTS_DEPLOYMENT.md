@@ -16,6 +16,22 @@ origin, or set `window.KD_TTS_API_BASE` to the HTTPS gateway URL before loading
 
 ## Start locally
 
+### One-command Docker setup
+
+The gateway serves the website and the `/api/tts` routes together, so the
+browser uses one origin and no CORS wiring is needed. From the repository root:
+
+```sh
+cp services/chatterbox/.env.example services/chatterbox/.env
+cp server/.env.example server/.env
+# Put the same long random CHATTERBOX_SERVICE_TOKEN in both .env files.
+docker compose up --build
+```
+
+Open `http://127.0.0.1:8080`, choose `Dictation` in Settings, and press
+`Play prompt`. The first model load can take a while and consumes substantial
+RAM; later prompts use the in-browser and server caches.
+
 Terminal 1, the model service:
 
 ```sh
@@ -38,10 +54,10 @@ set -a; . ./.env; set +a
 node index.mjs
 ```
 
-Serve the repository through a local web server and open it through the same
-origin as the gateway, or configure `window.KD_TTS_API_BASE` to point at the
-gateway. The feature is opt-in; the rest of the app works when the service is
-offline.
+The gateway now serves the repository itself at `http://127.0.0.1:8080`. If
+you use a separate static server instead, configure `window.KD_TTS_API_BASE` to
+point at the gateway. The features are opt-in; the rest of the app works when
+the service is offline.
 
 ## Database migration
 

@@ -1,0 +1,26 @@
+services:
+  chatterbox:
+    build: ./services/chatterbox
+    env_file:
+      - ./services/chatterbox/.env
+    expose:
+      - "8200"
+    volumes:
+      - ./services/chatterbox/voices/reference:/app/voices/reference:ro
+    restart: unless-stopped
+
+  keyboard-disciple:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    env_file:
+      - ./server/.env
+    environment:
+      PORT: "8080"
+      CHATTERBOX_BACKEND_URL: http://chatterbox:8200
+      KD_ALLOWED_ORIGIN: ""
+    depends_on:
+      - chatterbox
+    ports:
+      - "8080:8080"
+    restart: unless-stopped

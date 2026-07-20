@@ -568,6 +568,39 @@ button, select, input, textarea { font-family: inherit; }
 .unlock-meter { height: 1px; overflow: hidden; background: var(--line); }
 .unlock-meter span { display: block; height: 100%; background: var(--gold); transition: width 180ms ease; }
 
+.dictation-controls {
+  min-height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 0 auto 8px;
+  color: var(--muted);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+.dictation-controls.hidden { display: none !important; }
+.dictation-controls .secondary-button { min-height: 30px; padding: 6px 11px; font-size: 9px; }
+.dictation-controls button:disabled { cursor: wait; opacity: .46; }
+.dictation-stage {
+  min-height: 218px;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 18px;
+}
+.dictation-typed {
+  min-height: 1.45em;
+  max-width: 100%;
+  color: var(--text);
+  font: inherit;
+  overflow-wrap: anywhere;
+}
+.dictation-placeholder { color: var(--faint); }
+.dictation-hint { color: var(--faint); font-size: 9px; font-weight: 500; text-transform: uppercase; }
+body[data-mode="dictation"] .typing-text { min-height: 218px; }
+body[data-mode="dictation"] .typing-card { justify-content: center; }
+
 .typing-card {
   width: 100%;
   min-height: 302px;
@@ -608,7 +641,7 @@ button, select, input, textarea { font-family: inherit; }
   width: 100%;
   min-height: 218px;
   display: grid;
-  grid-template-rows: repeat(4, auto);
+  grid-template-rows: auto;
   align-content: center;
   overflow: visible;
   text-align: center;
@@ -1213,4 +1246,6 @@ body[data-mode="quote"] .typing-text {
   .spoken-reminder-actions { align-items: stretch; flex-direction: column; }
   .spoken-reminder-actions button { width: 100%; }
   .spoken-reminder-actions span { min-width: 0; }
+  .dictation-controls { align-items: stretch; flex-direction: column; gap: 7px; }
+  .dictation-controls .secondary-button { width: 100%; }
 }

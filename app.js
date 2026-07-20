@@ -47,6 +47,58 @@ const lessonReminders = [
   { kind: "breath", title: "Plan a small pause", text: "After this row, blink, look into the distance, and roll your shoulders before continuing." },
   { kind: "posture", title: "Change position", text: "No posture needs to stay frozen. Make a small adjustment and keep your body comfortable." }
 ];
+const dictationSentenceBank = [
+  "The quiet room made every keystroke easy to hear.",
+  "Accuracy grows when the hands stay relaxed and steady.",
+  "A short pause can restore a smooth typing rhythm.",
+  "The morning light rested softly across the desk.",
+  "Clear attention makes difficult words feel more familiar.",
+  "Let the next sentence arrive before you hurry to meet it.",
+  "Good posture gives the shoulders room to release tension.",
+  "The careful typist listens for meaning as well as sound.",
+  "Every clean line is a small record of patient practice.",
+  "A calm breath can change the pace of an entire lesson.",
+  "The old bridge carried travelers over the narrow stream.",
+  "Warm bread cooled beside the open kitchen window.",
+  "The gardener moved slowly among the rows of herbs.",
+  "A thoughtful question often opens a better conversation.",
+  "The young tree bent gently in the evening wind.",
+  "Write what you hear, then let the finished thought settle.",
+  "The library kept its quiet promise through the afternoon.",
+  "Small improvements become visible when practice is consistent.",
+  "The path curved past the field and toward the hill.",
+  "Kind words can make a difficult day feel lighter.",
+  "The musician checked the rhythm before beginning the song.",
+  "A bright window framed the rain beyond the room.",
+  "Strong habits are built from ordinary choices repeated well.",
+  "The traveler packed lightly and left before sunrise.",
+  "When the mind wanders, return gently to the next word.",
+  "The baker measured each ingredient with quiet care.",
+  "A useful skill grows through attention, repetition, and rest.",
+  "The river moved steadily beneath the wooden footbridge.",
+  "The teacher gave the class one clear task to begin.",
+  "A well-placed pause helps the listener follow the idea.",
+  "The candle cast a small circle of light on the table.",
+  "Practice becomes easier when the goal is clear and nearby.",
+  "The child watched the clouds gather above the distant hills.",
+  "A patient hand can learn a new pattern without force.",
+  "The letter arrived with news from a friend far away.",
+  "The room grew still as the final sentence was read.",
+  "Your hands know more than they did at the start of today.",
+  "The blue coat hung neatly beside the open doorway.",
+  "A steady pace leaves enough attention for every character.",
+  "The farmer repaired the gate before the weather changed.",
+  "A simple plan can carry a long lesson to completion.",
+  "The choir gathered early to practice the first harmony.",
+  "The honest answer was quieter but stronger than the excuse.",
+  "A narrow trail led through the trees to the water.",
+  "The student listened twice and typed once with confidence.",
+  "Rest is part of learning, not a failure to continue.",
+  "The final page felt lighter because the rhythm had settled.",
+  "A generous spirit makes room for another person's needs.",
+  "The bell marked the hour, and the room returned to work.",
+  "Keep your eyes soft and let the fingers follow the sound."
+];
 const creativeModeStyles = new Set([
   "weakspot", "58008", "mirror", "upside_down", "nausea", "round_round_baby", "simon_says", "tts",
   "choo_choo", "arrows", "rAnDoMcAsE", "sPoNgEcAsE", "capitals", "layout_mirror", "layoutfluid",
@@ -68,8 +120,8 @@ const lessonColorValues = {
   purple: "var(--purple)",
   white: "var(--text)"
 };
-const testModes = new Set(["time", "words", "quote", "creative", "placement"]);
-const scoredModes = new Set(["adaptive", "time", "words", "quote", "creative", "placement", "bible", "bibleQuotes"]);
+const testModes = new Set(["time", "words", "quote", "creative", "placement", "dictation"]);
+const scoredModes = new Set(["adaptive", "time", "words", "quote", "creative", "placement", "dictation", "bible", "bibleQuotes"]);
 const keyboardKey = (id, label = id, units = 4, shift = "") => ({ id, label, units, shift });
 const macKeyboardLayout = [
   [
@@ -194,7 +246,12 @@ const state = {
   postureReminderAtWord: 3,
   postureReminder: null,
   postureReminderLastIndex: -1,
-  practiceFontSize: null
+  practiceFontSize: null,
+  dictationAudioBlob: null,
+  dictationAudioStatus: "idle",
+  dictationPromptHeard: false,
+  dictationBrowserFallback: false,
+  dictationPromptId: 0
 };
 
 let storedData = {};
@@ -213,6 +270,7 @@ const defaultPrefs = {
   dailyGoalMinutes: 15,
   testDuration: 30,
   testWordCount: 50,
+  dictationPromptCount: 10,
   quoteLength: "medium",
   difficulty: "normal",
   creativeMode: "weakspot",
@@ -260,7 +318,7 @@ const defaultPrefs = {
   rewardStyle: "preacher",
   reminderSound: "dinner",
   spokenRemindersEnabled: false,
-  reminderTtsModel: "chatterbox-turbo",
+  reminderTtsModel: "chatterbox-english",
   reminderVoiceId: "default-english",
   reminderLanguage: "en",
   reminderVolume: .85,
@@ -297,6 +355,7 @@ prefs.focusLetters = [...new Set(prefs.focusLetters.map(letter => String(letter)
   .slice(0, 5);
 prefs.testDuration = Math.max(5, Math.min(600, Number(prefs.testDuration) || defaultPrefs.testDuration));
 prefs.testWordCount = Math.max(1, Math.min(3000, Math.round(Number(prefs.testWordCount) || defaultPrefs.testWordCount)));
+prefs.dictationPromptCount = Math.max(5, Math.min(30, Math.round(Number(prefs.dictationPromptCount) || defaultPrefs.dictationPromptCount)));
 prefs.errorLimit = Math.max(1, Math.min(8, Number(prefs.errorLimit) || defaultPrefs.errorLimit));
 prefs.soundVolume = Math.max(0, Math.min(1, Number(prefs.soundVolume) || defaultPrefs.soundVolume));
 prefs.spokenRemindersEnabled = Boolean(prefs.spokenRemindersEnabled);
@@ -546,6 +605,7 @@ const els = Object.fromEntries([
   "adaptiveMissedLetters", "adaptiveMissedSummary", "adaptiveTechniqueSummary", "adaptiveTechniqueList", "adaptiveRepairFocusButton",
   "adaptiveRecommendationName", "adaptiveRecommendationReason", "adaptiveModePicker", "adaptiveFocusPicker", "adaptiveRecommendationButton", "settingsKeyboardMap",
   "letterFocusCheckbox", "letterFocusHint", "postureReminder", "postureReminderTitle", "postureReminderText",
+  "dictationControls", "dictationAudioStatus", "dictationReplayButton",
   "spokenRemindersEnabled", "reminderTtsModel", "reminderVoiceId", "reminderLanguage", "reminderVolume",
   "previewReminderVoiceButton", "replayReminderButton", "spokenReminderStatus", "reminderLanguageRow",
   "spokenReminderToast", "spokenReminderToastTitle", "spokenReminderToastText", "spokenReminderRetryButton"
@@ -1552,6 +1612,13 @@ function makeTimedRows() {
   return rows;
 }
 
+function makeDictationRows(count = prefs.dictationPromptCount) {
+  const sentences = shuffle(dictationSentenceBank);
+  return Array.from({ length: Math.max(1, Number(count) || 1) }, (_, index) => {
+    return transformText(sentences[index % sentences.length] || "Practice with patience and care.");
+  });
+}
+
 function quoteForLength() {
   const ranges = {
     short: [0, 11],
@@ -1672,6 +1739,11 @@ async function restart() {
   state.postureReminder = null;
   state.postureReminderLastIndex = -1;
   state.practiceFontSize = null;
+  state.dictationAudioBlob = null;
+  state.dictationAudioStatus = "idle";
+  state.dictationPromptHeard = false;
+  state.dictationBrowserFallback = false;
+  state.dictationPromptId++;
   stopReminderSound();
   els.completionBanner.classList.add("hidden");
   if (state.mode === "adaptive") {
@@ -1688,6 +1760,9 @@ async function restart() {
     state.scripturePages = [];
   } else if (state.mode === "placement") {
     state.targetRows = makePlacementRows();
+    state.scripturePages = [];
+  } else if (state.mode === "dictation") {
+    state.targetRows = makeDictationRows();
     state.scripturePages = [];
   } else if (state.mode === "quote") {
     const shouldRepeat = prefs.repeatQuotes === "always" || (prefs.repeatQuotes === "typing" && wasTyping);
@@ -1713,6 +1788,7 @@ async function restart() {
   scheduleSave();
   render();
   prepareCreativeLine();
+  if (state.mode === "dictation") prepareDictationPrompt(requestId);
 }
 
 function currentTarget() {
@@ -1750,6 +1826,75 @@ function prepareCreativeLine() {
   if (["tts", "simon_says"].includes(prefs.creativeMode)) setTimeout(speakCurrentTarget, 40);
 }
 
+async function prepareDictationPrompt(requestId = restartRequestId) {
+  if (state.mode !== "dictation" || state.testCompleted) return;
+  const promptId = ++state.dictationPromptId;
+  state.dictationAudioBlob = null;
+  state.dictationAudioStatus = "loading";
+  state.dictationPromptHeard = false;
+  renderText();
+  try {
+    const blob = await spokenReminderManager.synthesizeAudio(currentTarget(), { scope: "dictation" });
+    if (requestId !== restartRequestId || promptId !== state.dictationPromptId || state.mode !== "dictation") return;
+    state.dictationAudioBlob = blob;
+    state.dictationAudioStatus = "ready";
+    state.dictationBrowserFallback = false;
+    renderText();
+    if (spokenReminderManager.unlocked) playDictationPrompt();
+  } catch (error) {
+    if (requestId !== restartRequestId || promptId !== state.dictationPromptId || error?.name === "AbortError") return;
+    console.warn("Dictation prompt could not be generated.", error);
+    if ("speechSynthesis" in window) {
+      state.dictationAudioStatus = "browser-ready";
+      state.dictationBrowserFallback = true;
+      renderText();
+      if (spokenReminderManager.unlocked) playDictationPrompt();
+      return;
+    }
+    state.dictationAudioStatus = "error";
+    renderText();
+    spokenReminderManager.showToast("Dictation audio unavailable", "Connect the Chatterbox service, then replay the prompt.", true);
+  }
+}
+
+async function playDictationPrompt() {
+  if (state.mode !== "dictation" || (!state.dictationAudioBlob && !state.dictationBrowserFallback)) return;
+  const promptId = state.dictationPromptId;
+  state.dictationAudioStatus = "playing";
+  renderText();
+  try {
+    spokenReminderManager.unlock();
+    if (state.dictationBrowserFallback) await speakBrowserDictationPrompt(currentTarget());
+    else await spokenReminderManager.playBlob(state.dictationAudioBlob);
+    if (promptId !== state.dictationPromptId || state.mode !== "dictation") return;
+    state.dictationPromptHeard = true;
+    state.dictationAudioStatus = "ready";
+    renderText();
+  } catch (error) {
+    if (promptId !== state.dictationPromptId || error?.name === "AbortError") return;
+    console.warn("Dictation prompt playback failed.", error);
+    state.dictationAudioStatus = "error";
+    renderText();
+    spokenReminderManager.showToast("Playback blocked", "Press replay prompt to hear the sentence again.", false);
+  }
+}
+
+function speakBrowserDictationPrompt(text) {
+  return new Promise((resolve, reject) => {
+    if (!("speechSynthesis" in window)) {
+      reject(new Error("Browser speech is unavailable."));
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(cleanSpokenReminderText(text));
+    utterance.rate = .9;
+    utterance.pitch = 1;
+    utterance.onend = resolve;
+    utterance.onerror = () => reject(new Error("Browser speech playback failed."));
+    window.speechSynthesis.speak(utterance);
+  });
+}
+
 function modeCopy() {
   const copy = {
     adaptive: ["Adaptive letters", `Focus ${adaptiveFocusLabel()} / ${prefs.targetSpeed} WPM target`],
@@ -1759,6 +1904,7 @@ function modeCopy() {
     quote: ["Quote Test", "Complete the quote"],
     zen: ["Zen Mode", "Type without limits"],
     creative: ["Creative Test", creativeModeLabels[prefs.creativeMode]],
+    dictation: ["Dictation", "Listen, then type"],
     bible: ["Scripture Reading", "Bible Reading"],
     bibleQuotes: ["Bible Quotes", "Complete Quotes"]
   };
@@ -2185,15 +2331,46 @@ function renderText() {
     words: `Line ${state.rowIndex + 1} of ${state.targetRows.length}`,
     creative: `${creativeModeLabels[prefs.creativeMode]} / line ${state.rowIndex + 1} of ${state.targetRows.length}`,
     placement: `Placement line ${state.rowIndex + 1} of ${state.targetRows.length}`,
+    dictation: `Prompt ${state.rowIndex + 1} of ${state.targetRows.length}`,
     quote: "Complete quote",
     zen: "Endless practice",
     bible: `Scripture ${state.pageIndex + 1} of ${state.scripturePages.length}`,
     bibleQuotes: `Quote ${state.pageIndex + 1} of ${state.scripturePages.length}`
   };
   els.rowLabel.textContent = rowLabels[state.mode] || "Practice";
-  els.charLabel.textContent = state.mode === "zen" ? `${state.input.length}` : `${state.input.length} / ${target.length}`;
+  els.charLabel.textContent = state.mode === "zen"
+    ? `${state.input.length}`
+    : state.mode === "dictation"
+      ? `${state.input.length} typed`
+      : `${state.input.length} / ${target.length}`;
+  const isDictation = state.mode === "dictation";
+  els.dictationControls?.classList.toggle("hidden", !isDictation || state.testCompleted);
+  if (isDictation && els.dictationAudioStatus && els.dictationReplayButton) {
+    const statusCopy = {
+      idle: "Preparing prompt",
+      loading: "Generating audio...",
+      ready: state.dictationPromptHeard ? "Prompt heard. Type what you remember." : "Listen before typing.",
+      "browser-ready": state.dictationPromptHeard ? "Prompt heard. Type what you remember." : "Browser voice ready. Listen before typing.",
+      playing: "Playing prompt...",
+      error: "Audio unavailable. Try replay."
+    }[state.dictationAudioStatus] || "Listen before typing.";
+    els.dictationAudioStatus.textContent = statusCopy;
+    els.dictationReplayButton.disabled = (!state.dictationAudioBlob && !state.dictationBrowserFallback) || ["loading", "playing"].includes(state.dictationAudioStatus);
+    els.dictationReplayButton.textContent = state.dictationAudioStatus === "playing"
+      ? "Playing..."
+      : state.dictationPromptHeard ? "Replay prompt" : "Play prompt";
+  }
   if (state.mode === "zen") {
     els.typingText.innerHTML = `<span class="practice-line active">${escapeHtml(state.input || "\u00a0")}</span>`;
+    els.typingText.style.fontSize = "";
+    state.practiceFontSize = null;
+    return;
+  }
+  if (isDictation) {
+    const typed = state.input
+      ? escapeHtml(state.input)
+      : `<span class="dictation-placeholder">${state.dictationPromptHeard ? "Start typing" : "Listen for the prompt"}</span>`;
+    els.typingText.innerHTML = `<div class="dictation-stage"><div class="dictation-typed">${typed}</div><span class="dictation-hint">The sentence stays hidden until the prompt is complete.</span></div>`;
     els.typingText.style.fontSize = "";
     state.practiceFontSize = null;
     return;
@@ -2201,9 +2378,8 @@ function renderText() {
 
   const streamMode = ["adaptive", "time", "words", "creative", "placement"].includes(state.mode);
   if (streamMode) {
-    const lines = state.targetRows.slice(state.rowIndex, state.rowIndex + 4);
-    while (lines.length < 4) lines.push("");
-    els.typingText.innerHTML = lines.map((line, index) => `<span class="practice-line${index === 0 ? " active" : ""}" data-line-offset="${index}">${index === 0 ? renderInteractiveTarget(line) : renderPlainLine(line)}</span>`).join("");
+    const lines = [state.targetRows[state.rowIndex] || ""];
+    els.typingText.innerHTML = `<span class="practice-line active" data-line-offset="0">${renderInteractiveTarget(lines[0])}</span>`;
     fitPracticeLines(lines);
     return;
   }
@@ -2406,6 +2582,12 @@ function handleKey(event) {
     : "";
   if (event.key.length !== 1 && !arrowCharacter) return;
   event.preventDefault();
+  if (state.mode === "dictation" && !state.dictationPromptHeard) {
+    if (state.dictationAudioStatus === "error") {
+      spokenReminderManager.showToast("Listen before typing", "Replay the prompt after the audio service is available.", true);
+    }
+    return;
+  }
   const recordedAt = performance.now();
   if (!state.startedAt) {
     state.startedAt = recordedAt;
@@ -2565,6 +2747,7 @@ function finishLine() {
   if (state.mode === "adaptive") finishAdaptiveLine();
   else if (state.mode === "time") finishTimedLine();
   else if (["words", "creative", "placement"].includes(state.mode)) finishWordSection();
+  else if (state.mode === "dictation") finishDictationLine();
   else if (state.mode === "quote") finishTest();
   else if (["bible", "bibleQuotes"].includes(state.mode)) finishScripture();
 }
@@ -2703,6 +2886,34 @@ function finishWordSection() {
     renderLiveMetrics();
     if (prefs.keymapMode === "next" || prefs.creativeMode === "layoutfluid") renderKeyboard();
     prepareCreativeLine();
+  }, 70);
+}
+
+function finishDictationLine() {
+  if (state.rowIndex >= state.targetRows.length - 1) {
+    progress.rowsCleared++;
+    save();
+    finishTest();
+    return;
+  }
+  progress.rowsCleared++;
+  save();
+  els.completionBanner.textContent = state.lineErrors === 0 ? "Prompt cleared" : "Prompt cleared with errors";
+  els.completionBanner.classList.remove("hidden");
+  playReward((state.rowIndex % 9) + 1);
+  setTimeout(() => {
+    els.completionBanner.classList.add("hidden");
+    state.input = "";
+    state.lineErrors = 0;
+    state.characterErrors = 0;
+    state.lastAcceptedAt = null;
+    state.rowIndex++;
+    state.dictationAudioBlob = null;
+    state.dictationAudioStatus = "loading";
+    state.dictationPromptHeard = false;
+    state.dictationBrowserFallback = false;
+    render();
+    prepareDictationPrompt(restartRequestId);
   }, 70);
 }
 
@@ -2880,13 +3091,25 @@ class SpokenReminderAudioManager {
     return String(window.KD_TTS_API_BASE || "/api/tts").replace(/\/$/, "");
   }
 
-  cacheKey(text) {
+  ttsConfig(options = {}) {
+    return {
+      modelId: String(options.modelId || prefs.reminderTtsModel),
+      voiceId: String(options.voiceId || prefs.reminderVoiceId),
+      language: String(options.language || prefs.reminderLanguage).toLowerCase(),
+      volume: Number(options.volume ?? prefs.reminderVolume),
+      scope: String(options.scope || "reminder")
+    };
+  }
+
+  cacheKey(text, options = {}) {
+    const config = this.ttsConfig(options);
     return JSON.stringify([
       cleanSpokenReminderText(text),
-      prefs.reminderTtsModel,
-      prefs.reminderVoiceId,
-      prefs.reminderLanguage,
-      Number(prefs.reminderVolume).toFixed(2)
+      config.modelId,
+      config.voiceId,
+      config.language,
+      Number(config.volume).toFixed(2),
+      config.scope
     ]);
   }
 
@@ -2952,7 +3175,8 @@ class SpokenReminderAudioManager {
     this.processing = false;
   }
 
-  async synthesize(text) {
+  async synthesize(text, options = {}) {
+    const config = this.ttsConfig(options);
     const controller = new AbortController();
     this.currentRequest = controller;
     try {
@@ -2963,9 +3187,9 @@ class SpokenReminderAudioManager {
         headers: { "Content-Type": "application/json", Accept: "audio/wav" },
         body: JSON.stringify({
           text: cleanSpokenReminderText(text),
-          modelId: prefs.reminderTtsModel,
-          voiceId: prefs.reminderVoiceId,
-          language: prefs.reminderLanguage
+          modelId: config.modelId,
+          voiceId: config.voiceId,
+          language: config.language
         })
       });
       if (!response.ok) {
@@ -2979,8 +3203,8 @@ class SpokenReminderAudioManager {
     }
   }
 
-  cachedAudio(text) {
-    const key = this.cacheKey(text);
+  cachedAudio(text, options = {}) {
+    const key = this.cacheKey(text, options);
     const item = this.cache.get(key);
     if (!item) return null;
     if (Date.now() - item.createdAt > 30 * 60 * 1000) {
@@ -2991,20 +3215,26 @@ class SpokenReminderAudioManager {
     return item.blob;
   }
 
-  async synthesizeAndPlay(text) {
-    const blob = this.cachedAudio(text) || await this.synthesize(text);
-    if (!this.cachedAudio(text)) {
-      this.cache.set(this.cacheKey(text), { blob, createdAt: Date.now() });
+  async synthesizeAudio(text, options = {}) {
+    const cached = this.cachedAudio(text, options);
+    const blob = cached || await this.synthesize(text, options);
+    if (!cached) {
+      this.cache.set(this.cacheKey(text, options), { blob, createdAt: Date.now() });
       while (this.cache.size > 24) this.cache.delete(this.cache.keys().next().value);
     }
-    await this.playBlob(blob);
+    return blob;
   }
 
-  async playBlob(blob) {
+  async synthesizeAndPlay(text, options = {}) {
+    const blob = await this.synthesizeAudio(text, options);
+    await this.playBlob(blob, options);
+  }
+
+  async playBlob(blob, options = {}) {
     const url = URL.createObjectURL(blob);
     const audio = new Audio(url);
     audio.preload = "auto";
-    audio.volume = Math.max(0, Math.min(1, Number(prefs.reminderVolume) || 0));
+    audio.volume = Math.max(0, Math.min(1, Number(options.volume ?? prefs.reminderVolume) || 0));
     this.currentAudio = audio;
     const speechWasSpeaking = !!window.speechSynthesis?.speaking;
     if (speechWasSpeaking) window.speechSynthesis.pause();
@@ -3442,9 +3672,10 @@ function escapeHtml(text) {
 }
 
 const settingDescriptions = {
-  practiceMode: "Changes the active typing experience. Modes are selected only here so the practice page stays focused.",
+  practiceMode: "Changes the active typing experience. Dictation plays a hidden sentence, waits for you to hear it, and judges the typed answer for speed and accuracy.",
   testDuration: "Sets the length of timed tests.",
   testWordCount: "Sets Words and Creative test length up to 3,000 words. Only four lines are shown at once.",
+  dictationPromptCount: "Sets how many spoken prompts are in one dictation lesson. The lesson ends with the normal results page.",
   quoteLength: "Limits general quotes to the selected length range.",
   difficulty: "Controls how broad and challenging the regular word pool is.",
   capitalization: "Controls letter case in generated practice outside Scripture.",
@@ -3576,7 +3807,7 @@ function setupSettings() {
   }
 
   const selectIds = [
-    "practiceMode", "testDuration", "testWordCount", "quoteLength", "difficulty", "creativeMode", "capitalization", "quickRestart",
+    "practiceMode", "testDuration", "testWordCount", "dictationPromptCount", "quoteLength", "difficulty", "creativeMode", "capitalization", "quickRestart",
     "repeatQuotes", "resultSaving", "minWpm", "minAccuracy", "minBurst", "indicateTypos", "confidenceMode", "errorLimit",
     "theme", "fontFamily", "lessonColor", "currentCue", "caretStyle", "smoothCaret", "typedEffect", "highlightMode", "fontSize",
     "lineWidth", "tapeMode", "timerStyle", "speedUnit", "keyboardLayout", "keyboardSize", "keymapMode", "keymapStyle",
@@ -3585,11 +3816,11 @@ function setupSettings() {
   ];
   const prefKeys = { practiceMode: "mode" };
   const numericIds = new Set([
-    "testDuration", "testWordCount", "minWpm", "minAccuracy", "minBurst", "errorLimit", "soundVolume", "practiceLetters",
+    "testDuration", "testWordCount", "dictationPromptCount", "minWpm", "minAccuracy", "minBurst", "errorLimit", "soundVolume", "practiceLetters",
     "targetSpeed", "wordsPerRow", "dailyGoalMinutes", "bibleChapter", "bibleStart", "bibleEnd"
   ]);
   const restartIds = new Set([
-    "practiceMode", "testDuration", "testWordCount", "quoteLength", "difficulty", "creativeMode", "capitalization",
+    "practiceMode", "testDuration", "testWordCount", "dictationPromptCount", "quoteLength", "difficulty", "creativeMode", "capitalization",
     "practiceLetters", "targetSpeed", "practicePreset", "wordsPerRow", "bibleBook", "bibleChapter", "bibleStart", "bibleEnd"
   ]);
   const keyboardIds = new Set(["keyboardLayout", "keyboardSize", "keymapMode", "keymapStyle", "keymapLegend"]);
@@ -3605,6 +3836,10 @@ function setupSettings() {
       if (id === "testWordCount") {
         prefs.testWordCount = Math.max(1, Math.min(3000, Math.round(prefs.testWordCount || defaultPrefs.testWordCount)));
         event.target.value = String(prefs.testWordCount);
+      }
+      if (id === "dictationPromptCount") {
+        prefs.dictationPromptCount = Math.max(5, Math.min(30, Math.round(prefs.dictationPromptCount || defaultPrefs.dictationPromptCount)));
+        event.target.value = String(prefs.dictationPromptCount);
       }
       if (["bibleStart", "bibleEnd"].includes(id) && prefs.bibleEnd < prefs.bibleStart) {
         prefs.bibleEnd = prefs.bibleStart;
@@ -3713,9 +3948,21 @@ function setupSpokenReminderSettings() {
   els.replayReminderButton.addEventListener("click", () => spokenReminderManager.replayLastReminder());
   els.spokenReminderRetryButton.addEventListener("click", () => {
     spokenReminderManager.hideToast();
-    spokenReminderManager.replayLastReminder();
+    if (state.mode === "dictation") {
+      if (state.dictationAudioBlob) playDictationPrompt();
+      else prepareDictationPrompt(restartRequestId);
+    } else spokenReminderManager.replayLastReminder();
   });
 }
+
+els.dictationReplayButton?.addEventListener("click", () => {
+  unlockAudio();
+  if (state.dictationAudioStatus === "error" && !state.dictationAudioBlob) {
+    prepareDictationPrompt(restartRequestId);
+    return;
+  }
+  playDictationPrompt();
+});
 
 function fullscreenElement() {
   return document.fullscreenElement || document.webkitFullscreenElement || null;

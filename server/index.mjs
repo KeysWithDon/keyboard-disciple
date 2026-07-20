@@ -1,7 +1,10 @@
 import http from "node:http";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const PORT = Number(process.env.PORT || 8080);
+const STATIC_ROOT = path.resolve(fileURLToPath(new URL("../", import.meta.url)));
 const BACKEND_URL = String(process.env.CHATTERBOX_BACKEND_URL || "http://127.0.0.1:8200").replace(/\/$/, "");
 const SERVICE_TOKEN = String(process.env.CHATTERBOX_SERVICE_TOKEN || "");
 const USER_HEADER = String(process.env.KD_USER_HEADER || "x-user-id").toLowerCase();
@@ -63,6 +66,56 @@ function writeJson(response, status, body) {
   response.end(JSON.stringify(body));
 }
 
+const staticContentTypes = {
+  ".css": "text/css; charset=utf-8",
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".png": "image/png",
+  ".svg": "image/svg+xml",
+  ".wav": "audio/wav",
+  ".xml": "application/xml; charset=utf-8",
+  ".txt": "text/plain; charset=utf-8",
+};
+
+export function staticFilePath(url) {
+  const pathname = decodeURIComponent(new URL(url, "http://localhost").pathname);
+  const allowed = pathname === "/"
+    || /^\/(?:index|app|styles|refresh)\.html?$/.test(pathname)
+    || /^\/(?:app|styles|refresh)\.js$/.test(pathname)
+    || /^\/(?:sitemap\.xml|robots\.txt|\.nojekyll)$/.test(pathname)
+    || pathname.startsWith("/assets/");
+  if (!allowed) return null;
+  const relative = pathname === "/" ? "index.html" : pathname.slice(1);
+  const candidate = path.resolve(STATIC_ROOT, relative);
+  if (candidate !== STATIC_ROOT && !candidate.startsWith(`${STATIC_ROOT}${path.sep}`)) return null;
+  if (pathname.startsWith("/assets/")) {
+    const assetRoot = path.resolve(STATIC_ROOT, "assets");
+    if (candidate !== assetRoot && !candidate.startsWith(`${assetRoot}${path.sep}`)) return null;
+  }
+  return candidate;
+}
+
+export async function serveStatic(request, response) {
+  if (request.method !== "GET") return false;
+  const filePath = staticFilePath(request.url || "/");
+  if (!filePath) return false;
+  try {
+    const data = await readFile(filePath);
+    const extension = path.extname(filePath).toLowerCase();
+    response.writeHead(200, {
+      "content-type": staticContentTypes[extension] || "application/octet-stream",
+      "cache-control": extension === ".html" ? "no-cache" : "public, max-age=300",
+      "x-content-type-options": "nosniff",
+    });
+    response.end(data);
+    return true;
+  } catch (error) {
+    if (error?.code !== "ENOENT") console.error("Static file request failed:", error.message);
+    return false;
+  }
+}
+
 async function proxy(request, response, route) {
   if (REQUIRE_APP_AUTH && !request.headers[USER_HEADER]) {
     writeJson(response, 401, { error: "Authentication required." });
@@ -109,16 +162,21 @@ export const server = http.createServer(async (request, response) => {
     response.end();
     return;
   }
-  if (!rateAllowed(request)) {
-    writeJson(response, 429, { error: "Too many speech requests." });
-    return;
-  }
   const route = normalizeApiPath(request.url || "/");
-  if (!route || !["GET", "POST"].includes(request.method)) {
-    writeJson(response, 404, { error: "Not found." });
+  if (route) {
+    if (!rateAllowed(request)) {
+      writeJson(response, 429, { error: "Too many speech requests." });
+      return;
+    }
+    if (!["GET", "POST"].includes(request.method)) {
+      writeJson(response, 404, { error: "Not found." });
+      return;
+    }
+    await proxy(request, response, route);
     return;
   }
-  await proxy(request, response, route);
+  if (await serveStatic(request, response)) return;
+  writeJson(response, 404, { error: "Not found." });
 });
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {

@@ -13,8 +13,8 @@
   <link rel="canonical" href="https://keyswithdon.github.io/keyboard-disciple/">
   <link rel="sitemap" type="application/xml" href="https://keyswithdon.github.io/keyboard-disciple/sitemap.xml">
   <link rel="icon" href="assets/keyboard-disciple-mark.png">
-  <link rel="stylesheet" href="styles.css?v=20260720-spoken-reminders">
-  <link rel="stylesheet" href="refresh.css?v=20260720-spoken-reminders">
+  <link rel="stylesheet" href="styles.css?v=20260720-dictation-single-row">
+  <link rel="stylesheet" href="refresh.css?v=20260720-dictation-single-row">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Keyboard Disciple">
   <meta property="og:title" content="Keyboard Disciple | Free Typing Practice Game">
@@ -133,6 +133,10 @@
         <div class="row-status">
           <span id="rowLabel">Row 1 of 10</span>
           <span id="charLabel">0 / 0</span>
+        </div>
+        <div class="dictation-controls hidden" id="dictationControls" aria-live="polite">
+          <span id="dictationAudioStatus">Preparing prompt</span>
+          <button type="button" class="secondary-button" id="dictationReplayButton">Play prompt</button>
         </div>
         <div id="typingText" class="typing-text" aria-label="Typing target"></div>
         <div class="completion-banner hidden" id="completionBanner">Line cleared</div>
@@ -313,6 +317,7 @@
                   <option value="words">Words</option>
                   <option value="placement">Placement check</option>
                   <option value="quote">Quotes</option>
+                  <option value="dictation">Dictation</option>
                   <option value="zen">Zen</option>
                   <option value="creative">Creative lab</option>
                   <option value="bible">Scripture reading</option>
@@ -329,6 +334,15 @@
               </label>
               <label>Word count
                 <input id="testWordCount" type="number" min="1" max="3000" step="1" value="50" inputmode="numeric">
+              </label>
+              <label>Dictation prompts
+                <select id="dictationPromptCount">
+                  <option value="5">5 prompts</option>
+                  <option value="10" selected>10 prompts</option>
+                  <option value="15">15 prompts</option>
+                  <option value="20">20 prompts</option>
+                  <option value="30">30 prompts</option>
+                </select>
               </label>
               <label>Quote length
                 <select id="quoteLength">
@@ -898,6 +912,6 @@
     </form>
   </dialog>
 
-  <script src="app.js?v=20260720-spoken-reminders"></script>
+  <script src="app.js?v=20260720-dictation-single-row"></script>
 </body>
 </html>

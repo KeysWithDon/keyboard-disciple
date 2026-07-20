@@ -24,7 +24,11 @@ Creative tests are original Keyboard Disciple implementations built for focused,
 
 ## Spoken Reminders
 
-Spoken reminders are an optional Chatterbox-backed feature. The static frontend
-continues to work without the service and stores the new preferences locally.
+Spoken reminders and Dictation are optional Chatterbox-backed features. The
+static frontend continues to work without the service and stores preferences
+locally. Dictation plays a hidden sentence, waits for playback, then scores the
+typed answer through the same speed and accuracy system as the other tests.
+On hosted static pages, Dictation falls back to the browser's built-in speech
+voice when Chatterbox is not connected.
 Run the FastAPI model service and Node gateway described in
-[`TTS_DEPLOYMENT.md`](TTS_DEPLOYMENT.md) to enable generated reminder audio.
+[`TTS_DEPLOYMENT.md`](TTS_DEPLOYMENT.md) to enable generated audio.
