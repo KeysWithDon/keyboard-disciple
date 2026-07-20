@@ -7,6 +7,7 @@ const STORAGE_KEY = "keyboard-disciple-web";
 const keyboardSoundStyles = new Set([...Array.from({ length: 26 }, (_, index) => String(index + 1)), "off"]);
 const rewardSoundStyles = new Set(["preacher", "key-bloom", "glass-keys"]);
 const errorSoundStyles = new Set(["1", "2", "3", "4", "off"]);
+const practicePresetStyles = new Set(["balanced", "weak", "accuracy", "speed", "finger", "alternation"]);
 const creativeModeStyles = new Set([
   "weakspot", "58008", "mirror", "upside_down", "nausea", "round_round_baby", "simon_says", "tts",
   "choo_choo", "arrows", "rAnDoMcAsE", "sPoNgEcAsE", "capitals", "layout_mirror", "layoutfluid",
@@ -20,8 +21,8 @@ const themeStyles = new Set([
   "disciple", "morning-light", "sanctuary", "living-water", "midnight-prayer", "mustard-seed", "eden",
   "royal-priesthood", "grace", "armor-of-light", "revelation", "clarity"
 ]);
-const testModes = new Set(["time", "words", "quote", "creative"]);
-const scoredModes = new Set(["adaptive", "time", "words", "quote", "creative", "bible", "bibleQuotes"]);
+const testModes = new Set(["time", "words", "quote", "creative", "placement"]);
+const scoredModes = new Set(["adaptive", "time", "words", "quote", "creative", "placement", "bible", "bibleQuotes"]);
 const keyboardKey = (id, label = id, units = 4, shift = "") => ({ id, label, units, shift });
 const macKeyboardLayout = [
   [
@@ -107,8 +108,10 @@ const state = {
   charsTyped: 0,
   rawTyped: 0,
   errors: 0,
+  lineErrors: 0,
   characterErrors: 0,
   lessonLetterStats: {},
+  lessonErrorLetters: {},
   lastAcceptedAt: null,
   lastActivityAt: null,
   lastKeyAt: null,
@@ -127,7 +130,9 @@ const state = {
   mistakeKey: "",
   shiftSide: "",
   memoryVisible: true,
-  lastQuote: null
+  lastQuote: null,
+  lastRestReminder: 0,
+  techniqueMessageUntil: 0
 };
 
 let storedData = {};
@@ -138,6 +143,7 @@ const defaultPrefs = {
   practiceLetters: startLetters,
   wordsPerRow: 10,
   targetSpeed: 35,
+  practicePreset: "balanced",
   recoverKeys: true,
   naturalWords: true,
   dailyGoalMinutes: 15,
@@ -177,6 +183,8 @@ const defaultPrefs = {
   showLiveAccuracy: true,
   showLiveRaw: false,
   showLiveConsistency: false,
+  rhythmCoach: false,
+  techniqueTips: true,
   showProgress: true,
   keyboardLayout: "mac",
   keyboardSize: "standard",
@@ -224,11 +232,12 @@ if (!keyboardSoundStyles.has(prefs.soundStyle)) prefs.soundStyle = defaultPrefs.
 if (!keyboardLayouts[prefs.keyboardLayout]) prefs.keyboardLayout = defaultPrefs.keyboardLayout;
 if (!rewardSoundStyles.has(prefs.rewardStyle)) prefs.rewardStyle = defaultPrefs.rewardStyle;
 if (!errorSoundStyles.has(prefs.errorStyle)) prefs.errorStyle = defaultPrefs.errorStyle;
+if (!practicePresetStyles.has(prefs.practicePreset)) prefs.practicePreset = defaultPrefs.practicePreset;
 if (!creativeModeStyles.has(prefs.creativeMode)) prefs.creativeMode = defaultPrefs.creativeMode;
 if (!themeStyles.has(prefs.theme)) prefs.theme = defaultPrefs.theme;
 if (!scoredModes.has(prefs.mode) && prefs.mode !== "zen") prefs.mode = defaultPrefs.mode;
 if (storedPrefs.showKeyboard === false && storedPrefs.keymapMode === undefined) prefs.keymapMode = "off";
-prefs.dailyGoalMinutes = Math.max(5, Math.min(60, Number(prefs.dailyGoalMinutes) || defaultPrefs.dailyGoalMinutes));
+prefs.dailyGoalMinutes = Math.max(2, Math.min(60, Number(prefs.dailyGoalMinutes) || defaultPrefs.dailyGoalMinutes));
 state.mode = prefs.mode;
 
 function applyTheme() {
@@ -273,12 +282,17 @@ const progress = Object.assign({
   letterStats: {},
   lessonHistory: [],
   letterHistory: {},
-  dailyActivity: {}
+  dailyActivity: {},
+  errorReview: [],
+  cleanLines: 0,
+  placement: null
 }, storedData.progress || {});
 if (!progress.letterStats || typeof progress.letterStats !== "object") progress.letterStats = {};
 if (!Array.isArray(progress.lessonHistory)) progress.lessonHistory = [];
 if (!progress.letterHistory || typeof progress.letterHistory !== "object" || Array.isArray(progress.letterHistory)) progress.letterHistory = {};
 if (!progress.dailyActivity || typeof progress.dailyActivity !== "object" || Array.isArray(progress.dailyActivity)) progress.dailyActivity = {};
+if (!Array.isArray(progress.errorReview)) progress.errorReview = [];
+if (!Number.isFinite(Number(progress.cleanLines))) progress.cleanLines = 0;
 
 const commonWords = `a able about act add after again air all also always am an and any are area arm around as ask at back base be bed been best big bit blue book both bring build but by call came can care carry case change child city clear close come cost could course cut day did do door down draw dream drive during each early ease east eat end enough even ever every eye face fact fall far feel few field find fine fire first five for form found four free friend from full game gave get give go good got great green ground group grow had hand hard has have he head hear help her here high him his hold home hope hour house how i idea if in into is it job join just keep key kind know land large last late lead lean learn leave left less let life light like line list little live long look love made make man many mark may me mean men mind miss money more most move much must my name near need never new next night no not note now of off old on once one only open or our out over own page part pass pay people place plan play point power press put quick rain ran read real right river road room run said same saw say school see seem send set she short show side small so some sound stand start stay still story strong study such sure take talk tell than that the their them then there these they thing think this those time to told too took top tree true try turn two type under up use very view voice wait walk want war warm was watch water way we well went were what when where which while white who why will with word work world would write yard year yes yet you young your`.split(" ");
 const moderateWords = `abide accent active admire adore advice alert anchor answer arena arise attend balance banner beacon belong better border borrow branch calmly captain careful center chance chosen circle comfort common corner courage custom daily decide delight detail direct divide double eager earnest effect effort either enable ending energy engine entire escape estate expand expect fabric faith family favor fellow figure filter finish flower follow future gather gentle glory golden handle harbor honest humble improve indeed inside intent island joyful keeper kingdom ladder leader lesson letter linger listen living matter memory middle modern moment motion notice number office origin palace patient pattern period phrase planet plenty polish ponder proper public quiet reason record remain rescue rhythm sample season second secret signal simple single smooth steady stream strength summer supply surely temple tender thread travel useful valley virtue window wonder worthy`.split(" ");
@@ -428,7 +442,7 @@ const els = Object.fromEntries([
   "liveRawWrap", "liveRaw", "liveConsistencyWrap", "liveConsistency", "liveProgressWrap", "liveProgress", "timerMeter",
   "timerFill", "typingCard", "typingText", "rowLabel", "charLabel", "scriptureStrip", "scriptureRef", "completionBanner",
   "keyboard", "keyboardWrap", "lessonScore", "lastWpm", "lastAccuracy", "topWpm", "learningRate", "dailyGoalText",
-  "dailyGoalFill", "resultPanel", "resultEyebrow", "resultTitle", "resultScore", "resultWpm", "resultRaw",
+  "dailyGoalFill", "cleanLines", "reviewErrorsBtn", "techniqueCue", "resultPanel", "resultEyebrow", "resultTitle", "resultScore", "resultWpm", "resultRaw",
   "resultAccuracy", "resultConsistency", "resultCharacters", "resultTime", "resultRestartBtn", "settingsDialog", "settingsBtn",
   "statsDialog", "statsBtn", "fullscreenBtn", "restartBtn", "letterHud", "unlockNext", "unlockCount",
   "letterHeatmap", "heatmapSummary", "letterDialog", "letterDetailBadge", "letterDetailTitle",
@@ -502,6 +516,8 @@ function renderPerformance() {
   els.lastAccuracy.textContent = latest ? `${Math.round(latest.accuracy)}%` : "--";
   els.topWpm.textContent = `${Math.round(topSpeed)} WPM`;
   els.learningRate.textContent = formatLearningRate(history);
+  els.cleanLines.textContent = String(Math.round(Number(progress.cleanLines) || 0));
+  els.reviewErrorsBtn.classList.toggle("hidden", !progress.errorReview.length);
 
   const goalMinutes = Number(prefs.dailyGoalMinutes) || defaultPrefs.dailyGoalMinutes;
   const activeMinutes = (Number(progress.dailyActivity[localDateKey()]) || 0) / 60;
@@ -510,6 +526,26 @@ function renderPerformance() {
   els.dailyGoalText.textContent = `${shownMinutes} / ${goalMinutes} min`;
   els.dailyGoalFill.style.width = `${goalRatio * 100}%`;
   els.dailyGoalFill.parentElement.classList.toggle("complete", goalRatio >= 1);
+}
+
+function renderTechniqueCue(metrics) {
+  if (!prefs.techniqueTips || ["bible", "bibleQuotes", "zen"].includes(state.mode) || state.testCompleted) {
+    els.techniqueCue.classList.add("hidden");
+    return;
+  }
+  const activeMinutes = (Number(progress.dailyActivity[localDateKey()]) || 0) / 60;
+  const restCheckpoint = Math.floor(activeMinutes / 10);
+  if (restCheckpoint >= 1 && restCheckpoint > state.lastRestReminder) {
+    state.lastRestReminder = restCheckpoint;
+    state.techniqueMessageUntil = Date.now() + 8000;
+  }
+  let message = "Relax your shoulders and let your fingers return to the home row.";
+  if (Date.now() < state.techniqueMessageUntil) message = "Take a short break, loosen your hands, and come back fresh.";
+  else if (metrics.accuracy < 90) message = "Slow down slightly and finish each word cleanly before building speed.";
+  else if (metrics.consistency < 70 && state.keyIntervals.length > 5) message = "Keep an even rhythm; steady keystrokes become speed.";
+  else if (prefs.rhythmCoach) message = "Listen for an even beat between keystrokes.";
+  els.techniqueCue.textContent = message;
+  els.techniqueCue.classList.remove("hidden");
 }
 
 function currentMetrics(now = performance.now()) {
@@ -538,7 +574,7 @@ function currentProgress() {
   const target = currentTarget();
   if (state.mode === "time") return Math.max(0, Math.min(1, 1 - state.timeRemaining / Number(prefs.testDuration)));
   if (state.mode === "adaptive") return Math.max(0, Math.min(1, (state.rowIndex + (target.length ? state.input.length / target.length : 0)) / rowsPerPage));
-  if (["words", "creative"].includes(state.mode)) return Math.max(0, Math.min(1, (state.rowIndex + (target.length ? state.input.length / target.length : 0)) / Math.max(1, state.targetRows.length)));
+  if (["words", "creative", "placement"].includes(state.mode)) return Math.max(0, Math.min(1, (state.rowIndex + (target.length ? state.input.length / target.length : 0)) / Math.max(1, state.targetRows.length)));
   if (state.mode === "zen") return 0;
   return target.length ? Math.max(0, Math.min(1, state.input.length / target.length)) : 0;
 }
@@ -548,7 +584,10 @@ function renderLiveMetrics() {
   const progressRatio = currentProgress();
   const visible = state.mode !== "zen" && !state.testCompleted;
   els.liveMetrics.classList.toggle("hidden", !visible);
-  if (!visible) return;
+  if (!visible) {
+    els.techniqueCue.classList.add("hidden");
+    return;
+  }
   els.liveWpm.textContent = formattedSpeed(metrics.wpm);
   els.liveAcc.textContent = `${Math.round(metrics.accuracy)}%`;
   els.liveRaw.textContent = formattedSpeed(metrics.raw);
@@ -561,16 +600,18 @@ function renderLiveMetrics() {
   els.liveRawWrap.classList.toggle("hidden", !prefs.showLiveRaw);
   els.liveConsistencyWrap.classList.toggle("hidden", !prefs.showLiveConsistency);
   els.liveProgressWrap.classList.toggle("hidden", !prefs.showProgress || prefs.timerStyle === "off");
+  els.liveConsistencyWrap.classList.toggle("hidden", !(prefs.showLiveConsistency || prefs.rhythmCoach));
   const showBar = state.mode === "time" && ["bar", "both"].includes(prefs.timerStyle);
   els.timerMeter.classList.toggle("hidden", !showBar);
   els.timerFill.style.width = `${progressRatio * 100}%`;
+  renderTechniqueCue(metrics);
 }
 
 function renderResult() {
   const result = state.result;
   if (!result) return;
   els.resultEyebrow.textContent = `${modeCopy()[0]} complete`;
-  els.resultTitle.textContent = result.failedReason || (result.personalBest ? "New personal best" : "Results");
+  els.resultTitle.textContent = result.failedReason || (result.placement ? "Baseline saved" : result.personalBest ? "New personal best" : "Results");
   els.resultScore.textContent = Number(result.score).toLocaleString();
   els.resultWpm.textContent = Math.round(result.wpm);
   els.resultRaw.textContent = Math.round(result.raw);
@@ -627,7 +668,12 @@ function adaptiveFocusLetter() {
   const earned = letterOrder.slice(0, Number(prefs.practiceLetters));
   const belowTarget = earned.filter(letter => letterMastery(letter).score < .98);
   if (!belowTarget.length) return earned.at(-1) || letterOrder[0];
-  return belowTarget.sort((a, b) => {
+  const due = belowTarget.filter(letter => {
+    const stats = progress.letterStats[letter.toLowerCase()] || {};
+    return !Number(stats.reviewDueAt) || Number(stats.reviewDueAt) <= Date.now();
+  });
+  const candidates = due.length ? due : belowTarget;
+  return candidates.sort((a, b) => {
     const aMastery = letterMastery(a);
     const bMastery = letterMastery(b);
     return aMastery.score - bMastery.score || aMastery.attempts - bMastery.attempts;
@@ -654,48 +700,88 @@ function allowedSet() {
   return new Set(letterOrder.slice(0, prefs.practiceLetters).map(x => x.toLowerCase()));
 }
 
+function handForLetter(letter) {
+  return "qwertasdfgzxcvb".includes(String(letter).toLowerCase()) ? "left" : "right";
+}
+
+function alternatingWord(word) {
+  const letters = [...word.toLowerCase()].filter(letter => /^[a-z]$/.test(letter));
+  if (letters.length < 4) return false;
+  let changes = 0;
+  for (let index = 1; index < letters.length; index++) {
+    if (handForLetter(letters[index]) !== handForLetter(letters[index - 1])) changes++;
+  }
+  return changes / Math.max(1, letters.length - 1) >= .58;
+}
+
 function wordDeck() {
   const unlocked = allowedSet();
   const focusLetter = adaptiveFocusLetter().toLowerCase();
   const isAllowed = word => [...word.toLowerCase()].every(ch => !/[a-z]/.test(ch) || unlocked.has(ch));
-  if (!prefs.naturalWords) {
-    const letters = [...unlocked];
-    const pseudo = Array.from({ length: 180 }, (_, wordIndex) => {
-      const length = 3 + Math.floor(Math.random() * 5);
-      const output = Array.from({ length }, () => letters[Math.floor(Math.random() * letters.length)] || "e");
-      output[wordIndex % length] = focusLetter;
-      return output.join("");
-    });
-    return { common: shuffle(pseudo), moderate: [], rare: [], rareFocus: [], focus: shuffle(pseudo), focusLetter };
-  }
   const allNatural = [...new Set(commonWords.concat(moderateWords, rareWords, dictionaryExtra, rareLetterFocusPool))].filter(isAllowed);
-  const common = shuffle(commonWords.concat(dictionaryExtra.filter(w => w.length <= 6)).filter(isAllowed));
+  const broadCommon = prefs.naturalWords
+    ? commonWords.concat(dictionaryExtra.filter(w => w.length <= 6))
+    : commonWords.concat(moderateWords, dictionaryExtra);
+  const common = shuffle(broadCommon.filter(isAllowed));
   const moderate = shuffle(moderateWords.concat(dictionaryExtra.filter(w => w.length >= 6 && w.length <= 9)).filter(isAllowed));
   const rare = shuffle(rareWords.concat(dictionaryExtra.filter(w => w.length >= 9)).filter(isAllowed));
   const rareFocus = shuffle(rareLetterFocusPool.filter(isAllowed));
   const focus = shuffle(allNatural.filter(word => word.includes(focusLetter)));
-  return { common, moderate, rare, rareFocus, focus, focusLetter };
+  const weakLetters = weakestPracticeLetters();
+  const weak = shuffle(allNatural.filter(word => weakLetters.some(letter => word.includes(letter))));
+  const finger = shuffle(allNatural.filter(word => weakLetters.some(letter => {
+    const zone = fingerZone(letter).label;
+    return [...word].some(candidate => /^[a-z]$/i.test(candidate) && fingerZone(candidate).label === zone);
+  })));
+  const alternating = shuffle(allNatural.filter(alternatingWord));
+  return { common, moderate, rare, rareFocus, focus, weak, finger, alternating, focusLetter };
 }
 
 function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
   const deck = wordDeck();
   const rows = [];
   let ci = 0, mi = 0, ri = 0, fi = 0, rfi = 0;
+  let wi = 0, fgi = 0, ai = 0;
+  const recoveryMode = progress.lessonHistory.length > 0 && Number(progress.avgAccuracy) < 88;
+  const activePreset = recoveryMode ? "accuracy" : prefs.practicePreset;
+  const presetPool = {
+    weak: deck.weak,
+    accuracy: deck.weak,
+    finger: deck.finger,
+    alternation: deck.alternating,
+    speed: deck.moderate
+  }[activePreset] || [];
+  const readiness = Math.min(1, progress.lessonHistory.length / 8) * Math.min(1, (Number(progress.avgAccuracy) || 0) / 94);
+  const moderateInterval = recoveryMode ? Number.MAX_SAFE_INTEGER : readiness > .7 ? 10 : 20;
+  const rareInterval = recoveryMode ? Number.MAX_SAFE_INTEGER : readiness > .88 ? 50 : 100;
   for (let r = 0; r < rowCount; r++) {
     const words = [];
     for (let i = 0; i < Number(prefs.wordsPerRow); i++) {
       const pos = r * Number(prefs.wordsPerRow) + i + 1;
       let list = deck.common;
       let index = ci++;
-      if (pos % 3 === 0 && deck.focus.length) { list = deck.focus; index = fi++; }
+      if (presetPool.length && pos % 2 === 0) { list = presetPool; index = activePreset === "finger" ? fgi++ : activePreset === "alternation" ? ai++ : wi++; }
+      else if (pos % 3 === 0 && deck.focus.length) { list = deck.focus; index = fi++; }
       else if (pos % 11 === 0 && deck.rareFocus.length) { list = deck.rareFocus; index = rfi++; }
-      else if (pos % 100 === 0 && deck.rare.length) { list = deck.rare; index = ri++; }
-      else if (pos % 20 === 0 && deck.moderate.length) { list = deck.moderate; index = mi++; }
-      if (!list.length) list = deck.common.length ? deck.common : ["lean", "real", "line"];
+      else if (pos % rareInterval === 0 && deck.rare.length) { list = deck.rare; index = ri++; }
+      else if (pos % moderateInterval === 0 && deck.moderate.length) { list = deck.moderate; index = mi++; }
+      if (!list.length) list = deck.common.length ? deck.common : deck.focus.length ? deck.focus : ["a", "an", "in", "is", "it"];
       words.push(list[index % list.length]);
     }
     rows.push(transformText(words.join(" ")));
   }
+  return rows;
+}
+
+function makePlacementRows() {
+  const pool = shuffle([...new Set(commonWords.concat(moderateWords, dictionaryExtra))]);
+  const words = Array.from({ length: 80 }, (_, index) => {
+    if ((index + 1) % 7 === 0 && rareLetterFocusPool.length) return rareLetterFocusPool[index % rareLetterFocusPool.length];
+    return pool[index % Math.max(1, pool.length)] || "practice";
+  });
+  const size = Math.max(8, Number(prefs.wordsPerRow) || 10);
+  const rows = [];
+  for (let index = 0; index < words.length; index += size) rows.push(transformText(words.slice(index, index + size).join(" ")));
   return rows;
 }
 
@@ -758,7 +844,11 @@ function weakestPracticeLetters() {
       const bStats = progress.letterStats[b] || { attempts: 0, correct: 0 };
       const aAccuracy = aStats.attempts ? aStats.correct / aStats.attempts : 0;
       const bAccuracy = bStats.attempts ? bStats.correct / bStats.attempts : 0;
-      return aAccuracy - bAccuracy || aStats.attempts - bStats.attempts;
+      const aErrors = Number(aStats.errors) || 0;
+      const bErrors = Number(bStats.errors) || 0;
+      const aMastery = letterMastery(a).score;
+      const bMastery = letterMastery(b).score;
+      return bErrors - aErrors || aMastery - bMastery || aAccuracy - bAccuracy || aStats.attempts - bStats.attempts;
     })
     .slice(0, 4);
 }
@@ -960,8 +1050,10 @@ async function restart() {
   state.charsTyped = 0;
   state.rawTyped = 0;
   state.errors = 0;
+  state.lineErrors = 0;
   state.characterErrors = 0;
   state.lessonLetterStats = {};
+  state.lessonErrorLetters = {};
   state.lastAcceptedAt = null;
   state.lastActivityAt = null;
   state.lastKeyAt = null;
@@ -972,6 +1064,8 @@ async function restart() {
   state.result = null;
   state.completion = false;
   state.memoryVisible = true;
+  state.lastRestReminder = 0;
+  state.techniqueMessageUntil = 0;
   els.completionBanner.classList.add("hidden");
   if (state.mode === "adaptive") {
     state.targetRows = makeAdaptiveRows(rowsPerPage * 2);
@@ -984,6 +1078,9 @@ async function restart() {
     state.scripturePages = [];
   } else if (state.mode === "creative") {
     state.targetRows = makeCreativeSections(Number(prefs.testWordCount));
+    state.scripturePages = [];
+  } else if (state.mode === "placement") {
+    state.targetRows = makePlacementRows();
     state.scripturePages = [];
   } else if (state.mode === "quote") {
     const shouldRepeat = prefs.repeatQuotes === "always" || (prefs.repeatQuotes === "typing" && wasTyping);
@@ -1051,6 +1148,7 @@ function modeCopy() {
     adaptive: ["Adaptive letters", `Focus ${adaptiveFocusLetter()} / ${prefs.targetSpeed} WPM target`],
     time: ["Timed Test", `${prefs.testDuration} second sprint`],
     words: ["Word Test", `${prefs.testWordCount} word challenge`],
+    placement: ["Placement Check", "Find your starting point"],
     quote: ["Quote Test", "Complete the quote"],
     zen: ["Zen Mode", "Type without limits"],
     creative: ["Creative Test", creativeModeLabels[prefs.creativeMode]],
@@ -1148,12 +1246,26 @@ function renderLetterProgress() {
 }
 
 function recordLetterAttempt(expected, isCorrect, recordedAt = performance.now()) {
-  if (state.mode !== "adaptive") return;
   const letter = String(expected || "").toLowerCase();
   if (!/^[a-z]$/.test(letter)) return;
+  if (["bible", "bibleQuotes"].includes(state.mode)) return;
+  if (!["adaptive", "placement"].includes(state.mode)) {
+    if (!isCorrect) {
+      progress.errorReview.push(letter);
+      if (progress.errorReview.length > 120) progress.errorReview = progress.errorReview.slice(-120);
+      scheduleSave();
+    }
+    return;
+  }
   const stats = progress.letterStats[letter] ||= { attempts: 0, correct: 0 };
   stats.attempts++;
   if (isCorrect) stats.correct++;
+  if (!isCorrect) {
+    stats.errors = (Number(stats.errors) || 0) + 1;
+    state.lessonErrorLetters[letter] = (state.lessonErrorLetters[letter] || 0) + 1;
+    progress.errorReview.push(letter);
+    if (progress.errorReview.length > 120) progress.errorReview = progress.errorReview.slice(-120);
+  }
 
   const lessonStats = state.lessonLetterStats[letter] ||= { attempts: 0, correct: 0, timedCorrect: 0, elapsedMs: 0 };
   lessonStats.attempts++;
@@ -1302,7 +1414,7 @@ function renderPlainLine(line) {
 }
 
 function fitPracticeLines(lines) {
-  if (!["adaptive", "time", "words", "creative"].includes(state.mode)) {
+  if (!["adaptive", "time", "words", "creative", "placement"].includes(state.mode)) {
     els.typingText.style.fontSize = "";
     return;
   }
@@ -1324,6 +1436,7 @@ function renderText() {
     time: `${Math.max(0, Math.ceil(state.timeRemaining))} seconds`,
     words: `Line ${state.rowIndex + 1} of ${state.targetRows.length}`,
     creative: `${creativeModeLabels[prefs.creativeMode]} / line ${state.rowIndex + 1} of ${state.targetRows.length}`,
+    placement: `Placement line ${state.rowIndex + 1} of ${state.targetRows.length}`,
     quote: "Complete quote",
     zen: "Endless practice",
     bible: `Scripture ${state.pageIndex + 1} of ${state.scripturePages.length}`,
@@ -1337,7 +1450,7 @@ function renderText() {
     return;
   }
 
-  const streamMode = ["adaptive", "time", "words", "creative"].includes(state.mode);
+  const streamMode = ["adaptive", "time", "words", "creative", "placement"].includes(state.mode);
   if (streamMode) {
     const lines = state.targetRows.slice(state.rowIndex, state.rowIndex + 4);
     while (lines.length < 4) lines.push("");
@@ -1526,6 +1639,7 @@ function handleKey(event) {
   const oppositeShiftError = prefs.oppositeShiftMode && /^[A-Z]$/.test(String(expected || "")) && !["b", "y"].includes(expectedLower)
     && state.shiftSide !== (expectedZone.startsWith("Left") ? "right" : "left");
   if (state.mode !== "zen" && (key !== expected || oppositeShiftError)) {
+    state.lineErrors++;
     if (state.characterErrors < Number(prefs.errorLimit)) {
       state.errors++;
       state.characterErrors++;
@@ -1600,7 +1714,24 @@ function recordLetterLessonResults(pageWpm, completedAt) {
     const current = letterMastery(letter).currentConfidence;
     const lifetime = progress.letterStats[letter] ||= { attempts: 0, correct: 0 };
     lifetime.bestConfidence = Math.max(Number(lifetime.bestConfidence) || 0, current);
+    const reviewDelay = current >= .98 ? 72 * 60 * 60 * 1000 : current >= .8 ? 12 * 60 * 60 * 1000 : current >= .5 ? 2 * 60 * 60 * 1000 : 10 * 60 * 1000;
+    lifetime.lastPracticedAt = completedAt;
+    lifetime.reviewDueAt = completedAt + reviewDelay;
   });
+}
+
+function recordPlacementResults(wpm, accuracy, completedAt) {
+  const letterStats = Object.fromEntries(Object.entries(state.lessonLetterStats).map(([letter, stats]) => [letter, {
+    attempts: stats.attempts,
+    correct: stats.correct,
+    accuracy: Number(((stats.correct / Math.max(1, stats.attempts)) * 100).toFixed(1))
+  }]));
+  progress.placement = {
+    at: completedAt,
+    wpm: Number(wpm.toFixed(1)),
+    accuracy: Number(accuracy.toFixed(1)),
+    letterStats
+  };
 }
 
 function recordCompletedLesson(wpm, accuracy, extra = {}) {
@@ -1616,7 +1747,8 @@ function recordCompletedLesson(wpm, accuracy, extra = {}) {
   if (prefs.resultSaving === "on") {
     progress.lessonHistory.push(result);
     if (progress.lessonHistory.length > 120) progress.lessonHistory = progress.lessonHistory.slice(-120);
-    recordLetterLessonResults(wpm, completedAt);
+    if (state.mode === "placement") recordPlacementResults(wpm, accuracy, completedAt);
+    else recordLetterLessonResults(wpm, completedAt);
   }
   state.lastWpm = result.wpm;
   state.lastAccuracy = result.accuracy;
@@ -1624,9 +1756,10 @@ function recordCompletedLesson(wpm, accuracy, extra = {}) {
 }
 
 function finishLine() {
+  if (!['bible', 'bibleQuotes'].includes(state.mode) && state.lineErrors === 0) progress.cleanLines = (Number(progress.cleanLines) || 0) + 1;
   if (state.mode === "adaptive") finishAdaptiveLine();
   else if (state.mode === "time") finishTimedLine();
-  else if (["words", "creative"].includes(state.mode)) finishWordSection();
+  else if (["words", "creative", "placement"].includes(state.mode)) finishWordSection();
   else if (state.mode === "quote") finishTest();
   else if (["bible", "bibleQuotes"].includes(state.mode)) finishScripture();
 }
@@ -1653,12 +1786,13 @@ function finishAdaptiveLine() {
   }
   progress.rowsCleared++;
   save();
-  els.completionBanner.textContent = newlyUnlocked ? `${newlyUnlocked} unlocked` : "Line cleared";
+  els.completionBanner.textContent = newlyUnlocked ? `${newlyUnlocked} unlocked` : state.lineErrors === 0 ? "Perfect line" : "Line cleared";
   els.completionBanner.classList.remove("hidden");
   playReward(completedRow);
   setTimeout(() => {
     els.completionBanner.classList.add("hidden");
     state.input = "";
+    state.lineErrors = 0;
     if (completedPage) {
       state.startedAt = null;
       state.charsTyped = 0;
@@ -1689,12 +1823,13 @@ function finishAdaptiveLine() {
 function finishTimedLine() {
   progress.rowsCleared++;
   save();
-  els.completionBanner.textContent = "Line cleared";
+  els.completionBanner.textContent = state.lineErrors === 0 ? "Perfect line" : "Line cleared";
   els.completionBanner.classList.remove("hidden");
   playReward((state.rowIndex % 9) + 1);
   setTimeout(() => {
     els.completionBanner.classList.add("hidden");
     state.input = "";
+    state.lineErrors = 0;
     state.rowIndex++;
     if (state.rowIndex >= state.targetRows.length - 2) state.targetRows.push(...makeTimedRows());
     renderText();
@@ -1710,12 +1845,13 @@ function finishWordSection() {
   }
   progress.rowsCleared++;
   save();
-  els.completionBanner.textContent = `Line ${state.rowIndex + 1} cleared`;
+  els.completionBanner.textContent = state.lineErrors === 0 ? "Perfect line" : `Line ${state.rowIndex + 1} cleared`;
   els.completionBanner.classList.remove("hidden");
   playReward((state.rowIndex % 9) + 1);
   setTimeout(() => {
     els.completionBanner.classList.add("hidden");
     state.input = "";
+    state.lineErrors = 0;
     state.characterErrors = 0;
     state.lastAcceptedAt = null;
     state.rowIndex++;
@@ -1737,6 +1873,7 @@ function finishScripture() {
   setTimeout(() => {
     els.completionBanner.classList.add("hidden");
     state.input = "";
+    state.lineErrors = 0;
     state.startedAt = null;
     state.charsTyped = 0;
     state.rawTyped = 0;
@@ -1767,7 +1904,7 @@ function finishTest() {
   else if (Number(prefs.minBurst) && metrics.raw < Number(prefs.minBurst)) failedReason = `Below ${prefs.minBurst} WPM burst`;
   else if (prefs.difficulty === "master" && state.errors > 0) failedReason = "Master test missed a key";
   updateLifetimeAverages(metrics);
-  state.result = { ...savedResult, ...metrics, failedReason, personalBest: !failedReason && metrics.wpm > previousBest };
+  state.result = { ...savedResult, ...metrics, failedReason, placement: state.mode === "placement", personalBest: !failedReason && metrics.wpm > previousBest };
   state.testCompleted = true;
   save();
   playReward(rowsPerPage);
@@ -2080,6 +2217,7 @@ function escapeHtml(text) {
 
 const settingDescriptions = {
   practiceMode: "Changes the active typing experience. Modes are selected only here so the practice page stays focused.",
+  practicePreset: "Chooses the training emphasis while keeping every adaptive word a real natural word.",
   testDuration: "Sets the length of timed tests.",
   testWordCount: "Sets Words and Creative test length up to 3,000 words. Only four lines are shown at once.",
   quoteLength: "Limits general quotes to the selected length range.",
@@ -2122,6 +2260,8 @@ const settingDescriptions = {
   showLiveAccuracy: "Shows current accuracy during a test.",
   showLiveRaw: "Shows speed before accuracy penalties.",
   showLiveConsistency: "Shows how evenly spaced your keystrokes are.",
+  rhythmCoach: "Keeps the consistency readout visible and adds timing guidance during practice.",
+  techniqueTips: "Shows brief reminders for relaxed hands, home-row position, accuracy, and breaks.",
   showProgress: "Shows test completion percentage or remaining time.",
   smoothLineScroll: "Animates the four-line practice window when a line is completed.",
   textGlow: "Adds a restrained glow to typed and current text.",
@@ -2142,7 +2282,7 @@ const settingDescriptions = {
   practiceLetters: "Sets the starting alphabet size. Automatic unlocks still require confidence evidence.",
   targetSpeed: "Sets the per-letter speed needed for full confidence and the next automatic unlock.",
   recoverKeys: "Requires every earned letter to be currently above target before the next one unlocks.",
-  naturalWords: "Prefers real dictionary words while the adaptive pool is large enough.",
+  naturalWords: "Keeps adaptive lessons inside the curated natural vocabulary; off broadens that vocabulary without using nonsense strings.",
   wordsPerRow: "Sets the target word count for each adaptive row.",
   dailyGoalMinutes: "Sets the amount of active typing time needed to complete the daily goal."
 };
@@ -2208,7 +2348,7 @@ function setupSettings() {
     "theme", "fontFamily", "currentCue", "caretStyle", "smoothCaret", "typedEffect", "highlightMode", "fontSize",
     "lineWidth", "tapeMode", "timerStyle", "speedUnit", "keyboardLayout", "keyboardSize", "keymapMode", "keymapStyle",
     "keymapLegend", "soundStyle", "soundVolume", "rewardStyle", "errorStyle", "timeWarning", "practiceLetters",
-    "targetSpeed", "wordsPerRow", "dailyGoalMinutes", "bibleBook", "bibleChapter", "bibleStart", "bibleEnd"
+    "targetSpeed", "practicePreset", "wordsPerRow", "dailyGoalMinutes", "bibleBook", "bibleChapter", "bibleStart", "bibleEnd"
   ];
   const prefKeys = { practiceMode: "mode" };
   const numericIds = new Set([
@@ -2217,7 +2357,7 @@ function setupSettings() {
   ]);
   const restartIds = new Set([
     "practiceMode", "testDuration", "testWordCount", "quoteLength", "difficulty", "creativeMode", "capitalization",
-    "practiceLetters", "targetSpeed", "wordsPerRow", "bibleBook", "bibleChapter", "bibleStart", "bibleEnd"
+    "practiceLetters", "targetSpeed", "practicePreset", "wordsPerRow", "bibleBook", "bibleChapter", "bibleStart", "bibleEnd"
   ]);
   const keyboardIds = new Set(["keyboardLayout", "keyboardSize", "keymapMode", "keymapStyle", "keymapLegend"]);
 
@@ -2267,7 +2407,7 @@ function setupSettings() {
   const toggleIds = [
     "includePunctuation", "includeNumbers", "blindMode", "quickEnd", "capsLockWarning", "focusMode", "showLiveWpm",
     "freedomMode", "strictSpace", "oppositeShiftMode", "britishEnglish", "lazyMode", "showLiveAccuracy", "showLiveRaw",
-    "showLiveConsistency", "showProgress", "smoothLineScroll", "textGlow", "flipTestColors", "colorfulMode", "typingSounds",
+    "showLiveConsistency", "rhythmCoach", "techniqueTips", "showProgress", "smoothLineScroll", "textGlow", "flipTestColors", "colorfulMode", "typingSounds",
     "errorSounds", "recoverKeys", "naturalWords"
   ];
   toggleIds.forEach(id => {
@@ -2314,6 +2454,16 @@ async function toggleFullscreen() {
   }
 }
 
+function startErrorReview() {
+  if (!progress.errorReview.length) return;
+  prefs.mode = "adaptive";
+  prefs.practicePreset = "accuracy";
+  state.mode = "adaptive";
+  els.statsDialog.close();
+  save();
+  restart();
+}
+
 els.letterHeatmap.addEventListener("click", event => {
   const key = event.target.closest("[data-letter]");
   if (!key || key.disabled) return;
@@ -2326,6 +2476,7 @@ els.restartBtn.addEventListener("click", () => {
 });
 els.resultRestartBtn.addEventListener("click", restart);
 els.statsBtn.addEventListener("click", () => els.statsDialog.showModal());
+els.reviewErrorsBtn.addEventListener("click", startErrorReview);
 els.fullscreenBtn.addEventListener("click", toggleFullscreen);
 document.addEventListener("fullscreenchange", syncFullscreenButton);
 document.addEventListener("webkitfullscreenchange", syncFullscreenButton);

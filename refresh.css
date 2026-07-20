@@ -344,6 +344,26 @@ button, select, input, textarea { font-family: inherit; }
 .live-metrics strong { color: var(--muted); font-size: 13px; font-weight: 550; font-variant-numeric: tabular-nums; }
 .timer-meter { width: min(180px, 24vw); height: 2px; background: var(--line); }
 .timer-meter span { display: block; height: 100%; background: var(--gold); }
+.technique-cue {
+  width: min(100%, 720px);
+  margin: -10px auto 0;
+  color: var(--faint);
+  font-size: 10px;
+  line-height: 1.5;
+  text-align: center;
+}
+.secondary-button {
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--muted);
+  background: transparent;
+  font-size: 10px;
+  font-weight: 650;
+}
+.secondary-button:hover,
+.secondary-button:focus-visible { color: var(--text); border-color: color-mix(in srgb, var(--gold) 55%, var(--line)); }
 
 .letter-hud {
   width: 100%;

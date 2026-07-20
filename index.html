@@ -13,8 +13,8 @@
   <link rel="canonical" href="https://keyswithdon.github.io/keyboard-disciple/">
   <link rel="sitemap" type="application/xml" href="https://keyswithdon.github.io/keyboard-disciple/sitemap.xml">
   <link rel="icon" href="assets/keyboard-disciple-mark.png">
-  <link rel="stylesheet" href="styles.css?v=20260720-target-300">
-  <link rel="stylesheet" href="refresh.css?v=20260720-target-300">
+  <link rel="stylesheet" href="styles.css?v=20260720-learning-suite">
+  <link rel="stylesheet" href="refresh.css?v=20260720-learning-suite">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Keyboard Disciple">
   <meta property="og:title" content="Keyboard Disciple | Free Typing Practice Game">
@@ -94,6 +94,7 @@
         <span id="liveProgressWrap">Progress <strong id="liveProgress">0%</strong></span>
         <div class="timer-meter hidden" id="timerMeter" aria-hidden="true"><span id="timerFill"></span></div>
       </section>
+      <p class="technique-cue hidden" id="techniqueCue" aria-live="polite"></p>
 
       <section class="letter-hud" id="letterHud" aria-label="Adaptive letter confidence">
         <header class="hud-heading">
@@ -181,6 +182,7 @@
           <span>Accuracy <strong id="lastAccuracy">--</strong></span>
           <span>Top speed <strong id="topWpm">0 WPM</strong></span>
           <span>Learning rate <strong id="learningRate">Collecting</strong></span>
+          <span>Clean lines <strong id="cleanLines">0</strong></span>
         </div>
         <div class="daily-goal">
           <div>
@@ -189,6 +191,7 @@
           </div>
           <div class="daily-goal-meter" aria-hidden="true"><span id="dailyGoalFill"></span></div>
         </div>
+        <button class="secondary-button hidden" id="reviewErrorsBtn" type="button">Review missed keys</button>
       </section>
     </form>
   </dialog>
@@ -215,6 +218,7 @@
                   <option value="adaptive">Adaptive letters</option>
                   <option value="time">Time</option>
                   <option value="words">Words</option>
+                  <option value="placement">Placement check</option>
                   <option value="quote">Quotes</option>
                   <option value="zen">Zen</option>
                   <option value="creative">Creative lab</option>
@@ -476,6 +480,8 @@
               <label><input type="checkbox" id="showLiveAccuracy" checked> Live accuracy</label>
               <label><input type="checkbox" id="showLiveRaw"> Live raw speed</label>
               <label><input type="checkbox" id="showLiveConsistency"> Live consistency</label>
+              <label><input type="checkbox" id="rhythmCoach"> Rhythm coach</label>
+              <label><input type="checkbox" id="techniqueTips" checked> Technique tips</label>
               <label><input type="checkbox" id="showProgress" checked> Live progress</label>
               <label><input type="checkbox" id="smoothLineScroll" checked> Smooth line scroll</label>
               <label><input type="checkbox" id="textGlow" checked> Text glow</label>
@@ -640,6 +646,16 @@
                   <option value="300">300 WPM</option>
                 </select>
               </label>
+              <label>Practice focus
+                <select id="practicePreset">
+                  <option value="balanced">Balanced</option>
+                  <option value="weak">Weak keys</option>
+                  <option value="accuracy">Accuracy repair</option>
+                  <option value="speed">Speed builder</option>
+                  <option value="finger">Finger focus</option>
+                  <option value="alternation">Hand alternation</option>
+                </select>
+              </label>
               <label>Words per row
                 <select id="wordsPerRow">
                   <option value="8">8 words</option>
@@ -649,6 +665,7 @@
               </label>
               <label>Daily goal
                 <select id="dailyGoalMinutes">
+                  <option value="2">2 minutes</option>
                   <option value="5">5 minutes</option>
                   <option value="10">10 minutes</option>
                   <option value="15" selected>15 minutes</option>
@@ -699,6 +716,6 @@
     </form>
   </dialog>
 
-  <script src="app.js?v=20260720-target-300"></script>
+  <script src="app.js?v=20260720-learning-suite"></script>
 </body>
 </html>
