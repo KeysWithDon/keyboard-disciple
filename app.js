@@ -251,7 +251,14 @@ const state = {
   dictationAudioStatus: "idle",
   dictationPromptHeard: false,
   dictationBrowserFallback: false,
-  dictationPromptId: 0
+  dictationPromptId: 0,
+  dictationPromptStartedAt: null,
+  dictationPromptEndedAt: null,
+  dictationPromptDurationMs: 0,
+  dictationTypedDuringPrompt: 0,
+  dictationCorrectDuringPrompt: 0,
+  dictationPromptRecorded: false,
+  dictationFollowSamples: []
 };
 
 let storedData = {};
@@ -601,6 +608,7 @@ const els = Object.fromEntries([
   "keyboard", "keyboardWrap", "lessonScore", "lastWpm", "lastAccuracy", "topWpm", "learningRate", "dailyGoalText",
   "dailyGoalFill", "cleanLines", "reviewErrorsBtn", "techniqueCue", "resultPanel", "resultEyebrow", "resultTitle", "resultScore", "resultWpm", "resultRaw",
   "resultAccuracy", "resultConsistency", "resultCharacters", "resultTime", "resultRestartBtn", "settingsDialog", "settingsBtn",
+  "resultFollowRateWrap", "resultFollowRate",
   "statsDialog", "statsBtn", "fullscreenBtn", "restartBtn", "letterHud", "unlockNext", "unlockCount",
   "practiceFocusIndicator", "practiceFocusName", "practiceFocusDescription", "practiceFocusState", "letterHeatmap", "letterHeatRow", "heatmapSummary", "specialHeatmap", "letterDialog", "letterDetailBadge", "letterDetailTitle",
   "letterMastery", "letterLastSpeed", "letterTopSpeed", "letterAccuracy", "letterLearningRate", "letterLessons",
@@ -1225,6 +1233,9 @@ function renderResult() {
   els.resultConsistency.textContent = `${Math.round(result.consistency)}%`;
   els.resultCharacters.textContent = String(result.adaptiveLesson ? result.characters : state.charsTyped);
   els.resultTime.textContent = `${(result.elapsedMs / 1000).toFixed(1)}s`;
+  const hasDictationFollowRate = result.mode === "dictation" && Number.isFinite(Number(result.dictationFollowRate));
+  els.resultFollowRateWrap.classList.toggle("hidden", !hasDictationFollowRate);
+  if (hasDictationFollowRate) els.resultFollowRate.textContent = `${Math.round(result.dictationFollowRate)}%`;
   if (result.adaptiveLesson) renderAdaptiveLessonResult(result);
 }
 
@@ -1770,6 +1781,13 @@ async function restart() {
   state.dictationPromptHeard = false;
   state.dictationBrowserFallback = false;
   state.dictationPromptId++;
+  state.dictationPromptStartedAt = null;
+  state.dictationPromptEndedAt = null;
+  state.dictationPromptDurationMs = 0;
+  state.dictationTypedDuringPrompt = 0;
+  state.dictationCorrectDuringPrompt = 0;
+  state.dictationPromptRecorded = false;
+  state.dictationFollowSamples = [];
   stopReminderSound();
   els.completionBanner.classList.add("hidden");
   if (state.mode === "adaptive") {
@@ -1869,6 +1887,12 @@ async function prepareDictationPrompt(requestId = restartRequestId) {
   state.dictationAudioBlob = null;
   state.dictationAudioStatus = "loading";
   state.dictationPromptHeard = false;
+  state.dictationPromptStartedAt = null;
+  state.dictationPromptEndedAt = null;
+  state.dictationPromptDurationMs = 0;
+  state.dictationTypedDuringPrompt = 0;
+  state.dictationCorrectDuringPrompt = 0;
+  state.dictationPromptRecorded = false;
   renderText();
   try {
     const blob = await spokenReminderManager.synthesizeAudio(currentTarget(), { scope: "dictation" });
@@ -1897,18 +1921,29 @@ async function prepareDictationPrompt(requestId = restartRequestId) {
 async function playDictationPrompt() {
   if (state.mode !== "dictation" || (!state.dictationAudioBlob && !state.dictationBrowserFallback)) return;
   const promptId = state.dictationPromptId;
+  const firstPlayback = state.dictationPromptStartedAt === null;
+  if (firstPlayback) state.dictationPromptStartedAt = performance.now();
   state.dictationAudioStatus = "playing";
   renderText();
   try {
     spokenReminderManager.unlock();
     if (state.dictationBrowserFallback) await speakBrowserDictationPrompt(currentTarget());
     else await spokenReminderManager.playBlob(state.dictationAudioBlob);
-    if (promptId !== state.dictationPromptId || state.mode !== "dictation") return;
+    if (promptId !== state.dictationPromptId || state.mode !== "dictation" || state.testCompleted) return;
+    if (firstPlayback) {
+      state.dictationPromptEndedAt = performance.now();
+      state.dictationPromptDurationMs = Math.max(0, state.dictationPromptEndedAt - state.dictationPromptStartedAt);
+    }
     state.dictationPromptHeard = true;
     state.dictationAudioStatus = "ready";
     renderText();
   } catch (error) {
     if (promptId !== state.dictationPromptId || error?.name === "AbortError") return;
+    if (firstPlayback) {
+      state.dictationPromptStartedAt = null;
+      state.dictationPromptEndedAt = null;
+      state.dictationPromptDurationMs = 0;
+    }
     console.warn("Dictation prompt playback failed.", error);
     state.dictationAudioStatus = "error";
     renderText();
@@ -2376,7 +2411,7 @@ function renderText() {
       loading: "Generating audio...",
       ready: state.dictationPromptHeard ? "Prompt heard. Type what you remember." : "Listen before typing.",
       "browser-ready": state.dictationPromptHeard ? "Prompt heard. Type what you remember." : "Browser voice ready. Listen before typing.",
-      playing: "Playing prompt...",
+      playing: "Type while listening...",
       error: "Audio unavailable. Try replay."
     }[state.dictationAudioStatus] || "Listen before typing.";
     els.dictationAudioStatus.textContent = statusCopy;
@@ -2394,8 +2429,8 @@ function renderText() {
   if (isDictation) {
     const typed = state.input
       ? escapeHtml(state.input)
-      : `<span class="dictation-placeholder">${state.dictationPromptHeard ? "Start typing" : "Listen for the prompt"}</span>`;
-    els.typingText.innerHTML = `<div class="dictation-stage"><div class="dictation-typed">${typed}</div><span class="dictation-hint">The sentence stays hidden until the prompt is complete.</span></div>`;
+      : `<span class="dictation-placeholder">${state.dictationPromptHeard ? "Start typing" : state.dictationAudioStatus === "playing" ? "Type what you hear" : "Listen for the prompt"}</span>`;
+    els.typingText.innerHTML = `<div class="dictation-stage"><div class="dictation-typed">${typed}</div><span class="dictation-hint">Type what you hear while the prompt plays.</span></div>`;
     els.typingText.style.fontSize = "";
     state.practiceFontSize = null;
     return;
@@ -2611,7 +2646,10 @@ function handleKey(event) {
     : "";
   if (event.key.length !== 1 && !arrowCharacter) return;
   event.preventDefault();
-  if (state.mode === "dictation" && !state.dictationPromptHeard) {
+  const dictationCanType = state.mode !== "dictation"
+    || state.dictationPromptHeard
+    || state.dictationAudioStatus === "playing";
+  if (!dictationCanType) {
     if (state.dictationAudioStatus === "error") {
       spokenReminderManager.showToast("Listen before typing", "Replay the prompt after the audio service is available.", true);
     }
@@ -2649,6 +2687,13 @@ function handleKey(event) {
   const oppositeShiftError = prefs.oppositeShiftMode && state.mode !== "dictation" && /^[A-Z]$/.test(String(expected || "")) && !["b", "y"].includes(expectedLower)
     && state.shiftSide !== (expectedZone.startsWith("Left") ? "right" : "left");
   const isCorrect = key === expected && !oppositeShiftError;
+  const followingPrompt = state.mode === "dictation"
+    && state.dictationAudioStatus === "playing"
+    && !state.dictationPromptHeard;
+  if (followingPrompt) {
+    state.dictationTypedDuringPrompt++;
+    if (isCorrect) state.dictationCorrectDuringPrompt++;
+  }
   if (state.mode !== "zen" && !isCorrect) {
     state.lineErrors++;
     if (state.characterErrors < Number(prefs.errorLimit)) {
@@ -2921,7 +2966,47 @@ function finishWordSection() {
   }, 70);
 }
 
+function recordDictationPromptFollow() {
+  if (state.mode !== "dictation" || state.dictationPromptRecorded) return;
+  const targetCharacters = currentTypingTarget().length;
+  const hasPlayback = state.dictationPromptStartedAt !== null;
+  const endedAt = state.dictationPromptEndedAt ?? performance.now();
+  const durationMs = hasPlayback
+    ? Math.max(0, endedAt - state.dictationPromptStartedAt)
+    : 0;
+  const followedCharacters = hasPlayback
+    ? Math.min(targetCharacters, Math.max(0, state.dictationCorrectDuringPrompt))
+    : 0;
+  state.dictationFollowSamples.push({
+    prompt: state.rowIndex + 1,
+    targetCharacters,
+    followedCharacters,
+    typedDuringPrompt: hasPlayback ? Math.max(0, state.dictationTypedDuringPrompt) : 0,
+    durationMs: Math.round(durationMs),
+    followRate: hasPlayback && targetCharacters
+      ? Number(((followedCharacters / targetCharacters) * 100).toFixed(1))
+      : null
+  });
+  state.dictationPromptRecorded = true;
+}
+
+function dictationFollowSummary() {
+  const samples = state.dictationFollowSamples.filter(sample => Number.isFinite(Number(sample.followRate)));
+  const targetCharacters = samples.reduce((sum, sample) => sum + (Number(sample.targetCharacters) || 0), 0);
+  const followedCharacters = samples.reduce((sum, sample) => sum + (Number(sample.followedCharacters) || 0), 0);
+  return {
+    dictationFollowRate: targetCharacters
+      ? Number(((followedCharacters / targetCharacters) * 100).toFixed(1))
+      : null,
+    dictationFollowedCharacters: followedCharacters,
+    dictationPromptCharacters: targetCharacters,
+    dictationPromptsMeasured: samples.length,
+    dictationFollowSamples: state.dictationFollowSamples
+  };
+}
+
 function finishDictationLine() {
+  recordDictationPromptFollow();
   if (state.rowIndex >= state.targetRows.length - 1) {
     progress.rowsCleared++;
     save();
@@ -2976,14 +3061,20 @@ function finishTest() {
   if (state.testCompleted || !state.startedAt) return;
   clearTestTimer();
   if (state.mode === "time") state.timeRemaining = 0;
+  if (state.mode === "dictation") {
+    window.speechSynthesis?.cancel();
+    spokenReminderManager.stop();
+  }
   const metrics = currentMetrics();
   const previousBest = progress.lessonHistory
     .filter(item => item?.mode === state.mode)
     .reduce((best, item) => Math.max(best, Number(item.wpm) || 0), 0);
+  const dictationFollow = state.mode === "dictation" ? dictationFollowSummary() : {};
   const savedResult = recordCompletedLesson(metrics.wpm, metrics.accuracy, {
     raw: Number(metrics.raw.toFixed(1)),
     consistency: Number(metrics.consistency.toFixed(1)),
-    elapsedMs: Math.round(metrics.elapsedMs)
+    elapsedMs: Math.round(metrics.elapsedMs),
+    ...dictationFollow
   });
   let failedReason = "";
   if (Number(prefs.minWpm) && metrics.wpm < Number(prefs.minWpm)) failedReason = `Below ${prefs.minWpm} WPM`;

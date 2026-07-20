@@ -492,7 +492,7 @@ select, input, textarea {
 .result-panel header p { color: var(--muted); font-size: 11px; font-weight: 900; text-transform: uppercase; }
 .result-panel header h2 { margin-top: 4px; font-size: 28px; }
 .result-panel > header > strong { color: var(--gold); font-size: 48px; line-height: 1; font-variant-numeric: tabular-nums; }
-.result-metrics { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); margin: 20px 0; }
+.result-metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(102px, 1fr)); margin: 20px 0; }
 .result-metrics span { min-width: 0; display: grid; gap: 5px; padding: 4px 14px; color: var(--muted); font-size: 11px; text-transform: uppercase; }
 .result-metrics span:first-child { padding-left: 0; }
 .result-metrics span + span { border-left: 1px solid var(--line); }
