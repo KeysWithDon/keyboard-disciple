@@ -487,7 +487,8 @@ const els = Object.fromEntries([
   "letterMastery", "letterLastSpeed", "letterTopSpeed", "letterAccuracy", "letterLearningRate", "letterLessons",
   "letterCurveCaption", "letterChart", "adaptiveResultDetails", "adaptiveStatsChart", "adaptiveRank", "adaptiveWeakestLetter", "adaptiveWeakestDetail",
   "adaptiveStrongestLetter", "adaptiveStrongestDetail", "adaptiveFastestWpm", "adaptiveSlowestWpm", "adaptiveErrors", "adaptiveConsistency",
-  "adaptiveRecommendationName", "adaptiveRecommendationReason", "adaptiveRecommendationButton"
+  "adaptiveMissedLetters", "adaptiveMissedSummary", "adaptiveTechniqueSummary", "adaptiveTechniqueList",
+  "adaptiveRecommendationName", "adaptiveRecommendationReason", "adaptiveRecommendationButton", "settingsKeyboardMap"
 ].map(id => [id, document.getElementById(id)]));
 
 let saveTimer;
@@ -574,6 +575,22 @@ function aggregateAdaptiveLetterStats(pageSamples) {
   }).sort((a, b) => b.skill - a.skill || b.attempts - a.attempts);
 }
 
+function mostMissedAdaptiveLetters(letterBreakdown, limit = 5) {
+  return letterBreakdown
+    .map(item => {
+      const errors = Math.max(0, Number(item.attempts) - Number(item.correct));
+      const errorRate = item.attempts ? (errors / item.attempts) * 100 : 0;
+      return {
+        ...item,
+        errors,
+        errorRate: Number(errorRate.toFixed(1))
+      };
+    })
+    .filter(item => item.errors > 0)
+    .sort((a, b) => b.errors - a.errors || b.errorRate - a.errorRate || b.attempts - a.attempts)
+    .slice(0, limit);
+}
+
 function buildAdaptiveLessonSummary(lineSamples) {
   const lines = lineSamples.map((line, index) => ({
     line: index + 1,
@@ -595,6 +612,7 @@ function buildAdaptiveLessonSummary(lineSamples) {
   const accuracy = totalAttempts ? (totalCharacters / totalAttempts) * 100 : 100;
   const consistency = lines.length ? lines.reduce((sum, line) => sum + line.consistency, 0) / lines.length : 100;
   const letterBreakdown = aggregateAdaptiveLetterStats(lineSamples);
+  const mostMissedLetters = mostMissedAdaptiveLetters(letterBreakdown);
   const weakest = letterBreakdown.at(-1);
   const strongest = letterBreakdown[0];
   const fastestWpm = lines.reduce((best, line) => Math.max(best, line.wpm), 0);
@@ -622,7 +640,8 @@ function buildAdaptiveLessonSummary(lineSamples) {
     strongestFinger: strongest?.finger || "--",
     fastestWpm: Number(fastestWpm.toFixed(1)),
     slowestWpm: Number(slowestWpm.toFixed(1)),
-    letterBreakdown
+    letterBreakdown,
+    mostMissedLetters
   };
 }
 
@@ -874,6 +893,73 @@ function renderAdaptiveStatsChart(result) {
     </svg>`;
 }
 
+function adaptiveResultMissedLetters(result) {
+  if (Array.isArray(result?.mostMissedLetters)) return result.mostMissedLetters;
+  return mostMissedAdaptiveLetters(Array.isArray(result?.letterBreakdown) ? result.letterBreakdown : []);
+}
+
+function renderAdaptiveRepairPlan(result, missedLetters) {
+  const names = missedLetters.slice(0, 3).map(item => item.letter).join(", ");
+  const techniqueItems = [];
+  if (missedLetters.length) {
+    techniqueItems.push({
+      title: "Slow clean repetitions",
+      detail: `Practice ${names} at a comfortable pace and let accuracy lead. Use short bursts until the error count drops before raising the target.`
+    });
+    techniqueItems.push({
+      title: "Interleave the repair",
+      detail: `After two focused lines with ${names}, mix those letters back into ordinary words so the improvement transfers beyond the drill.`
+    });
+  }
+  if (Number(result.consistency) < 75) {
+    techniqueItems.push({
+      title: "Use shorter sessions",
+      detail: "Keep the next block brief, aim for an even rhythm, then return after a real pause instead of forcing speed through fatigue."
+    });
+  } else {
+    techniqueItems.push({
+      title: "Finish with a transfer line",
+      detail: "End with a normal mixed-vocabulary line at the same relaxed pace to test whether the repaired keys hold outside focused practice."
+    });
+  }
+  const summary = missedLetters.length
+    ? `Start with ${names}, then blend them back into natural words. Protect accuracy first; speed becomes useful after the motion is reliable.`
+    : "No blocked letter errors stood out. Keep a relaxed pace and use mixed natural words to preserve the clean pattern.";
+  els.adaptiveTechniqueSummary.textContent = summary;
+  els.adaptiveTechniqueList.innerHTML = techniqueItems.map(item => `
+    <article class="adaptive-technique-item">
+      <strong>${escapeHtml(item.title)}</strong>
+      <p>${escapeHtml(item.detail)}</p>
+    </article>`).join("");
+}
+
+function renderAdaptiveMissedLetters(result) {
+  const missedLetters = adaptiveResultMissedLetters(result);
+  const totalErrors = missedLetters.reduce((sum, item) => sum + (Number(item.errors) || 0), 0);
+  els.adaptiveMissedSummary.textContent = totalErrors
+    ? `${totalErrors} blocked ${totalErrors === 1 ? "miss" : "misses"}`
+    : "Clean run";
+  if (!missedLetters.length) {
+    els.adaptiveMissedLetters.innerHTML = `<div class="adaptive-missed-empty">No letter stood out as a repeated miss.</div>`;
+    renderAdaptiveRepairPlan(result, missedLetters);
+    return;
+  }
+  const maxErrors = Math.max(1, ...missedLetters.map(item => Number(item.errors) || 0));
+  els.adaptiveMissedLetters.innerHTML = missedLetters.map((item, index) => {
+    const errors = Number(item.errors) || 0;
+    const accuracy = Math.round(Number(item.accuracy) || 0);
+    const barWidth = Math.max(12, (errors / maxErrors) * 100);
+    const detail = `${errors} ${errors === 1 ? "miss" : "misses"} · ${accuracy}% accuracy · ${item.finger || "finger zone"}`;
+    return `<button type="button" class="adaptive-missed-row" data-letter="${escapeHtml(item.letter)}" title="Open ${escapeHtml(item.letter)} letter details">
+      <span class="adaptive-missed-rank">${index + 1}</span>
+      <strong>${escapeHtml(item.letter)}</strong>
+      <span class="adaptive-missed-bar" aria-hidden="true"><i style="width:${barWidth.toFixed(1)}%"></i></span>
+      <span class="adaptive-missed-detail">${escapeHtml(detail)}</span>
+    </button>`;
+  }).join("");
+  renderAdaptiveRepairPlan(result, missedLetters);
+}
+
 function renderAdaptiveLessonResult(result) {
   const recommendation = result.recommendation || recommendAdaptiveFocus(progress.adaptiveLessonHistory);
   const rank = Number.isFinite(Number(result.rank))
@@ -894,6 +980,7 @@ function renderAdaptiveLessonResult(result) {
   els.adaptiveSlowestWpm.textContent = `${Math.round(result.slowestWpm || 0)} WPM`;
   els.adaptiveErrors.textContent = String(Math.round(result.errors || 0));
   els.adaptiveConsistency.textContent = `${Math.round(result.consistency || 0)}%`;
+  renderAdaptiveMissedLetters(result);
   els.adaptiveRecommendationName.textContent = recommendation.label;
   els.adaptiveRecommendationReason.textContent = recommendation.reason;
   els.adaptiveRecommendationButton.textContent = `Use ${recommendation.label}`;
@@ -1497,6 +1584,7 @@ function render() {
   els.lessonTitle.textContent = title;
   renderText();
   renderKeyboard();
+  renderSettingsKeyboardMap();
   renderLetterProgress();
   renderPerformance();
   renderLiveMetrics();
@@ -1813,6 +1901,39 @@ function renderKeyboard() {
     return `<div class="key-row key-row-${rowIndex + 1}">${keys}</div>`;
   }).join("");
   keyboardElements = new Map([...els.keyboard.querySelectorAll("[data-key]")].map(key => [key.dataset.key, key]));
+}
+
+function renderSettingsKeyboardMap() {
+  if (!els.settingsKeyboardMap) return;
+  const layout = keyboardLayouts[prefs.keyboardLayout] || keyboardLayouts.mac;
+  const earned = new Set(letterOrder.slice(0, Number(prefs.practiceLetters)));
+  els.settingsKeyboardMap.className = `settings-keyboard-map keyboard ${prefs.keyboardSize} layout-${prefs.keyboardLayout} style-${prefs.keymapStyle}`;
+  els.settingsKeyboardMap.innerHTML = layout.map((row, rowIndex) => {
+    const keys = row.map(key => {
+      if (key.type === "arrow-stack" || key.type === "spacer") {
+        return `<span class="settings-map-spacer" style="grid-column:span ${key.units}"></span>`;
+      }
+      const zone = fingerZone(key.id);
+      const isLetter = /^[a-z]$/.test(key.id);
+      const stats = isLetter ? progress.letterStats[key.id] || { attempts: 0, correct: 0 } : null;
+      const mastery = isLetter ? letterMastery(key.id) : null;
+      const isEarned = isLetter && earned.has(key.id.toUpperCase());
+      const classes = [
+        "key", "settings-map-key", zone.className,
+        isLetter ? "map-letter" : "modifier",
+        isLetter && isEarned ? "earned" : "",
+        isLetter && !isEarned ? "map-locked" : "",
+        isLetter && stats?.attempts ? "has-progress" : ""
+      ].filter(Boolean).join(" ");
+      const label = isLetter ? key.id.toUpperCase() : key.label;
+      const detail = isLetter
+        ? `${key.id.toUpperCase()} · ${zone.label}${stats?.attempts ? ` · ${Math.round((stats.correct / stats.attempts) * 100)}% accuracy` : " · no samples yet"}`
+        : zone.label;
+      const progressStyle = isLetter && stats?.attempts ? `--map-progress:${mastery.visualScore.toFixed(3)}` : "";
+      return `<span class="${classes}" style="grid-column:span ${key.units};${progressStyle}" title="${escapeHtml(detail)}" aria-label="${escapeHtml(detail)}">${escapeHtml(label)}</span>`;
+    }).join("");
+    return `<div class="key-row key-row-${rowIndex + 1}">${keys}</div>`;
+  }).join("");
 }
 
 function fingerZone(key) {
@@ -2901,6 +3022,11 @@ function startRecommendedAdaptiveFocus() {
 els.letterHeatmap.addEventListener("click", event => {
   const key = event.target.closest("[data-letter]");
   if (!key || key.disabled) return;
+  openLetterDetails(key.dataset.letter);
+});
+els.adaptiveMissedLetters.addEventListener("click", event => {
+  const key = event.target.closest("[data-letter]");
+  if (!key) return;
   openLetterDetails(key.dataset.letter);
 });
 

@@ -13,8 +13,8 @@
   <link rel="canonical" href="https://keyswithdon.github.io/keyboard-disciple/">
   <link rel="sitemap" type="application/xml" href="https://keyswithdon.github.io/keyboard-disciple/sitemap.xml">
   <link rel="icon" href="assets/keyboard-disciple-mark.png">
-  <link rel="stylesheet" href="styles.css?v=20260720-adaptive-lines">
-  <link rel="stylesheet" href="refresh.css?v=20260720-adaptive-lines">
+  <link rel="stylesheet" href="styles.css?v=20260720-missed-map">
+  <link rel="stylesheet" href="refresh.css?v=20260720-missed-map">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Keyboard Disciple">
   <meta property="og:title" content="Keyboard Disciple | Free Typing Practice Game">
@@ -200,6 +200,26 @@
               <small>How evenly your keystrokes landed</small>
             </article>
           </div>
+          <section class="adaptive-missed-panel" aria-labelledby="adaptiveMissedTitle">
+            <header>
+              <div>
+                <h3 id="adaptiveMissedTitle">Most missed letters</h3>
+                <span>These keys created the most blocked mistakes in this lesson.</span>
+              </div>
+              <strong id="adaptiveMissedSummary">Clean run</strong>
+            </header>
+            <div class="adaptive-missed-list" id="adaptiveMissedLetters"></div>
+          </section>
+          <section class="adaptive-technique-panel" aria-labelledby="adaptiveTechniqueTitle">
+            <header>
+              <div>
+                <h3 id="adaptiveTechniqueTitle">Repair plan</h3>
+                <span>Small, focused adjustments for the next practice block.</span>
+              </div>
+            </header>
+            <p id="adaptiveTechniqueSummary">Your next practice block will stay balanced while more evidence builds.</p>
+            <div class="adaptive-technique-list" id="adaptiveTechniqueList"></div>
+          </section>
           <section class="adaptive-recommendation" aria-labelledby="adaptiveRecommendationTitle">
             <div>
               <span>Next recommended focus</span>
@@ -610,6 +630,24 @@
                 </select>
               </label>
             </div>
+            <div class="settings-map-panel">
+              <header>
+                <div>
+                  <h3>Letter finger map</h3>
+                  <p>See where each letter lives and which finger zone is assigned to it.</p>
+                </div>
+                <span>All letters shown</span>
+              </header>
+              <div class="settings-keyboard-map" id="settingsKeyboardMap" aria-label="Keyboard letter finger map"></div>
+              <div class="finger-legend settings-map-legend" aria-label="Finger zone legend">
+                <span class="zone-pinky">Pinky</span>
+                <span class="zone-ring">Ring</span>
+                <span class="zone-middle">Middle</span>
+                <span class="zone-left-index">Left index</span>
+                <span class="zone-right-index">Right index</span>
+                <span class="zone-thumb">Thumbs</span>
+              </div>
+            </div>
           </section>
 
           <section class="settings-pane" data-settings-panel="audio">
@@ -793,6 +831,6 @@
     </form>
   </dialog>
 
-  <script src="app.js?v=20260720-adaptive-lines"></script>
+  <script src="app.js?v=20260720-missed-map"></script>
 </body>
 </html>

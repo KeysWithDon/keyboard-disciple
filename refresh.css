@@ -721,6 +721,86 @@ body[data-mode="quote"] .typing-text {
 .adaptive-profile-card.weak-card > strong { color: var(--red); }
 .adaptive-profile-card.strong-card { border-color: color-mix(in srgb, var(--green) 42%, var(--line)); }
 .adaptive-profile-card.strong-card > strong { color: var(--green); }
+.adaptive-missed-panel,
+.adaptive-technique-panel {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--panel) 38%, transparent);
+}
+.adaptive-missed-panel > header,
+.adaptive-technique-panel > header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 13px;
+}
+.adaptive-missed-panel h3,
+.adaptive-technique-panel h3 { margin: 0; font-size: 13px; font-weight: 650; }
+.adaptive-missed-panel header span,
+.adaptive-technique-panel header span { color: var(--muted); font-size: 10px; }
+.adaptive-missed-panel header > strong { color: var(--red); font-size: 10px; font-weight: 700; text-transform: uppercase; }
+.adaptive-missed-list { display: grid; gap: 6px; }
+.adaptive-missed-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 22px 25px minmax(80px, 1fr) minmax(180px, .8fr);
+  align-items: center;
+  gap: 10px;
+  padding: 8px 9px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--bg) 36%, transparent);
+  text-align: left;
+  cursor: pointer;
+}
+.adaptive-missed-row:hover,
+.adaptive-missed-row:focus-visible { border-color: color-mix(in srgb, var(--lesson-color) 56%, var(--line)); outline: 0; }
+.adaptive-missed-rank { color: var(--faint); font-size: 10px; text-align: center; }
+.adaptive-missed-row > strong { color: var(--red); font-size: 17px; }
+.adaptive-missed-bar { height: 7px; overflow: hidden; border-radius: 999px; background: color-mix(in srgb, var(--line) 70%, transparent); }
+.adaptive-missed-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--red), var(--gold)); }
+.adaptive-missed-detail { min-width: 0; overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.adaptive-missed-empty { padding: 12px 0 4px; color: var(--muted); font-size: 11px; }
+.adaptive-technique-panel > header { margin-bottom: 7px; }
+.adaptive-technique-summary { margin: 0 0 13px; color: var(--muted); font-size: 11px; line-height: 1.45; }
+.adaptive-technique-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
+.adaptive-technique-item { min-width: 0; padding-top: 10px; border-top: 1px solid var(--line); }
+.adaptive-technique-item strong { color: var(--lesson-color); font-size: 11px; font-weight: 650; }
+.adaptive-technique-item p { margin: 5px 0 0; color: var(--faint); font-size: 10px; line-height: 1.45; }
+.settings-map-panel {
+  margin-top: 28px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+.settings-map-panel > header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+.settings-map-panel h3 { margin: 0; font-size: 13px; font-weight: 650; }
+.settings-map-panel p { margin: 5px 0 0; color: var(--muted); font-size: 10px; line-height: 1.4; }
+.settings-map-panel > header > span { color: var(--gold); font-size: 9px; font-weight: 700; text-transform: uppercase; }
+.settings-keyboard-map {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  --key-height: 39px;
+  --quarter-key: 8px;
+  padding: 10px;
+  overflow-x: auto;
+  background: color-mix(in srgb, var(--panel) 72%, transparent);
+}
+.settings-keyboard-map .key { cursor: default; user-select: none; }
+.settings-keyboard-map .settings-map-key.map-locked { opacity: .42; filter: saturate(.55); }
+.settings-keyboard-map .settings-map-key.has-progress { box-shadow: inset 0 -4px 0 color-mix(in srgb, var(--lesson-color) 72%, transparent); }
+.settings-map-spacer { min-width: 0; }
+.settings-map-legend { margin-top: 10px; }
+
 .adaptive-recommendation {
   display: flex;
   align-items: center;
@@ -948,6 +1028,12 @@ body[data-mode="quote"] .typing-text {
   .adaptive-result-heading { align-items: flex-start; flex-direction: column; gap: 8px; }
   .adaptive-result-heading > strong { text-align: left; }
   .adaptive-profile-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .adaptive-missed-panel > header,
+  .adaptive-technique-panel > header,
+  .settings-map-panel > header { align-items: flex-start; flex-direction: column; gap: 5px; }
+  .adaptive-missed-row { grid-template-columns: 20px 24px minmax(70px, 1fr); gap: 7px; }
+  .adaptive-missed-detail { grid-column: 3; }
+  .adaptive-technique-list { grid-template-columns: 1fr; gap: 12px; }
   .adaptive-recommendation { align-items: stretch; flex-direction: column; }
   .adaptive-recommendation .primary-button { width: 100%; }
   .settings-dialog { width: calc(100vw - 16px); }
