@@ -530,7 +530,7 @@ const els = Object.fromEntries([
   "letterCurveCaption", "letterChart", "adaptiveResultDetails", "adaptiveStatsChart", "adaptiveRank", "adaptiveWeakestLetter", "adaptiveWeakestDetail",
   "adaptiveStrongestLetter", "adaptiveStrongestDetail", "adaptiveFastestWpm", "adaptiveSlowestWpm", "adaptiveErrors", "adaptiveConsistency",
   "adaptiveMissedLetters", "adaptiveMissedSummary", "adaptiveTechniqueSummary", "adaptiveTechniqueList", "adaptiveRepairFocusButton",
-  "adaptiveRecommendationName", "adaptiveRecommendationReason", "adaptiveModePicker", "adaptiveRecommendationButton", "settingsKeyboardMap",
+  "adaptiveRecommendationName", "adaptiveRecommendationReason", "adaptiveModePicker", "adaptiveFocusPicker", "adaptiveRecommendationButton", "settingsKeyboardMap",
   "letterFocusCheckbox", "letterFocusHint", "postureReminder", "postureReminderTitle", "postureReminderText"
 ].map(id => [id, document.getElementById(id)]));
 
@@ -941,11 +941,15 @@ function adaptiveResultMissedLetters(result) {
   return mostMissedAdaptiveLetters(Array.isArray(result?.letterBreakdown) ? result.letterBreakdown : []);
 }
 
+function suggestedAdaptiveFocusLetters(result) {
+  return [...new Set(adaptiveResultMissedLetters(result).slice(0, 5)
+    .map(item => String(item.letter || "").toUpperCase()))]
+    .filter(letter => letterOrder.includes(letter));
+}
+
 function renderAdaptiveRepairPlan(result, missedLetters) {
   const names = missedLetters.slice(0, 3).map(item => item.letter).join(", ");
-  const suggestedLetters = [...new Set(missedLetters.slice(0, 3).map(item => String(item.letter || "").toUpperCase()))]
-    .filter(letter => letterOrder.includes(letter))
-    .slice(0, 5);
+  const suggestedLetters = suggestedAdaptiveFocusLetters(result);
   const techniqueItems = [];
   if (missedLetters.length) {
     techniqueItems.push({
@@ -1033,6 +1037,14 @@ function adaptiveModeSelection() {
     .slice(0, 3);
 }
 
+function adaptiveFocusSelection() {
+  if (!els.adaptiveFocusPicker) return [];
+  return [...els.adaptiveFocusPicker.querySelectorAll("input[data-adaptive-letter]:checked")]
+    .map(input => input.value.toUpperCase())
+    .filter(letter => letterOrder.includes(letter))
+    .slice(0, 5);
+}
+
 function syncAdaptiveModeButton() {
   if (!els.adaptiveRecommendationButton) return;
   const selected = adaptiveModeSelection();
@@ -1059,6 +1071,34 @@ function renderAdaptiveModePicker(recommendation) {
   syncAdaptiveModeButton();
 }
 
+function renderAdaptiveFocusPicker(result) {
+  if (!els.adaptiveFocusPicker) return;
+  const missedLetters = adaptiveResultMissedLetters(result);
+  const suggestedLetters = suggestedAdaptiveFocusLetters(result);
+  if (!suggestedLetters.length) {
+    els.adaptiveFocusPicker.innerHTML = `
+      <p>Letter focus</p>
+      <div class="adaptive-focus-empty">No repair letters stood out in this lesson. Your current focus will be kept.</div>`;
+    els.adaptiveFocusPicker.dataset.hasSuggestions = "false";
+    return;
+  }
+  const details = new Map(missedLetters.map(item => [String(item.letter || "").toUpperCase(), item]));
+  els.adaptiveFocusPicker.dataset.hasSuggestions = "true";
+  els.adaptiveFocusPicker.innerHTML = `
+    <p>Select the repair letters to emphasize next.</p>
+    <div class="adaptive-focus-options">
+      ${suggestedLetters.map(letter => {
+        const item = details.get(letter) || {};
+        const errors = Number(item.errors) || 0;
+        const accuracy = Number.isFinite(Number(item.accuracy)) ? `${Math.round(Number(item.accuracy))}% accuracy` : "Needs more samples";
+        return `<label class="adaptive-focus-option">
+          <input type="checkbox" value="${letter}" data-adaptive-letter checked>
+          <span><strong>${letter}</strong><small>${errors ? `${errors} ${errors === 1 ? "miss" : "misses"} · ` : ""}${escapeHtml(accuracy)}</small></span>
+        </label>`;
+      }).join("")}
+    </div>`;
+}
+
 function renderAdaptiveLessonResult(result) {
   const recommendation = result.recommendation || recommendAdaptiveFocus(progress.adaptiveLessonHistory);
   const rank = Number.isFinite(Number(result.rank))
@@ -1083,6 +1123,7 @@ function renderAdaptiveLessonResult(result) {
   els.adaptiveRecommendationName.textContent = recommendation.label;
   els.adaptiveRecommendationReason.textContent = recommendation.reason;
   renderAdaptiveModePicker(recommendation);
+  renderAdaptiveFocusPicker(result);
   renderAdaptiveStatsChart(result);
 }
 
@@ -3359,8 +3400,12 @@ function startRecommendedAdaptiveFocus() {
   const selected = adaptiveModeSelection();
   const fallback = els.adaptiveRecommendationButton.dataset.preset;
   const presets = selected.length ? selected : practicePresetStyles.has(fallback) ? [fallback] : [defaultPrefs.practicePreset];
+  const focus = adaptiveFocusSelection();
   prefs.practicePresets = presets;
   prefs.practicePreset = presets[0];
+  if (els.adaptiveFocusPicker?.dataset.hasSuggestions === "true") {
+    prefs.focusLetters = letterOrder.filter(letter => focus.includes(letter)).slice(0, 5);
+  }
   prefs.mode = "adaptive";
   state.mode = "adaptive";
   save();
