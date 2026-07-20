@@ -27,10 +27,19 @@ const practicePresetLabels = {
   alternation: "Hand alternation"
 };
 const lessonReminders = [
-  { kind: "posture", title: "Posture check", text: "Drop your shoulders, keep your wrists neutral, and let your hands float over the home row." },
+  { kind: "posture", title: "Posture check", text: "Keep your wrists straight with your forearms. Avoid bending them up, down, or sideways." },
+  { kind: "posture", title: "Soften your shoulders", text: "Let your upper arms hang close to your body and keep your elbows comfortably near your sides." },
+  { kind: "posture", title: "Balance your head", text: "Bring your head gently back over your torso. Keep your screen straight in front of you." },
+  { kind: "posture", title: "Settle your back", text: "Let the chair support your back. Stay upright or slightly reclined instead of leaning forward." },
+  { kind: "posture", title: "Support your feet", text: "Keep both feet supported on the floor or a stable footrest so your legs can relax." },
+  { kind: "posture", title: "Bring the keys close", text: "Keep the keyboard close enough that your elbows stay near your body. Avoid reaching forward." },
+  { kind: "posture", title: "Check your screen", text: "Keep the monitor centered and about an arm's length away, with the top near eye level." },
   { kind: "breath", title: "Breathe and relax", text: "Take one slow deep breath. Unclench your jaw, soften your grip, and return at an easy pace." },
-  { kind: "posture", title: "Relax your hands", text: "Keep your fingers curved and light. Let each key press come from a calm, balanced hand." },
-  { kind: "breath", title: "Reset your rhythm", text: "Breathe deeply, release tension in your shoulders, and let accuracy lead the next line." }
+  { kind: "breath", title: "Reset your rhythm", text: "Inhale gently, exhale a little longer, and let accuracy lead the next phrase." },
+  { kind: "breath", title: "Release the grip", text: "Breathe out, loosen your jaw, and use the lightest touch that still keeps the rhythm clean." },
+  { kind: "breath", title: "Open your hands", text: "Take a calm breath and let your fingers open briefly before returning softly to home row." },
+  { kind: "breath", title: "Plan a small pause", text: "After this row, blink, look into the distance, and roll your shoulders before continuing." },
+  { kind: "posture", title: "Change position", text: "No posture needs to stay frozen. Make a small adjustment and keep your body comfortable." }
 ];
 const creativeModeStyles = new Set([
   "weakspot", "58008", "mirror", "upside_down", "nausea", "round_round_baby", "simon_says", "tts",
@@ -175,6 +184,7 @@ const state = {
   lastRestReminder: 0,
   techniqueMessageUntil: 0,
   postureReminderRow: -1,
+  postureReminderNextRow: 3,
   postureReminderAtWord: 3,
   postureReminder: null,
   postureReminderLastIndex: -1
@@ -1529,6 +1539,7 @@ async function restart() {
   state.lastRestReminder = 0;
   state.techniqueMessageUntil = 0;
   state.postureReminderRow = -1;
+  state.postureReminderNextRow = 3 + Math.floor(Math.random() * 3);
   state.postureReminderAtWord = 3;
   state.postureReminder = null;
   state.postureReminderLastIndex = -1;
@@ -1669,9 +1680,11 @@ function currentRowWordCount() {
 function preparePostureReminderRow() {
   const wordCount = currentRowWordCount();
   const midpoint = Math.max(1, Math.round(wordCount / 2));
-  const offset = Math.floor(Math.random() * 5) - 2;
+  const centerWeightedOffsets = [-2, -1, -1, 0, 0, 0, 0, 0, 1, 1];
+  const offset = centerWeightedOffsets[Math.floor(Math.random() * centerWeightedOffsets.length)];
   state.postureReminderAtWord = Math.max(1, Math.min(Math.max(1, wordCount - 1), midpoint + offset));
   state.postureReminderRow = state.rowIndex;
+  state.postureReminderNextRow = state.rowIndex + 4 + Math.floor(Math.random() * 4);
   state.postureReminder = null;
 }
 
@@ -1682,15 +1695,23 @@ function completedWordsInCurrentRow() {
 
 function maybeShowPostureReminder() {
   if (state.mode !== "adaptive" || state.testCompleted || !currentTarget()) return;
-  if (state.postureReminderRow !== state.rowIndex) preparePostureReminderRow();
+  if (state.postureReminderRow !== state.rowIndex) {
+    if (state.rowIndex < state.postureReminderNextRow) return;
+    preparePostureReminderRow();
+  }
   if (state.postureReminder || completedWordsInCurrentRow() < state.postureReminderAtWord) return;
 
-  let reminderIndex = Math.floor(Math.random() * lessonReminders.length);
-  if (lessonReminders.length > 1 && reminderIndex === state.postureReminderLastIndex) {
-    reminderIndex = (reminderIndex + 1) % lessonReminders.length;
-  }
+  const lastKind = lessonReminders[state.postureReminderLastIndex]?.kind;
+  const candidates = lessonReminders
+    .map((reminder, index) => ({ reminder, index }))
+    .filter(({ reminder, index }) => index !== state.postureReminderLastIndex && (!lastKind || reminder.kind !== lastKind));
+  const choices = candidates.length ? candidates : lessonReminders
+    .map((reminder, index) => ({ reminder, index }))
+    .filter(({ index }) => index !== state.postureReminderLastIndex);
+  const selected = choices[Math.floor(Math.random() * choices.length)] || { reminder: lessonReminders[0], index: 0 };
+  const reminderIndex = selected.index;
   state.postureReminderLastIndex = reminderIndex;
-  state.postureReminder = lessonReminders[reminderIndex];
+  state.postureReminder = selected.reminder;
   playReminderSound();
   renderPostureReminder();
 }
@@ -1703,7 +1724,18 @@ function renderPostureReminder() {
     return;
   }
 
-  if (state.postureReminderRow !== state.rowIndex) preparePostureReminderRow();
+  if (state.rowIndex < state.postureReminderRow) {
+    state.postureReminderRow = -1;
+    state.postureReminderNextRow = 3 + Math.floor(Math.random() * 3);
+    state.postureReminder = null;
+  }
+  if (state.postureReminderRow !== state.rowIndex) {
+    if (state.rowIndex < state.postureReminderNextRow) {
+      els.postureReminder.classList.add("hidden");
+      return;
+    }
+    preparePostureReminderRow();
+  }
   if (!state.postureReminder) {
     els.postureReminder.classList.add("hidden");
     return;

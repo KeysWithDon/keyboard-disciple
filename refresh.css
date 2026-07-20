@@ -520,6 +520,7 @@ button, select, input, textarea { font-family: inherit; }
 .confidence-scale i { width: 58px; height: 2px; background: linear-gradient(90deg, var(--red), var(--gold), var(--green)); }
 .lesson-reminder {
   min-width: 0;
+  height: 64px;
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr);
   align-items: center;
@@ -531,6 +532,16 @@ button, select, input, textarea { font-family: inherit; }
   color: var(--text);
   background: linear-gradient(110deg, color-mix(in srgb, var(--gold) 18%, transparent), color-mix(in srgb, var(--lesson-color) 9%, transparent));
   box-shadow: 0 0 22px color-mix(in srgb, var(--gold) 13%, transparent), inset 0 1px 0 color-mix(in srgb, var(--text) 12%, transparent);
+  transition: opacity 150ms ease, visibility 150ms ease;
+}
+.lesson-reminder.hidden {
+  display: grid !important;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
 }
 .lesson-reminder[data-kind="breath"] {
   border-color: color-mix(in srgb, var(--cyan) 62%, var(--line));
@@ -554,7 +565,7 @@ button, select, input, textarea { font-family: inherit; }
 .lesson-reminder[data-kind="breath"] strong { color: var(--cyan); }
 .lesson-reminder p { margin: 0; color: var(--text); font-size: 11px; line-height: 1.45; }
 @media (max-width: 620px) {
-  .lesson-reminder { grid-template-columns: 28px minmax(0, 1fr); padding: 10px 11px; }
+  .lesson-reminder { height: 64px; grid-template-columns: 28px minmax(0, 1fr); padding: 10px 11px; }
   .lesson-reminder-mark { width: 26px; height: 26px; }
   .lesson-reminder p { font-size: 10px; }
 }
