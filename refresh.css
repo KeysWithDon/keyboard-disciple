@@ -12,6 +12,7 @@
   --red: #c77972;
   --purple: #9a8ca8;
   --app-font: "Roboto Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --lesson-color: var(--gold);
   --finger-pinky: #7c967f;
   --finger-ring: #b5a369;
   --finger-middle: #a98468;
@@ -241,7 +242,7 @@ button, select, input, textarea { font-family: inherit; }
 }
 .brand-name {
   color: var(--text);
-  font-family: "Courier New", ui-monospace, monospace;
+  font-family: var(--app-font);
   font-size: clamp(14px, 1.25vw, 18px);
   font-weight: 500;
   white-space: nowrap;
@@ -319,7 +320,7 @@ button, select, input, textarea { font-family: inherit; }
   align-items: baseline;
   gap: 9px;
   color: var(--muted);
-  font-family: ui-serif, Georgia, serif;
+  font-family: var(--app-font);
 }
 .devotion-line > span { color: var(--gold); font-family: var(--app-font); font-size: 14px; }
 .devotion-line p { margin: 0; font-size: 13px; font-style: italic; }
@@ -539,17 +540,19 @@ button, select, input, textarea { font-family: inherit; }
 .smooth-lines .practice-line { transition: opacity 180ms ease, transform 180ms ease; }
 .typing-word { display: inline-flex; white-space: nowrap; }
 .typing-space { display: inline; white-space: pre; }
-.typing-text .pending { color: var(--faint); }
-.typing-text .done { color: var(--text); }
-.colorful-test .typing-text .done { color: var(--gold); }
+.typing-text .pending { color: color-mix(in srgb, var(--lesson-color) 30%, var(--faint)); }
+.typing-text .done { color: color-mix(in srgb, var(--lesson-color) 82%, var(--text)); }
+.colorful-test .typing-text .done { color: var(--lesson-color); }
 .flip-test-colors .typing-text .pending { color: var(--text); }
 .flip-test-colors .typing-text .done { color: var(--faint); }
-.typing-text .current { color: var(--gold); }
-.text-glow .typing-text .current { text-shadow: 0 0 9px color-mix(in srgb, var(--gold) 38%, transparent); }
-.text-glow .typing-text .done { text-shadow: 0 0 7px color-mix(in srgb, var(--text) 16%, transparent); }
+.typing-text .current { color: var(--lesson-color); }
+.text-glow .typing-text { text-shadow: 0 0 18px color-mix(in srgb, var(--lesson-color) 10%, transparent); }
+.text-glow .typing-text .pending { text-shadow: 0 0 5px color-mix(in srgb, var(--lesson-color) 14%, transparent); }
+.text-glow .typing-text .current { text-shadow: 0 0 13px color-mix(in srgb, var(--lesson-color) 52%, transparent); }
+.text-glow .typing-text .done { text-shadow: 0 0 8px color-mix(in srgb, var(--lesson-color) 22%, transparent); }
 .typing-text .current.underline { text-decoration: underline 2px; text-underline-offset: 6px; background: none; }
-.typing-text .current.color { color: var(--gold); background: none; }
-.typing-text .current.highlight { color: var(--bg); background: var(--gold); }
+.typing-text .current.color { color: var(--lesson-color); background: none; }
+.typing-text .current.highlight { color: var(--bg); background: var(--lesson-color); }
 .typing-card.typo-flash .typing-text .current { color: var(--red); }
 
 .completion-banner {
@@ -571,7 +574,7 @@ body[data-mode="quote"] .typing-text {
   min-height: auto;
   display: block;
   overflow: visible;
-  font-family: ui-serif, Georgia, serif;
+  font-family: var(--app-font);
   font-size: clamp(22px, 2vw, 30px);
   line-height: 1.65;
 }

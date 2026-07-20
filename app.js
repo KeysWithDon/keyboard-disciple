@@ -29,6 +29,14 @@ const themeStyles = new Set([
   "disciple", "morning-light", "sanctuary", "living-water", "midnight-prayer", "mustard-seed", "eden",
   "royal-priesthood", "grace", "armor-of-light", "revelation", "clarity"
 ]);
+const lessonColorStyles = new Set(["theme", "cyan", "green", "purple", "white"]);
+const lessonColorValues = {
+  theme: "var(--gold)",
+  cyan: "var(--cyan)",
+  green: "var(--green)",
+  purple: "var(--purple)",
+  white: "var(--text)"
+};
 const testModes = new Set(["time", "words", "quote", "creative", "placement"]);
 const scoredModes = new Set(["adaptive", "time", "words", "quote", "creative", "placement", "bible", "bibleQuotes"]);
 const keyboardKey = (id, label = id, units = 4, shift = "") => ({ id, label, units, shift });
@@ -205,6 +213,7 @@ const defaultPrefs = {
   errorStyle: "1",
   timeWarning: "off",
   theme: "disciple",
+  lessonColor: "theme",
   typingSounds: true,
   errorSounds: true,
   showKeyboard: true,
@@ -243,6 +252,7 @@ if (!errorSoundStyles.has(prefs.errorStyle)) prefs.errorStyle = defaultPrefs.err
 if (!practicePresetStyles.has(prefs.practicePreset)) prefs.practicePreset = defaultPrefs.practicePreset;
 if (!creativeModeStyles.has(prefs.creativeMode)) prefs.creativeMode = defaultPrefs.creativeMode;
 if (!themeStyles.has(prefs.theme)) prefs.theme = defaultPrefs.theme;
+if (!lessonColorStyles.has(prefs.lessonColor)) prefs.lessonColor = defaultPrefs.lessonColor;
 if (!scoredModes.has(prefs.mode) && prefs.mode !== "zen") prefs.mode = defaultPrefs.mode;
 if (storedPrefs.showKeyboard === false && storedPrefs.keymapMode === undefined) prefs.keymapMode = "off";
 prefs.dailyGoalMinutes = Math.max(2, Math.min(60, Number(prefs.dailyGoalMinutes) || defaultPrefs.dailyGoalMinutes));
@@ -1167,6 +1177,7 @@ function modeCopy() {
 }
 
 function applyDisplayPreferences() {
+  document.documentElement.style.setProperty("--lesson-color", lessonColorValues[prefs.lessonColor] || lessonColorValues.theme);
   els.typingText.dataset.caret = prefs.caretStyle;
   els.typingText.dataset.smooth = prefs.smoothCaret;
   els.typingText.dataset.typed = prefs.typedEffect;
@@ -2286,6 +2297,7 @@ const settingDescriptions = {
   lazyMode: "Lets accented characters use their unaccented equivalent.",
   theme: "Changes the color and contrast style of the whole app.",
   fontFamily: "Changes the website typeface from the app's broad typography catalog.",
+  lessonColor: "Changes the color used by lesson text, the active character, and its glow.",
   currentCue: "Chooses how the exact character you need to type is marked.",
   caretStyle: "Changes the shape used to show the current typing position.",
   smoothCaret: "Controls how quickly the caret animates between characters.",
@@ -2390,7 +2402,7 @@ function setupSettings() {
   const selectIds = [
     "practiceMode", "testDuration", "testWordCount", "quoteLength", "difficulty", "creativeMode", "capitalization", "quickRestart",
     "repeatQuotes", "resultSaving", "minWpm", "minAccuracy", "minBurst", "indicateTypos", "confidenceMode", "errorLimit",
-    "theme", "fontFamily", "currentCue", "caretStyle", "smoothCaret", "typedEffect", "highlightMode", "fontSize",
+    "theme", "fontFamily", "lessonColor", "currentCue", "caretStyle", "smoothCaret", "typedEffect", "highlightMode", "fontSize",
     "lineWidth", "tapeMode", "timerStyle", "speedUnit", "keyboardLayout", "keyboardSize", "keymapMode", "keymapStyle",
     "keymapLegend", "soundStyle", "soundVolume", "rewardStyle", "errorStyle", "timeWarning", "practiceLetters",
     "targetSpeed", "practicePreset", "wordsPerRow", "dailyGoalMinutes", "bibleBook", "bibleChapter", "bibleStart", "bibleEnd"
