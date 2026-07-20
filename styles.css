@@ -441,7 +441,7 @@ select, input, textarea {
 .typing-card[data-size="small"] .typing-text { font-size: 34px; }
 .typing-card[data-size="medium"] .typing-text { font-size: 46px; }
 .typing-card[data-size="large"] .typing-text { font-size: 56px; }
-.typing-card[data-size="xlarge"] .typing-text { font-size: 66px; }
+.typing-card[data-size="xlarge"] .typing-text { font-size: 56px; }
 .typing-word { display: inline-block; white-space: nowrap; }
 .typing-space { white-space: pre-wrap; }
 .typing-text .done { color: var(--green); }
@@ -726,7 +726,7 @@ select, input, textarea {
   .keyboard.large { --quarter-key: 15px; --key-height: 66px; }
   .typing-card[data-size="medium"] .typing-text { font-size: 52px; }
   .typing-card[data-size="large"] .typing-text { font-size: 62px; }
-  .typing-card[data-size="xlarge"] .typing-text { font-size: 72px; }
+  .typing-card[data-size="xlarge"] .typing-text { font-size: 62px; }
 }
 
 @media (max-width: 860px) {
@@ -741,7 +741,7 @@ select, input, textarea {
   .typing-card[data-size="small"] .typing-text { font-size: 30px; }
   .typing-card[data-size="medium"] .typing-text { font-size: 38px; }
   .typing-card[data-size="large"] .typing-text { font-size: 46px; }
-  .typing-card[data-size="xlarge"] .typing-text { font-size: 54px; }
+  .typing-card[data-size="xlarge"] .typing-text { font-size: 46px; }
 }
 
 @media (max-width: 560px) {
@@ -759,7 +759,7 @@ select, input, textarea {
   .typing-card[data-size="small"] .typing-text { font-size: 25px; }
   .typing-card[data-size="medium"] .typing-text { font-size: 31px; }
   .typing-card[data-size="large"] .typing-text { font-size: 37px; }
-  .typing-card[data-size="xlarge"] .typing-text { font-size: 43px; }
+  .typing-card[data-size="xlarge"] .typing-text { font-size: 37px; }
   .keyboard,
   .keyboard.compact,
   .keyboard.standard,
@@ -952,7 +952,7 @@ select, input, textarea {
 .typing-card[data-size="small"] .typing-text { font-size: 32px; }
 .typing-card[data-size="medium"] .typing-text { font-size: 42px; }
 .typing-card[data-size="large"] .typing-text { font-size: 50px; }
-.typing-card[data-size="xlarge"] .typing-text { font-size: 58px; }
+.typing-card[data-size="xlarge"] .typing-text { font-size: 50px; }
 .row-status { margin-bottom: 10px; font-size: 11px; opacity: .72; }
 .completion-banner { width: fit-content; margin: 8px auto 0; padding: 8px 11px; font-size: 12px; }
 
@@ -999,7 +999,7 @@ select, input, textarea {
   .typing-card[data-width="wide"] { max-width: 1580px; }
   .typing-card[data-size="medium"] .typing-text { font-size: 48px; }
   .typing-card[data-size="large"] .typing-text { font-size: 56px; }
-  .typing-card[data-size="xlarge"] .typing-text { font-size: 66px; }
+  .typing-card[data-size="xlarge"] .typing-text { font-size: 56px; }
   .keyboard.standard { --quarter-key: 12px; --key-height: 52px; }
   .keyboard.large { --quarter-key: 14px; --key-height: 60px; }
 }
@@ -1034,7 +1034,7 @@ select, input, textarea {
   .typing-card[data-size="small"] .typing-text { font-size: 25px; }
   .typing-card[data-size="medium"] .typing-text { font-size: 31px; }
   .typing-card[data-size="large"] .typing-text { font-size: 37px; }
-  .typing-card[data-size="xlarge"] .typing-text { font-size: 43px; }
+  .typing-card[data-size="xlarge"] .typing-text { font-size: 37px; }
 }
 
 /* Unified letter progress */
