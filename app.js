@@ -1,6 +1,7 @@
 const letterOrder = "ENIARLTOSUDYCGHPMKBWFZVXQJ".split("");
 const startLetters = 6;
 const rowsPerPage = 10;
+const adaptivePagesPerLesson = 10;
 const masteryRequiredPages = 27;
 const masteryRequiredAttempts = 540;
 const STORAGE_KEY = "keyboard-disciple-web";
@@ -136,6 +137,7 @@ const state = {
   characterErrors: 0,
   lessonLetterStats: {},
   lessonErrorLetters: {},
+  adaptiveLessonPages: [],
   lastAcceptedAt: null,
   lastActivityAt: null,
   lastKeyAt: null,
@@ -307,6 +309,7 @@ const progress = Object.assign({
   avgAccuracy: 100,
   letterStats: {},
   lessonHistory: [],
+  adaptiveLessonHistory: [],
   letterHistory: {},
   dailyActivity: {},
   errorReview: [],
@@ -315,6 +318,7 @@ const progress = Object.assign({
 }, storedData.progress || {});
 if (!progress.letterStats || typeof progress.letterStats !== "object") progress.letterStats = {};
 if (!Array.isArray(progress.lessonHistory)) progress.lessonHistory = [];
+if (!Array.isArray(progress.adaptiveLessonHistory)) progress.adaptiveLessonHistory = [];
 if (!progress.letterHistory || typeof progress.letterHistory !== "object" || Array.isArray(progress.letterHistory)) progress.letterHistory = {};
 if (!progress.dailyActivity || typeof progress.dailyActivity !== "object" || Array.isArray(progress.dailyActivity)) progress.dailyActivity = {};
 if (!Array.isArray(progress.errorReview)) progress.errorReview = [];
@@ -473,7 +477,9 @@ const els = Object.fromEntries([
   "statsDialog", "statsBtn", "fullscreenBtn", "restartBtn", "letterHud", "unlockNext", "unlockCount",
   "practiceFocusIndicator", "practiceFocusName", "practiceFocusDescription", "practiceFocusState", "letterHeatmap", "heatmapSummary", "letterDialog", "letterDetailBadge", "letterDetailTitle",
   "letterMastery", "letterLastSpeed", "letterTopSpeed", "letterAccuracy", "letterLearningRate", "letterLessons",
-  "letterCurveCaption", "letterChart"
+  "letterCurveCaption", "letterChart", "adaptiveResultDetails", "adaptiveStatsChart", "adaptiveRank", "adaptiveWeakestLetter", "adaptiveWeakestDetail",
+  "adaptiveStrongestLetter", "adaptiveStrongestDetail", "adaptiveFastestWpm", "adaptiveSlowestWpm", "adaptiveErrors", "adaptiveConsistency",
+  "adaptiveRecommendationName", "adaptiveRecommendationReason", "adaptiveRecommendationButton"
 ].map(id => [id, document.getElementById(id)]));
 
 let saveTimer;
@@ -519,6 +525,155 @@ function formatLearningRate(history) {
 function lessonScore(wpm, accuracy) {
   const accuracyFactor = Math.max(0, Math.min(1, accuracy / 100));
   return Math.round(Math.max(0, wpm) * 20 * accuracyFactor ** 2);
+}
+
+function snapshotAdaptiveLetterStats() {
+  return Object.fromEntries(Object.entries(state.lessonLetterStats).map(([letter, stats]) => [letter, {
+    attempts: Number(stats.attempts) || 0,
+    correct: Number(stats.correct) || 0,
+    timedCorrect: Number(stats.timedCorrect) || 0,
+    elapsedMs: Number(stats.elapsedMs) || 0
+  }]));
+}
+
+function aggregateAdaptiveLetterStats(pageSamples) {
+  const totals = {};
+  pageSamples.forEach(page => {
+    Object.entries(page.letterStats || {}).forEach(([letter, stats]) => {
+      const total = totals[letter] ||= { attempts: 0, correct: 0, timedCorrect: 0, elapsedMs: 0 };
+      total.attempts += Number(stats.attempts) || 0;
+      total.correct += Number(stats.correct) || 0;
+      total.timedCorrect += Number(stats.timedCorrect) || 0;
+      total.elapsedMs += Number(stats.elapsedMs) || 0;
+    });
+  });
+  const targetSpeed = Math.max(1, Number(prefs.targetSpeed) || defaultPrefs.targetSpeed);
+  return Object.entries(totals).map(([letter, stats]) => {
+    const accuracy = stats.attempts ? (stats.correct / stats.attempts) * 100 : 0;
+    const wpm = stats.timedCorrect >= 2 && stats.elapsedMs > 0
+      ? (stats.timedCorrect / 5) / (stats.elapsedMs / 60000)
+      : 0;
+    const skill = Math.max(0, Math.min(1, accuracy / 100)) * .62 + Math.min(1, wpm / targetSpeed) * .38;
+    return {
+      letter: letter.toUpperCase(),
+      attempts: stats.attempts,
+      correct: stats.correct,
+      accuracy: Number(accuracy.toFixed(1)),
+      wpm: Number(Math.max(0, Math.min(400, wpm)).toFixed(1)),
+      skill: Number(skill.toFixed(3)),
+      finger: fingerZone(letter).label
+    };
+  }).sort((a, b) => b.skill - a.skill || b.attempts - a.attempts);
+}
+
+function buildAdaptiveLessonSummary(pageSamples) {
+  const pages = pageSamples.map((page, index) => ({
+    page: index + 1,
+    wpm: Number(Number(page.wpm || 0).toFixed(1)),
+    raw: Number(Number(page.raw || 0).toFixed(1)),
+    accuracy: Number(Number(page.accuracy || 0).toFixed(1)),
+    consistency: Number(Number(page.consistency || 0).toFixed(1)),
+    score: Number(page.score) || 0,
+    elapsedMs: Number(page.elapsedMs) || 0,
+    characters: Number(page.characters) || 0,
+    errors: Number(page.errors) || 0
+  }));
+  const totalElapsedMs = pages.reduce((sum, page) => sum + page.elapsedMs, 0);
+  const totalCharacters = pages.reduce((sum, page) => sum + page.characters, 0);
+  const totalErrors = pages.reduce((sum, page) => sum + page.errors, 0);
+  const totalAttempts = totalCharacters + totalErrors;
+  const wpm = totalElapsedMs > 0 ? (totalCharacters / 5) / (totalElapsedMs / 60000) : 0;
+  const raw = totalElapsedMs > 0 ? (totalAttempts / 5) / (totalElapsedMs / 60000) : 0;
+  const accuracy = totalAttempts ? (totalCharacters / totalAttempts) * 100 : 100;
+  const consistency = pages.length ? pages.reduce((sum, page) => sum + page.consistency, 0) / pages.length : 100;
+  const letterBreakdown = aggregateAdaptiveLetterStats(pageSamples);
+  const weakest = letterBreakdown.at(-1);
+  const strongest = letterBreakdown[0];
+  const fastestWpm = pages.reduce((best, page) => Math.max(best, page.wpm), 0);
+  const slowestWpm = pages.reduce((slowest, page) => Math.min(slowest, page.wpm), pages[0]?.wpm || 0);
+  return {
+    at: pageSamples.at(-1)?.at || Date.now(),
+    mode: "adaptive",
+    adaptiveLesson: true,
+    pages: pages.length,
+    pageMetrics: pages,
+    wpm: Number(wpm.toFixed(1)),
+    raw: Number(raw.toFixed(1)),
+    accuracy: Number(accuracy.toFixed(1)),
+    consistency: Number(consistency.toFixed(1)),
+    score: lessonScore(wpm, accuracy),
+    targetSpeed: Number(prefs.targetSpeed) || defaultPrefs.targetSpeed,
+    elapsedMs: totalElapsedMs,
+    characters: totalCharacters,
+    errors: totalErrors,
+    weakestLetter: weakest?.letter || "--",
+    strongestLetter: strongest?.letter || "--",
+    weakestLetterAccuracy: weakest?.accuracy ?? null,
+    strongestLetterAccuracy: strongest?.accuracy ?? null,
+    weakestFinger: weakest?.finger || "--",
+    strongestFinger: strongest?.finger || "--",
+    fastestWpm: Number(fastestWpm.toFixed(1)),
+    slowestWpm: Number(slowestWpm.toFixed(1)),
+    letterBreakdown
+  };
+}
+
+function recommendAdaptiveFocus(history) {
+  const recent = history.filter(item => item?.adaptiveLesson).slice(-3);
+  const label = recent.length === 3 ? "your last 3 adaptive lessons" : `${recent.length} recent adaptive lesson${recent.length === 1 ? "" : "s"}`;
+  const average = key => recent.length ? recent.reduce((sum, item) => sum + (Number(item[key]) || 0), 0) / recent.length : 0;
+  const averageAccuracy = average("accuracy");
+  const averageWpm = average("wpm");
+  const averageConsistency = average("consistency");
+  const latest = recent.at(-1);
+  const weakLetters = recent.map(item => item.weakestLetter).filter(letter => letter && letter !== "--");
+  const weakFingers = recent.map(item => item.weakestFinger).filter(finger => finger && finger !== "--");
+  const repeatedWeakLetter = weakLetters.find(letter => weakLetters.filter(value => value === letter).length >= 2);
+  const repeatedWeakFinger = weakFingers.find(finger => weakFingers.filter(value => value === finger).length >= 2);
+  const targetSpeed = Math.max(1, Number(prefs.targetSpeed) || defaultPrefs.targetSpeed);
+  let id = "balanced";
+  let reason = recent.length
+    ? `Based on ${label}, keep a steady mix while the system gathers more evidence.`
+    : "Complete three adaptive lessons to unlock a more specific recommendation.";
+  if (recent.length && (averageAccuracy < 91 || Number(latest.accuracy) < 88)) {
+    id = "accuracy";
+    reason = `Accuracy is the clearest limiter across ${label}; simpler words and error repair should stabilize your typing.`;
+  } else if (repeatedWeakLetter || repeatedWeakFinger) {
+    id = repeatedWeakFinger ? "finger" : "weak";
+    reason = repeatedWeakFinger
+      ? `${repeatedWeakFinger} keeps appearing among your weakest areas across ${label}; isolate that finger zone for focused repetitions.`
+      : `${repeatedWeakLetter} keeps appearing as a weak letter across ${label}; repeat natural words that contain it.`;
+  } else if (recent.length && averageAccuracy >= 95 && averageWpm < targetSpeed * .86) {
+    id = "speed";
+    reason = `Accuracy is holding at ${Math.round(averageAccuracy)}%, so longer natural words can now build speed toward your ${targetSpeed} WPM target.`;
+  } else if (recent.length && averageConsistency < 75) {
+    id = "alternation";
+    reason = `Your accuracy is workable, but rhythm is uneven across ${label}; left/right hand alternation can smooth the pace.`;
+  }
+  return {
+    id,
+    label: practicePresetLabels[id] || practicePresetLabels.balanced,
+    reason,
+    basedOn: recent.length,
+    averageAccuracy: Number(averageAccuracy.toFixed(1)),
+    averageWpm: Number(averageWpm.toFixed(1)),
+    averageConsistency: Number(averageConsistency.toFixed(1))
+  };
+}
+
+function rankAdaptiveLesson(result) {
+  const history = progress.adaptiveLessonHistory.filter(item => item?.adaptiveLesson);
+  const includesCurrent = history.some(item => Number(item.at) === Number(result.at));
+  const pool = includesCurrent ? history : history.concat(result);
+  const rank = 1 + pool.filter(item => Number(item.score) > Number(result.score)).length;
+  const percentile = Math.max(1, Math.round(((pool.length - rank + 1) / pool.length) * 100));
+  return { rank, total: pool.length, percentile };
+}
+
+function saveAdaptiveLessonSummary(summary) {
+  if (prefs.resultSaving !== "on") return;
+  progress.adaptiveLessonHistory.push(summary);
+  if (progress.adaptiveLessonHistory.length > 60) progress.adaptiveLessonHistory = progress.adaptiveLessonHistory.slice(-60);
 }
 
 function trackDailyActivity(now) {
@@ -633,18 +788,99 @@ function renderLiveMetrics() {
   renderTechniqueCue(metrics);
 }
 
+function renderAdaptiveStatsChart(result) {
+  const pages = Array.isArray(result?.pageMetrics) ? result.pageMetrics : [];
+  if (!pages.length) {
+    els.adaptiveStatsChart.innerHTML = `<div class="adaptive-chart-empty">Complete a full adaptive lesson to build the page trend.</div>`;
+    return;
+  }
+  const width = 780;
+  const height = 260;
+  const margin = { top: 26, right: 24, bottom: 34, left: 54 };
+  const plotWidth = width - margin.left - margin.right;
+  const plotHeight = height - margin.top - margin.bottom;
+  const target = Number(result.targetSpeed) || Number(prefs.targetSpeed) || defaultPrefs.targetSpeed;
+  const speeds = pages.map(page => Number(page.wpm) || 0);
+  const minY = Math.max(0, Math.floor((Math.min(...speeds, target) - 5) / 5) * 5);
+  const maxY = Math.max(minY + 10, Math.ceil((Math.max(...speeds, target) + 5) / 5) * 5);
+  const xFor = index => pages.length === 1
+    ? margin.left + plotWidth / 2
+    : margin.left + (index / (pages.length - 1)) * plotWidth;
+  const yFor = value => margin.top + ((maxY - value) / (maxY - minY)) * plotHeight;
+  const points = speeds.map((speed, index) => [xFor(index), yFor(speed)]);
+  const path = points.map(([x, y], index) => `${index ? "L" : "M"}${x.toFixed(1)} ${y.toFixed(1)}`).join(" ");
+  const grid = Array.from({ length: 5 }, (_, index) => {
+    const value = maxY - ((maxY - minY) * index / 4);
+    const y = yFor(value);
+    return `<g><line class="adaptive-chart-grid" x1="${margin.left}" y1="${y.toFixed(1)}" x2="${width - margin.right}" y2="${y.toFixed(1)}"></line><text class="adaptive-chart-axis" x="${margin.left - 10}" y="${(y + 4).toFixed(1)}" text-anchor="end">${Math.round(value)}</text></g>`;
+  }).join("");
+  const xLabels = pages.map((page, index) => {
+    if (index !== 0 && index !== pages.length - 1 && index !== Math.floor((pages.length - 1) / 2)) return "";
+    return `<text class="adaptive-chart-axis" x="${xFor(index).toFixed(1)}" y="${height - 10}" text-anchor="middle">Page ${page.page}</text>`;
+  }).join("");
+  const dots = points.map(([x, y], index) => {
+    const page = pages[index];
+    return `<circle class="adaptive-chart-point" cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${index === pages.length - 1 ? 6 : 4}"><title>Page ${page.page}: ${Math.round(page.wpm)} WPM, ${Math.round(page.accuracy)}% accuracy</title></circle>`;
+  }).join("");
+  const targetY = yFor(target);
+  els.adaptiveStatsChart.innerHTML = `
+    <div class="adaptive-chart-legend"><span><i class="speed-key"></i>Page speed</span><span><i class="target-key"></i>${Math.round(target)} WPM target</span></div>
+    <svg viewBox="0 0 ${width} ${height}" role="img" aria-label="Adaptive lesson speed across ${pages.length} pages">
+      ${grid}
+      <line class="adaptive-chart-target" x1="${margin.left}" y1="${targetY.toFixed(1)}" x2="${width - margin.right}" y2="${targetY.toFixed(1)}"></line>
+      <path class="adaptive-chart-area" d="${path} L${points.at(-1)[0].toFixed(1)} ${(margin.top + plotHeight).toFixed(1)} L${points[0][0].toFixed(1)} ${(margin.top + plotHeight).toFixed(1)} Z"></path>
+      <path class="adaptive-chart-line" d="${path}"></path>
+      ${dots}
+      ${xLabels}
+      <text class="adaptive-chart-axis" x="${margin.left}" y="16">WPM</text>
+    </svg>`;
+}
+
+function renderAdaptiveLessonResult(result) {
+  const recommendation = result.recommendation || recommendAdaptiveFocus(progress.adaptiveLessonHistory);
+  const rank = Number.isFinite(Number(result.rank))
+    ? { rank: Number(result.rank), total: Number(result.total) || 1, percentile: Number(result.percentile) || 1 }
+    : rankAdaptiveLesson(result);
+  const weakest = result.weakestLetter || "--";
+  const strongest = result.strongestLetter || "--";
+  els.adaptiveRank.textContent = `Local rank ${rank.rank} of ${rank.total} / top ${rank.percentile}%`;
+  els.adaptiveWeakestLetter.textContent = weakest;
+  els.adaptiveWeakestDetail.textContent = weakest === "--"
+    ? "Not enough letter data"
+    : `${Math.round(result.weakestLetterAccuracy || 0)}% accuracy · ${result.weakestFinger}`;
+  els.adaptiveStrongestLetter.textContent = strongest;
+  els.adaptiveStrongestDetail.textContent = strongest === "--"
+    ? "Not enough letter data"
+    : `${Math.round(result.strongestLetterAccuracy || 0)}% accuracy · ${result.strongestFinger}`;
+  els.adaptiveFastestWpm.textContent = `${Math.round(result.fastestWpm || 0)} WPM`;
+  els.adaptiveSlowestWpm.textContent = `${Math.round(result.slowestWpm || 0)} WPM`;
+  els.adaptiveErrors.textContent = String(Math.round(result.errors || 0));
+  els.adaptiveConsistency.textContent = `${Math.round(result.consistency || 0)}%`;
+  els.adaptiveRecommendationName.textContent = recommendation.label;
+  els.adaptiveRecommendationReason.textContent = recommendation.reason;
+  els.adaptiveRecommendationButton.textContent = `Use ${recommendation.label}`;
+  els.adaptiveRecommendationButton.dataset.preset = recommendation.id;
+  renderAdaptiveStatsChart(result);
+}
+
 function renderResult() {
   const result = state.result;
+  const isAdaptiveLesson = Boolean(result?.adaptiveLesson);
+  els.adaptiveResultDetails.classList.toggle("hidden", !isAdaptiveLesson);
+  els.resultPanel.classList.toggle("adaptive-results", isAdaptiveLesson);
   if (!result) return;
   els.resultEyebrow.textContent = `${modeCopy()[0]} complete`;
-  els.resultTitle.textContent = result.failedReason || (result.placement ? "Baseline saved" : result.personalBest ? "New personal best" : "Results");
+  els.resultTitle.textContent = result.adaptiveLesson
+    ? "Ten-page lesson profile"
+    : result.failedReason || (result.placement ? "Baseline saved" : result.personalBest ? "New personal best" : "Results");
   els.resultScore.textContent = Number(result.score).toLocaleString();
   els.resultWpm.textContent = Math.round(result.wpm);
   els.resultRaw.textContent = Math.round(result.raw);
   els.resultAccuracy.textContent = `${Math.round(result.accuracy)}%`;
   els.resultConsistency.textContent = `${Math.round(result.consistency)}%`;
-  els.resultCharacters.textContent = String(state.charsTyped);
+  els.resultCharacters.textContent = String(result.adaptiveLesson ? result.characters : state.charsTyped);
   els.resultTime.textContent = `${(result.elapsedMs / 1000).toFixed(1)}s`;
+  if (result.adaptiveLesson) renderAdaptiveLessonResult(result);
 }
 
 function letterMastery(letter) {
@@ -1084,6 +1320,7 @@ async function restart() {
   state.characterErrors = 0;
   state.lessonLetterStats = {};
   state.lessonErrorLetters = {};
+  state.adaptiveLessonPages = [];
   state.lastAcceptedAt = null;
   state.lastActivityAt = null;
   state.lastKeyAt = null;
@@ -1469,7 +1706,7 @@ function renderText() {
   els.scriptureStrip.classList.toggle("hidden", !reference);
   els.scriptureRef.textContent = reference;
   const rowLabels = {
-    adaptive: `Page ${state.pageIndex + 1} / line ${(state.rowIndex % rowsPerPage) + 1} of ${rowsPerPage}`,
+    adaptive: `Page ${Math.min(adaptivePagesPerLesson, state.pageIndex + 1)} / ${adaptivePagesPerLesson} / line ${(state.rowIndex % rowsPerPage) + 1} of ${rowsPerPage}`,
     time: `${Math.max(0, Math.ceil(state.timeRemaining))} seconds`,
     words: `Line ${state.rowIndex + 1} of ${state.targetRows.length}`,
     creative: `${creativeModeLabels[prefs.creativeMode]} / line ${state.rowIndex + 1} of ${state.targetRows.length}`,
@@ -1809,16 +2046,34 @@ function updateLifetimeAverages(metrics) {
 function finishAdaptiveLine() {
   const completedRow = (state.rowIndex % rowsPerPage) + 1;
   const completedPage = completedRow === rowsPerPage;
+  let adaptiveLessonComplete = false;
   let newlyUnlocked = "";
   if (completedPage) {
     const metrics = currentMetrics();
+    const letterStats = snapshotAdaptiveLetterStats();
     updateLifetimeAverages(metrics);
-    recordCompletedLesson(metrics.wpm, metrics.accuracy, { raw: metrics.raw, consistency: metrics.consistency, elapsedMs: metrics.elapsedMs });
+    const pageResult = recordCompletedLesson(metrics.wpm, metrics.accuracy, {
+      raw: metrics.raw,
+      consistency: metrics.consistency,
+      elapsedMs: metrics.elapsedMs,
+      characters: state.charsTyped,
+      errors: state.errors,
+      letterStats
+    });
+    state.adaptiveLessonPages.push(pageResult);
+    adaptiveLessonComplete = state.adaptiveLessonPages.length >= adaptivePagesPerLesson;
     if (canUnlockNextLetter()) {
       newlyUnlocked = letterOrder[Number(prefs.practiceLetters)] || "";
       prefs.practiceLetters = Math.min(letterOrder.length, Number(prefs.practiceLetters) + 1);
       const practiceSelector = document.getElementById("practiceLetters");
       if (practiceSelector) practiceSelector.value = String(prefs.practiceLetters);
+    }
+    if (adaptiveLessonComplete) {
+      const summary = buildAdaptiveLessonSummary(state.adaptiveLessonPages);
+      summary.recommendation = recommendAdaptiveFocus(progress.adaptiveLessonHistory);
+      saveAdaptiveLessonSummary(summary);
+      state.result = { ...summary, ...rankAdaptiveLesson(summary) };
+      state.testCompleted = true;
     }
   }
   progress.rowsCleared++;
@@ -1830,6 +2085,19 @@ function finishAdaptiveLine() {
     els.completionBanner.classList.add("hidden");
     state.input = "";
     state.lineErrors = 0;
+    if (adaptiveLessonComplete) {
+      state.startedAt = null;
+      state.charsTyped = 0;
+      state.rawTyped = 0;
+      state.errors = 0;
+      state.keyIntervals = [];
+      state.lastKeyAt = null;
+      state.lastAcceptedAt = null;
+      state.lessonLetterStats = {};
+      save();
+      render();
+      return;
+    }
     if (completedPage) {
       state.startedAt = null;
       state.charsTyped = 0;
@@ -2541,6 +2809,16 @@ function startErrorReview() {
   restart();
 }
 
+function startRecommendedAdaptiveFocus() {
+  const preset = els.adaptiveRecommendationButton.dataset.preset;
+  if (!practicePresetStyles.has(preset)) return;
+  prefs.mode = "adaptive";
+  prefs.practicePreset = preset;
+  state.mode = "adaptive";
+  save();
+  restart();
+}
+
 els.letterHeatmap.addEventListener("click", event => {
   const key = event.target.closest("[data-letter]");
   if (!key || key.disabled) return;
@@ -2552,6 +2830,7 @@ els.restartBtn.addEventListener("click", () => {
   restart();
 });
 els.resultRestartBtn.addEventListener("click", restart);
+els.adaptiveRecommendationButton.addEventListener("click", startRecommendedAdaptiveFocus);
 els.statsBtn.addEventListener("click", () => els.statsDialog.showModal());
 els.reviewErrorsBtn.addEventListener("click", startErrorReview);
 els.fullscreenBtn.addEventListener("click", toggleFullscreen);

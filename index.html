@@ -13,8 +13,8 @@
   <link rel="canonical" href="https://keyswithdon.github.io/keyboard-disciple/">
   <link rel="sitemap" type="application/xml" href="https://keyswithdon.github.io/keyboard-disciple/sitemap.xml">
   <link rel="icon" href="assets/keyboard-disciple-mark.png">
-  <link rel="stylesheet" href="styles.css?v=20260720-active-focus">
-  <link rel="stylesheet" href="refresh.css?v=20260720-active-focus">
+  <link rel="stylesheet" href="styles.css?v=20260720-adaptive-results">
+  <link rel="stylesheet" href="refresh.css?v=20260720-adaptive-results">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Keyboard Disciple">
   <meta property="og:title" content="Keyboard Disciple | Free Typing Practice Game">
@@ -150,6 +150,64 @@
           <span>Consistency <strong id="resultConsistency">100%</strong></span>
           <span>Characters <strong id="resultCharacters">0</strong></span>
           <span>Time <strong id="resultTime">0s</strong></span>
+        </div>
+        <div class="adaptive-result-details hidden" id="adaptiveResultDetails">
+          <header class="adaptive-result-heading">
+            <div>
+              <p>Ten-page adaptive lesson</p>
+              <h3>Your strengths and weak spots</h3>
+            </div>
+            <strong id="adaptiveRank">Local rank 1 of 1 / top 100%</strong>
+          </header>
+          <section class="adaptive-chart-panel" aria-labelledby="adaptiveChartTitle">
+            <header>
+              <div>
+                <h3 id="adaptiveChartTitle">Speed by page</h3>
+                <span>See whether your pace held, climbed, or dipped.</span>
+              </div>
+            </header>
+            <div class="adaptive-stats-chart" id="adaptiveStatsChart"></div>
+          </section>
+          <div class="adaptive-profile-grid">
+            <article class="adaptive-profile-card weak-card">
+              <span>Weakest letter</span>
+              <strong id="adaptiveWeakestLetter">--</strong>
+              <small id="adaptiveWeakestDetail">Not enough letter data</small>
+            </article>
+            <article class="adaptive-profile-card strong-card">
+              <span>Strongest letter</span>
+              <strong id="adaptiveStrongestLetter">--</strong>
+              <small id="adaptiveStrongestDetail">Not enough letter data</small>
+            </article>
+            <article class="adaptive-profile-card">
+              <span>Fastest WPM</span>
+              <strong id="adaptiveFastestWpm">0 WPM</strong>
+              <small>Best page speed this lesson</small>
+            </article>
+            <article class="adaptive-profile-card">
+              <span>Slowest WPM</span>
+              <strong id="adaptiveSlowestWpm">0 WPM</strong>
+              <small>Page that needs the most patience</small>
+            </article>
+            <article class="adaptive-profile-card">
+              <span>Blocked errors</span>
+              <strong id="adaptiveErrors">0</strong>
+              <small>Incorrect keys kept out of the lesson</small>
+            </article>
+            <article class="adaptive-profile-card">
+              <span>Rhythm consistency</span>
+              <strong id="adaptiveConsistency">100%</strong>
+              <small>How evenly your keystrokes landed</small>
+            </article>
+          </div>
+          <section class="adaptive-recommendation" aria-labelledby="adaptiveRecommendationTitle">
+            <div>
+              <span>Next recommended focus</span>
+              <h3 id="adaptiveRecommendationTitle"><span id="adaptiveRecommendationName">Balanced</span></h3>
+              <p id="adaptiveRecommendationReason">Complete three adaptive lessons to unlock a more specific recommendation.</p>
+            </div>
+            <button class="primary-button" id="adaptiveRecommendationButton" type="button">Use Balanced</button>
+          </section>
         </div>
         <button class="primary-button" id="resultRestartBtn" type="button">Restart</button>
       </section>
@@ -735,6 +793,6 @@
     </form>
   </dialog>
 
-  <script src="app.js?v=20260720-active-focus"></script>
+  <script src="app.js?v=20260720-adaptive-results"></script>
 </body>
 </html>
