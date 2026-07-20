@@ -13,8 +13,8 @@
   <link rel="canonical" href="https://keyswithdon.github.io/keyboard-disciple/">
   <link rel="sitemap" type="application/xml" href="https://keyswithdon.github.io/keyboard-disciple/sitemap.xml">
   <link rel="icon" href="assets/keyboard-disciple-mark.png">
-    <link rel="stylesheet" href="styles.css?v=20260720-dictation-follow-live">
-    <link rel="stylesheet" href="refresh.css?v=20260720-dictation-follow-live">
+    <link rel="stylesheet" href="styles.css?v=20260720-dictation-submit-live">
+    <link rel="stylesheet" href="refresh.css?v=20260720-dictation-submit-live">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Keyboard Disciple">
   <meta property="og:title" content="Keyboard Disciple | Free Typing Practice Game">
@@ -137,6 +137,7 @@
         <div class="dictation-controls hidden" id="dictationControls" aria-live="polite">
           <span id="dictationAudioStatus">Preparing prompt</span>
           <button type="button" class="secondary-button" id="dictationReplayButton">Play prompt</button>
+          <button type="button" class="secondary-button" id="dictationSubmitButton">Submit dictation</button>
         </div>
         <div id="typingText" class="typing-text" aria-label="Typing target"></div>
         <div class="completion-banner hidden" id="completionBanner">Line cleared</div>
@@ -157,6 +158,7 @@
           <span>Consistency <strong id="resultConsistency">100%</strong></span>
           <span>Characters <strong id="resultCharacters">0</strong></span>
           <span>Time <strong id="resultTime">0s</strong></span>
+          <span class="hidden" id="resultDictationErrorsWrap">Errors <strong id="resultDictationErrors">0</strong></span>
           <span class="hidden" id="resultFollowRateWrap" title="Correct characters typed while the prompt was playing">Follow rate <strong id="resultFollowRate">--</strong></span>
         </div>
         <div class="adaptive-result-details hidden" id="adaptiveResultDetails">
@@ -925,6 +927,6 @@
     </form>
   </dialog>
 
-    <script src="app.js?v=20260720-dictation-follow-live"></script>
+    <script src="app.js?v=20260720-dictation-submit-live"></script>
 </body>
 </html>

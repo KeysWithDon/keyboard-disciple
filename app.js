@@ -608,7 +608,7 @@ const els = Object.fromEntries([
   "keyboard", "keyboardWrap", "lessonScore", "lastWpm", "lastAccuracy", "topWpm", "learningRate", "dailyGoalText",
   "dailyGoalFill", "cleanLines", "reviewErrorsBtn", "techniqueCue", "resultPanel", "resultEyebrow", "resultTitle", "resultScore", "resultWpm", "resultRaw",
   "resultAccuracy", "resultConsistency", "resultCharacters", "resultTime", "resultRestartBtn", "settingsDialog", "settingsBtn",
-  "resultFollowRateWrap", "resultFollowRate",
+  "resultDictationErrorsWrap", "resultDictationErrors", "resultFollowRateWrap", "resultFollowRate",
   "statsDialog", "statsBtn", "fullscreenBtn", "restartBtn", "letterHud", "unlockNext", "unlockCount",
   "practiceFocusIndicator", "practiceFocusName", "practiceFocusDescription", "practiceFocusState", "letterHeatmap", "letterHeatRow", "heatmapSummary", "specialHeatmap", "letterDialog", "letterDetailBadge", "letterDetailTitle",
   "letterMastery", "letterLastSpeed", "letterTopSpeed", "letterAccuracy", "letterLearningRate", "letterLessons",
@@ -617,7 +617,7 @@ const els = Object.fromEntries([
   "adaptiveMissedLetters", "adaptiveMissedSummary", "adaptiveTechniqueSummary", "adaptiveTechniqueList", "adaptiveRepairFocusButton",
   "adaptiveRecommendationName", "adaptiveRecommendationReason", "adaptiveModePicker", "adaptiveFocusPicker", "adaptiveRecommendationButton", "settingsKeyboardMap",
   "letterFocusCheckbox", "letterFocusHint", "postureReminder", "postureReminderTitle", "postureReminderText",
-  "dictationControls", "dictationAudioStatus", "dictationReplayButton",
+  "dictationControls", "dictationAudioStatus", "dictationReplayButton", "dictationSubmitButton",
   "spokenRemindersEnabled", "reminderTtsModel", "reminderVoiceId", "reminderLanguage", "reminderVolume",
   "previewReminderVoiceButton", "replayReminderButton", "spokenReminderStatus", "reminderLanguageRow",
   "spokenReminderToast", "spokenReminderToastTitle", "spokenReminderToastText", "spokenReminderRetryButton"
@@ -1225,6 +1225,8 @@ function renderResult() {
   els.resultEyebrow.textContent = `${modeCopy()[0]} complete`;
   els.resultTitle.textContent = result.adaptiveLesson
     ? "Ten-line lesson profile"
+    : result.mode === "dictation"
+      ? "Dictation submitted"
     : result.failedReason || (result.placement ? "Baseline saved" : result.personalBest ? "New personal best" : "Results");
   els.resultScore.textContent = Number(result.score).toLocaleString();
   els.resultWpm.textContent = Math.round(result.wpm);
@@ -1233,9 +1235,13 @@ function renderResult() {
   els.resultConsistency.textContent = `${Math.round(result.consistency)}%`;
   els.resultCharacters.textContent = String(result.adaptiveLesson ? result.characters : state.charsTyped);
   els.resultTime.textContent = `${(result.elapsedMs / 1000).toFixed(1)}s`;
+  const hasDictationErrors = result.mode === "dictation" && Number.isFinite(Number(result.dictationErrors));
+  els.resultDictationErrorsWrap.classList.toggle("hidden", !hasDictationErrors);
+  if (hasDictationErrors) els.resultDictationErrors.textContent = String(Math.round(result.dictationErrors));
   const hasDictationFollowRate = result.mode === "dictation" && Number.isFinite(Number(result.dictationFollowRate));
   els.resultFollowRateWrap.classList.toggle("hidden", !hasDictationFollowRate);
   if (hasDictationFollowRate) els.resultFollowRate.textContent = `${Math.round(result.dictationFollowRate)}%`;
+  els.resultRestartBtn.textContent = result.mode === "dictation" ? "Next dictation" : "Restart";
   if (result.adaptiveLesson) renderAdaptiveLessonResult(result);
 }
 
@@ -2419,6 +2425,7 @@ function renderText() {
     els.dictationReplayButton.textContent = state.dictationAudioStatus === "playing"
       ? "Playing..."
       : state.dictationPromptHeard ? "Replay prompt" : "Play prompt";
+    els.dictationSubmitButton.disabled = !state.input.length;
   }
   if (state.mode === "zen") {
     els.typingText.innerHTML = `<span class="practice-line active">${escapeHtml(state.input || "\u00a0")}</span>`;
@@ -2634,6 +2641,11 @@ function handleKey(event) {
     renderText();
     renderLiveMetrics();
     if (prefs.keymapMode === "next") renderKeyboard();
+    return;
+  }
+  if (event.key === "Enter" && state.mode === "dictation" && state.input.length) {
+    event.preventDefault();
+    finishDictationLine();
     return;
   }
   if (event.key === "Enter" && prefs.quickEnd && testModes.has(state.mode) && state.startedAt && state.charsTyped) {
@@ -2966,6 +2978,25 @@ function finishWordSection() {
   }, 70);
 }
 
+function dictationPromptEvaluation() {
+  const target = currentTypingTarget();
+  const typed = state.input;
+  const comparedLength = Math.max(target.length, typed.length);
+  let correctCharacters = 0;
+  for (let index = 0; index < Math.min(target.length, typed.length); index++) {
+    if (target[index] === typed[index]) correctCharacters++;
+  }
+  const errors = Math.max(0, comparedLength - correctCharacters);
+  return {
+    targetCharacters: target.length,
+    typedCharacters: typed.length,
+    correctCharacters,
+    errors,
+    attempts: comparedLength,
+    accuracy: comparedLength ? (correctCharacters / comparedLength) * 100 : 0
+  };
+}
+
 function recordDictationPromptFollow() {
   if (state.mode !== "dictation" || state.dictationPromptRecorded) return;
   const targetCharacters = currentTypingTarget().length;
@@ -3005,33 +3036,58 @@ function dictationFollowSummary() {
   };
 }
 
-function finishDictationLine() {
-  recordDictationPromptFollow();
-  if (state.rowIndex >= state.targetRows.length - 1) {
-    progress.rowsCleared++;
-    save();
-    finishTest();
+async function nextDictationPrompt() {
+  if (state.mode !== "dictation") {
+    restart();
     return;
   }
+  let nextRows = state.targetRows;
+  let nextRowIndex = state.rowIndex + 1;
+  if (nextRowIndex >= nextRows.length) {
+    nextRows = await makeDictationRows();
+    if (state.mode !== "dictation") return;
+    nextRowIndex = 0;
+  }
+  const requestId = ++restartRequestId;
+  window.speechSynthesis?.cancel();
+  spokenReminderManager.stop();
+  state.targetRows = nextRows;
+  state.rowIndex = nextRowIndex;
+  state.input = "";
+  state.startedAt = null;
+  state.charsTyped = 0;
+  state.rawTyped = 0;
+  state.errors = 0;
+  state.lineErrors = 0;
+  state.characterErrors = 0;
+  state.lastAcceptedAt = null;
+  state.lastActivityAt = null;
+  state.lastKeyAt = null;
+  state.keyIntervals = [];
+  state.testCompleted = false;
+  state.result = null;
+  state.completion = false;
+  state.dictationAudioBlob = null;
+  state.dictationAudioStatus = "idle";
+  state.dictationPromptHeard = false;
+  state.dictationBrowserFallback = false;
+  state.dictationPromptId++;
+  state.dictationPromptStartedAt = null;
+  state.dictationPromptEndedAt = null;
+  state.dictationPromptDurationMs = 0;
+  state.dictationTypedDuringPrompt = 0;
+  state.dictationCorrectDuringPrompt = 0;
+  state.dictationPromptRecorded = false;
+  state.dictationFollowSamples = [];
+  render();
+  prepareDictationPrompt(requestId);
+}
+
+function finishDictationLine() {
+  recordDictationPromptFollow();
   progress.rowsCleared++;
   save();
-  els.completionBanner.textContent = state.lineErrors === 0 ? "Prompt cleared" : "Prompt cleared with errors";
-  els.completionBanner.classList.remove("hidden");
-  playReward((state.rowIndex % 9) + 1);
-  setTimeout(() => {
-    els.completionBanner.classList.add("hidden");
-    state.input = "";
-    state.lineErrors = 0;
-    state.characterErrors = 0;
-    state.lastAcceptedAt = null;
-    state.rowIndex++;
-    state.dictationAudioBlob = null;
-    state.dictationAudioStatus = "loading";
-    state.dictationPromptHeard = false;
-    state.dictationBrowserFallback = false;
-    render();
-    prepareDictationPrompt(restartRequestId);
-  }, 70);
+  finishTest();
 }
 
 function finishScripture() {
@@ -3065,7 +3121,18 @@ function finishTest() {
     window.speechSynthesis?.cancel();
     spokenReminderManager.stop();
   }
-  const metrics = currentMetrics();
+  let metrics = currentMetrics();
+  const dictationEvaluation = state.mode === "dictation" ? dictationPromptEvaluation() : null;
+  if (dictationEvaluation) {
+    const elapsedMinutes = Math.max(1 / 60, metrics.elapsedMs / 60000);
+    metrics = {
+      ...metrics,
+      raw: (dictationEvaluation.attempts / 5) / elapsedMinutes,
+      accuracy: dictationEvaluation.accuracy,
+      attempts: dictationEvaluation.attempts,
+      errors: dictationEvaluation.errors
+    };
+  }
   const previousBest = progress.lessonHistory
     .filter(item => item?.mode === state.mode)
     .reduce((best, item) => Math.max(best, Number(item.wpm) || 0), 0);
@@ -3074,6 +3141,12 @@ function finishTest() {
     raw: Number(metrics.raw.toFixed(1)),
     consistency: Number(metrics.consistency.toFixed(1)),
     elapsedMs: Math.round(metrics.elapsedMs),
+    ...(dictationEvaluation ? {
+      dictationCorrectCharacters: dictationEvaluation.correctCharacters,
+      dictationErrors: dictationEvaluation.errors,
+      dictationTargetCharacters: dictationEvaluation.targetCharacters,
+      dictationSubmittedCharacters: dictationEvaluation.typedCharacters
+    } : {}),
     ...dictationFollow
   });
   let failedReason = "";
@@ -3874,10 +3947,10 @@ function escapeHtml(text) {
 }
 
 const settingDescriptions = {
-  practiceMode: "Changes the active typing experience. Dictation plays a hidden sentence, waits for you to hear it, and judges the typed answer for speed and accuracy.",
+  practiceMode: "Changes the active typing experience. Dictation plays a hidden sentence while you type, then scores the submitted answer for speed, accuracy, errors, and follow rate.",
   testDuration: "Sets the length of timed tests.",
   testWordCount: "Sets Words and Creative test length up to 3,000 words. Only four lines are shown at once.",
-  dictationPromptCount: "Sets how many spoken prompts are in one dictation lesson. The lesson ends with the normal results page.",
+  dictationPromptCount: "Sets how many prompts are queued before Dictation starts a fresh batch. Each submitted prompt gets its own summary.",
   dictationCapitalization: "Choose whether Dictation requires uppercase letters or accepts the same words in lowercase.",
   dictationPunctuation: "Choose whether Dictation requires punctuation or accepts the spoken words without sentence marks.",
   quoteLength: "Limits general quotes to the selected length range.",
@@ -4171,6 +4244,10 @@ els.dictationReplayButton?.addEventListener("click", () => {
   playDictationPrompt();
 });
 
+els.dictationSubmitButton?.addEventListener("click", () => {
+  if (state.mode === "dictation" && state.input.length) finishDictationLine();
+});
+
 function fullscreenElement() {
   return document.fullscreenElement || document.webkitFullscreenElement || null;
 }
@@ -4268,7 +4345,10 @@ els.restartBtn.addEventListener("click", () => {
   if (state.mode === "creative" && prefs.creativeMode === "no_quit" && state.startedAt && !state.testCompleted) return;
   restart();
 });
-els.resultRestartBtn.addEventListener("click", restart);
+els.resultRestartBtn.addEventListener("click", () => {
+  if (state.mode === "dictation") nextDictationPrompt();
+  else restart();
+});
 els.adaptiveRecommendationButton.addEventListener("click", startRecommendedAdaptiveFocus);
 els.adaptiveModePicker.addEventListener("change", syncAdaptiveModeButton);
 els.adaptiveRepairFocusButton.addEventListener("click", startAdaptiveRepairFocus);
