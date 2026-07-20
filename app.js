@@ -492,7 +492,7 @@ const els = Object.fromEntries([
   "letterMastery", "letterLastSpeed", "letterTopSpeed", "letterAccuracy", "letterLearningRate", "letterLessons",
   "letterCurveCaption", "letterChart", "adaptiveResultDetails", "adaptiveStatsChart", "adaptiveRank", "adaptiveWeakestLetter", "adaptiveWeakestDetail",
   "adaptiveStrongestLetter", "adaptiveStrongestDetail", "adaptiveFastestWpm", "adaptiveSlowestWpm", "adaptiveErrors", "adaptiveConsistency",
-  "adaptiveMissedLetters", "adaptiveMissedSummary", "adaptiveTechniqueSummary", "adaptiveTechniqueList",
+  "adaptiveMissedLetters", "adaptiveMissedSummary", "adaptiveTechniqueSummary", "adaptiveTechniqueList", "adaptiveRepairFocusButton",
   "adaptiveRecommendationName", "adaptiveRecommendationReason", "adaptiveRecommendationButton", "settingsKeyboardMap",
   "letterFocusCheckbox", "letterFocusHint"
 ].map(id => [id, document.getElementById(id)]));
@@ -906,6 +906,9 @@ function adaptiveResultMissedLetters(result) {
 
 function renderAdaptiveRepairPlan(result, missedLetters) {
   const names = missedLetters.slice(0, 3).map(item => item.letter).join(", ");
+  const suggestedLetters = [...new Set(missedLetters.slice(0, 3).map(item => String(item.letter || "").toUpperCase()))]
+    .filter(letter => letterOrder.includes(letter))
+    .slice(0, 5);
   const techniqueItems = [];
   if (missedLetters.length) {
     techniqueItems.push({
@@ -937,6 +940,13 @@ function renderAdaptiveRepairPlan(result, missedLetters) {
       <strong>${escapeHtml(item.title)}</strong>
       <p>${escapeHtml(item.detail)}</p>
     </article>`).join("");
+  if (els.adaptiveRepairFocusButton) {
+    els.adaptiveRepairFocusButton.classList.toggle("hidden", !suggestedLetters.length);
+    els.adaptiveRepairFocusButton.dataset.focusLetters = suggestedLetters.join(",");
+    els.adaptiveRepairFocusButton.textContent = suggestedLetters.length
+      ? `Focus ${suggestedLetters.join(" / ")}`
+      : "Focus repair letters";
+  }
 }
 
 function renderAdaptiveMissedLetters(result) {
@@ -3080,6 +3090,19 @@ function startRecommendedAdaptiveFocus() {
   restart();
 }
 
+function startAdaptiveRepairFocus() {
+  const suggested = String(els.adaptiveRepairFocusButton.dataset.focusLetters || "")
+    .split(",")
+    .map(letter => letter.trim().toUpperCase())
+    .filter(letter => letterOrder.includes(letter));
+  if (!suggested.length) return;
+  prefs.focusLetters = letterOrder.filter(letter => suggested.includes(letter)).slice(0, 5);
+  prefs.mode = "adaptive";
+  state.mode = "adaptive";
+  save();
+  restart();
+}
+
 els.letterHeatmap.addEventListener("click", event => {
   const key = event.target.closest("[data-letter]");
   if (!key || key.disabled) return;
@@ -3114,6 +3137,7 @@ els.restartBtn.addEventListener("click", () => {
 });
 els.resultRestartBtn.addEventListener("click", restart);
 els.adaptiveRecommendationButton.addEventListener("click", startRecommendedAdaptiveFocus);
+els.adaptiveRepairFocusButton.addEventListener("click", startAdaptiveRepairFocus);
 els.statsBtn.addEventListener("click", () => els.statsDialog.showModal());
 els.reviewErrorsBtn.addEventListener("click", startErrorReview);
 els.fullscreenBtn.addEventListener("click", toggleFullscreen);
