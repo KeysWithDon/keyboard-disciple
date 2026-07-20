@@ -1678,6 +1678,7 @@ function renderPostureReminder() {
     state.postureReminderLastIndex = reminderIndex;
     state.postureReminder = lessonReminders[reminderIndex];
     state.postureReminderUntilRow = Math.min(rowsPerPage, state.rowIndex + 2);
+    playDinnerBell();
   }
   if (!state.postureReminder) {
     els.postureReminder.classList.add("hidden");
@@ -2575,6 +2576,30 @@ function tone(freq, dur, type = "square", gain = .045, delay = 0) {
     osc.stop(start + dur);
   });
 }
+function playDinnerBell() {
+  unlockAudio();
+  withAudioReady(c => {
+    const strike = c.currentTime;
+    [
+      [659.25, .048, 1.18],
+      [1318.5, .026, .92],
+      [1977.75, .014, .72],
+      [2637, .008, .56]
+    ].forEach(([frequency, gainValue, duration]) => {
+      const oscillator = c.createOscillator();
+      const gain = c.createGain();
+      oscillator.type = "sine";
+      oscillator.frequency.setValueAtTime(frequency, strike);
+      oscillator.frequency.exponentialRampToValueAtTime(frequency * .994, strike + duration);
+      gain.gain.setValueAtTime(.0001, strike);
+      gain.gain.exponentialRampToValueAtTime(gainValue * Number(prefs.soundVolume), strike + .008);
+      gain.gain.exponentialRampToValueAtTime(.0001, strike + duration);
+      oscillator.connect(gain).connect(c.destination);
+      oscillator.start(strike);
+      oscillator.stop(strike + duration + .02);
+    });
+  });
+}
 function playDecodedBuffer(buffer, gainValue = 1) {
   if (!buffer) return false;
   const c = ctx();
@@ -2929,7 +2954,7 @@ const settingDescriptions = {
   keymapStyle: "Displays the keyboard as staggered, matrix, or split rows.",
   keymapLegend: "Shows uppercase, lowercase, or blank letter keys.",
   soundStyle: "Chooses the keystroke sound played for accepted keys.",
-  soundVolume: "Sets the volume of keystrokes, errors, warnings, and rewards.",
+  soundVolume: "Sets the volume of keystrokes, errors, warnings, reminders, and rewards.",
   rewardStyle: "Chooses the sound used when a line or full section is completed.",
   errorStyle: "Chooses the sound played when an incorrect key is blocked.",
   timeWarning: "Chooses how many seconds before a timed test ends to play a warning.",
