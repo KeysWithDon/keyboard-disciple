@@ -434,6 +434,21 @@ button, select, input, textarea { font-family: inherit; }
 .heat-key.locked { opacity: .36; }
 .heat-key:not(:disabled):hover { transform: translateY(-1px); color: var(--text); }
 
+/* Keep the glyph legible while the tile surface carries progress. */
+.letter-hud .heat-key,
+.letter-hud .heat-key.sampled,
+.letter-hud .heat-key.focus,
+.letter-hud .heat-key.next,
+.letter-hud .heat-key.locked,
+.letter-hud .heat-key:not(:disabled):hover {
+  color: #fff;
+  text-shadow:
+    0 0 1px rgb(255 255 255 / 95%),
+    0 0 5px color-mix(in srgb, var(--gold) 78%, #fff),
+    0 0 12px color-mix(in srgb, var(--gold) 45%, transparent);
+}
+.letter-hud .heat-key.locked { opacity: 1; }
+
 .confidence-scale { display: flex; align-items: center; justify-content: flex-end; gap: 6px; color: var(--faint); font-size: 8px; text-transform: uppercase; }
 .confidence-scale i { width: 58px; height: 2px; background: linear-gradient(90deg, var(--red), var(--gold), var(--green)); }
 .unlock-meter { height: 1px; overflow: hidden; background: var(--line); }
