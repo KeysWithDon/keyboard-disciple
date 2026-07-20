@@ -7,6 +7,7 @@ const masteryRequiredAttempts = 540;
 const STORAGE_KEY = "keyboard-disciple-web";
 const keyboardSoundStyles = new Set([...Array.from({ length: 26 }, (_, index) => String(index + 1)), "off"]);
 const rewardSoundStyles = new Set(["preacher", "key-bloom", "glass-keys"]);
+const reminderSoundStyles = new Set(["bike", "dinner", "trumpet"]);
 const errorSoundStyles = new Set(["1", "2", "3", "4", "off"]);
 const practicePresetStyles = new Set(["balanced", "weak", "accuracy", "speed", "finger", "alternation"]);
 const practicePresetDescriptions = {
@@ -173,8 +174,8 @@ const state = {
   lastQuote: null,
   lastRestReminder: 0,
   techniqueMessageUntil: 0,
-  postureReminderNextRow: 3,
-  postureReminderUntilRow: -1,
+  postureReminderRow: -1,
+  postureReminderAtWord: 3,
   postureReminder: null,
   postureReminderLastIndex: -1
 };
@@ -239,6 +240,7 @@ const defaultPrefs = {
   soundStyle: "1",
   soundVolume: .5,
   rewardStyle: "preacher",
+  reminderSound: "dinner",
   errorStyle: "1",
   timeWarning: "off",
   theme: "disciple",
@@ -281,6 +283,7 @@ prefs.minBurst = Math.max(0, Math.min(200, Number(prefs.minBurst) || 0));
 if (!keyboardSoundStyles.has(prefs.soundStyle)) prefs.soundStyle = defaultPrefs.soundStyle;
 if (!keyboardLayouts[prefs.keyboardLayout]) prefs.keyboardLayout = defaultPrefs.keyboardLayout;
 if (!rewardSoundStyles.has(prefs.rewardStyle)) prefs.rewardStyle = defaultPrefs.rewardStyle;
+if (!reminderSoundStyles.has(prefs.reminderSound)) prefs.reminderSound = defaultPrefs.reminderSound;
 if (!errorSoundStyles.has(prefs.errorStyle)) prefs.errorStyle = defaultPrefs.errorStyle;
 if (!practicePresetStyles.has(prefs.practicePreset)) prefs.practicePreset = defaultPrefs.practicePreset;
 if (!creativeModeStyles.has(prefs.creativeMode)) prefs.creativeMode = defaultPrefs.creativeMode;
@@ -1525,10 +1528,11 @@ async function restart() {
   state.memoryVisible = true;
   state.lastRestReminder = 0;
   state.techniqueMessageUntil = 0;
-  state.postureReminderNextRow = 2 + Math.floor(Math.random() * 3);
-  state.postureReminderUntilRow = -1;
+  state.postureReminderRow = -1;
+  state.postureReminderAtWord = 3;
   state.postureReminder = null;
   state.postureReminderLastIndex = -1;
+  stopReminderSound();
   els.completionBanner.classList.add("hidden");
   if (state.mode === "adaptive") {
     state.targetRows = makeAdaptiveRows(rowsPerPage * 2);
@@ -1658,6 +1662,39 @@ function render() {
   els.keyboardWrap.classList.toggle("hidden", prefs.keymapMode === "off" || state.testCompleted);
 }
 
+function currentRowWordCount() {
+  return (String(currentTarget()).match(/\S+/g) || []).length;
+}
+
+function preparePostureReminderRow() {
+  const wordCount = currentRowWordCount();
+  const midpoint = Math.max(1, Math.round(wordCount / 2));
+  const offset = Math.floor(Math.random() * 5) - 2;
+  state.postureReminderAtWord = Math.max(1, Math.min(Math.max(1, wordCount - 1), midpoint + offset));
+  state.postureReminderRow = state.rowIndex;
+  state.postureReminder = null;
+}
+
+function completedWordsInCurrentRow() {
+  const prefix = String(currentTarget()).slice(0, state.input.length);
+  return (prefix.match(/\s+/g) || []).length;
+}
+
+function maybeShowPostureReminder() {
+  if (state.mode !== "adaptive" || state.testCompleted || !currentTarget()) return;
+  if (state.postureReminderRow !== state.rowIndex) preparePostureReminderRow();
+  if (state.postureReminder || completedWordsInCurrentRow() < state.postureReminderAtWord) return;
+
+  let reminderIndex = Math.floor(Math.random() * lessonReminders.length);
+  if (lessonReminders.length > 1 && reminderIndex === state.postureReminderLastIndex) {
+    reminderIndex = (reminderIndex + 1) % lessonReminders.length;
+  }
+  state.postureReminderLastIndex = reminderIndex;
+  state.postureReminder = lessonReminders[reminderIndex];
+  playReminderSound();
+  renderPostureReminder();
+}
+
 function renderPostureReminder() {
   if (!els.postureReminder) return;
   const isAdaptiveLesson = state.mode === "adaptive" && !state.testCompleted;
@@ -1666,20 +1703,7 @@ function renderPostureReminder() {
     return;
   }
 
-  if (state.postureReminder && state.rowIndex >= state.postureReminderUntilRow) {
-    state.postureReminder = null;
-    state.postureReminderNextRow = state.rowIndex + 3 + Math.floor(Math.random() * 3);
-  }
-  if (!state.postureReminder && state.rowIndex >= state.postureReminderNextRow && state.rowIndex < rowsPerPage) {
-    let reminderIndex = Math.floor(Math.random() * lessonReminders.length);
-    if (lessonReminders.length > 1 && reminderIndex === state.postureReminderLastIndex) {
-      reminderIndex = (reminderIndex + 1) % lessonReminders.length;
-    }
-    state.postureReminderLastIndex = reminderIndex;
-    state.postureReminder = lessonReminders[reminderIndex];
-    state.postureReminderUntilRow = Math.min(rowsPerPage, state.rowIndex + 2);
-    playDinnerBell();
-  }
+  if (state.postureReminderRow !== state.rowIndex) preparePostureReminderRow();
   if (!state.postureReminder) {
     els.postureReminder.classList.add("hidden");
     return;
@@ -2254,6 +2278,7 @@ function handleKey(event) {
     finishLine();
     return;
   }
+  maybeShowPostureReminder();
   renderText();
   renderLiveMetrics();
   renderPerformance();
@@ -2576,27 +2601,55 @@ function tone(freq, dur, type = "square", gain = .045, delay = 0) {
     osc.stop(start + dur);
   });
 }
-function playDinnerBell() {
+const activeReminderNodes = new Set();
+function trackReminderNode(node) {
+  activeReminderNodes.add(node);
+  node.addEventListener("ended", () => activeReminderNodes.delete(node), { once: true });
+  return node;
+}
+function stopReminderSound() {
+  [...activeReminderNodes].forEach(node => {
+    try { node.stop(); } catch (_) {}
+  });
+  activeReminderNodes.clear();
+}
+function playReminderSound(style = prefs.reminderSound) {
   unlockAudio();
+  if (!reminderSoundStyles.has(style) || Number(prefs.soundVolume) <= 0) return;
   withAudioReady(c => {
     const strike = c.currentTime;
-    [
-      [659.25, .048, 1.18],
-      [1318.5, .026, .92],
-      [1977.75, .014, .72],
-      [2637, .008, .56]
-    ].forEach(([frequency, gainValue, duration]) => {
+    const tones = {
+      bike: [
+        [1318.5, .22, .72, 0, "sine"],
+        [1760, .12, .56, .02, "sine"],
+        [1568, .1, .62, .13, "sine"]
+      ],
+      dinner: [
+        [659.25, .22, 1.18, 0, "sine"],
+        [1318.5, .12, .92, 0, "sine"],
+        [1977.75, .06, .72, 0, "sine"],
+        [2637, .035, .56, 0, "sine"]
+      ],
+      trumpet: [
+        [392, .26, .5, 0, "sawtooth"],
+        [784, .1, .42, 0, "triangle"],
+        [1174.65, .055, .34, 0, "sine"]
+      ]
+    }[style];
+    tones.forEach(([frequency, gainValue, duration, delay, type]) => {
+      const start = strike + delay;
       const oscillator = c.createOscillator();
       const gain = c.createGain();
-      oscillator.type = "sine";
-      oscillator.frequency.setValueAtTime(frequency, strike);
-      oscillator.frequency.exponentialRampToValueAtTime(frequency * .994, strike + duration);
-      gain.gain.setValueAtTime(.0001, strike);
-      gain.gain.exponentialRampToValueAtTime(gainValue * Number(prefs.soundVolume), strike + .008);
-      gain.gain.exponentialRampToValueAtTime(.0001, strike + duration);
+      oscillator.type = type;
+      oscillator.frequency.setValueAtTime(frequency, start);
+      oscillator.frequency.exponentialRampToValueAtTime(frequency * .994, start + duration);
+      gain.gain.setValueAtTime(.0001, start);
+      gain.gain.exponentialRampToValueAtTime(gainValue * Number(prefs.soundVolume), start + .012);
+      gain.gain.exponentialRampToValueAtTime(.0001, start + duration);
       oscillator.connect(gain).connect(c.destination);
-      oscillator.start(strike);
-      oscillator.stop(strike + duration + .02);
+      trackReminderNode(oscillator);
+      oscillator.start(start);
+      oscillator.stop(start + duration + .02);
     });
   });
 }
@@ -2878,6 +2931,7 @@ function playGlassKeys(isSection) {
 }
 
 function playReward(completedRow) {
+  stopReminderSound();
   stopRewardSound();
   const isSection = completedRow === rowsPerPage;
   if (prefs.rewardStyle === "key-bloom") {
@@ -2956,6 +3010,7 @@ const settingDescriptions = {
   soundStyle: "Chooses the keystroke sound played for accepted keys.",
   soundVolume: "Sets the volume of keystrokes, errors, warnings, reminders, and rewards.",
   rewardStyle: "Chooses the sound used when a line or full section is completed.",
+  reminderSound: "Chooses the cue that appears during the middle of a practice row with a posture or breathing reminder.",
   errorStyle: "Chooses the sound played when an incorrect key is blocked.",
   timeWarning: "Chooses how many seconds before a timed test ends to play a warning.",
   typingSounds: "Turns accepted-keystroke sounds on or off without changing the selected sound.",
@@ -3033,7 +3088,7 @@ function setupSettings() {
     "repeatQuotes", "resultSaving", "minWpm", "minAccuracy", "minBurst", "indicateTypos", "confidenceMode", "errorLimit",
     "theme", "fontFamily", "lessonColor", "currentCue", "caretStyle", "smoothCaret", "typedEffect", "highlightMode", "fontSize",
     "lineWidth", "tapeMode", "timerStyle", "speedUnit", "keyboardLayout", "keyboardSize", "keymapMode", "keymapStyle",
-    "keymapLegend", "soundStyle", "soundVolume", "rewardStyle", "errorStyle", "timeWarning", "practiceLetters",
+    "keymapLegend", "soundStyle", "soundVolume", "rewardStyle", "reminderSound", "errorStyle", "timeWarning", "practiceLetters",
     "targetSpeed", "practicePreset", "wordsPerRow", "dailyGoalMinutes", "bibleBook", "bibleChapter", "bibleStart", "bibleEnd"
   ];
   const prefKeys = { practiceMode: "mode" };
@@ -3075,6 +3130,8 @@ function setupSettings() {
       } else if (id === "rewardStyle") {
         stopRewardSound();
         playReward(1);
+      } else if (id === "reminderSound") {
+        playReminderSound();
       } else if (id === "errorStyle" && prefs.errorSounds) {
         ensureErrorSoundStyle(prefs.errorStyle).then(playError);
       } else if (id === "timeWarning" && prefs.timeWarning !== "off") {
