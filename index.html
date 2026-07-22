@@ -13,8 +13,8 @@
   <link rel="canonical" href="https://keyswithdon.github.io/keyboard-disciple/">
   <link rel="sitemap" type="application/xml" href="https://keyswithdon.github.io/keyboard-disciple/sitemap.xml">
   <link rel="icon" href="assets/keyboard-disciple-mark.png">
-    <link rel="stylesheet" href="styles.css?v=20260722-keyboard-fit">
-    <link rel="stylesheet" href="refresh.css?v=20260722-keyboard-fit">
+    <link rel="stylesheet" href="styles.css?v=20260722-settings-feng-shui">
+    <link rel="stylesheet" href="refresh.css?v=20260722-settings-feng-shui">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Keyboard Disciple">
   <meta property="og:title" content="Keyboard Disciple | Free Typing Practice Game">
@@ -306,19 +306,19 @@
         <button value="close" class="icon-button" aria-label="Close settings">×</button>
       </header>
       <nav class="settings-nav" aria-label="Settings sections">
-        <button type="button" data-settings-jump="test">Test</button>
+        <button type="button" data-settings-jump="test">Lesson</button>
+        <button type="button" data-settings-jump="progress">Adaptive</button>
         <button type="button" data-settings-jump="input">Behavior</button>
         <button type="button" data-settings-jump="display">Appearance</button>
         <button type="button" data-settings-jump="keyboard">Keyboard</button>
         <button type="button" data-settings-jump="audio">Audio</button>
-        <button type="button" data-settings-jump="progress">Adaptive</button>
       </nav>
       <div class="settings-layout settings-page">
         <div class="settings-panes">
           <section class="settings-pane active" data-settings-panel="test">
             <div class="settings-section-heading">
               <span>01</span>
-              <div><h3>Test</h3><p>Choose the experience here. The practice screen stays clear.</p></div>
+              <div><h3>Lesson</h3><p>Choose the experience here. The practice screen stays clear.</p></div>
             </div>
             <div class="settings-grid">
               <label>Mode
@@ -333,14 +333,6 @@
                   <option value="creative">Creative lab</option>
                   <option value="bible">Scripture reading</option>
                   <option value="bibleQuotes">Bible quotes</option>
-                </select>
-              </label>
-              <label>Default time
-                <select id="testDuration">
-                  <option value="15">15 seconds</option>
-                  <option value="30" selected>30 seconds</option>
-                  <option value="60">60 seconds</option>
-                  <option value="120">120 seconds</option>
                 </select>
               </label>
               <label>Lesson length
@@ -359,8 +351,51 @@
                   <option value="100">100 pages</option>
                 </select>
               </label>
+              <label>Default time
+                <select id="testDuration">
+                  <option value="15">15 seconds</option>
+                  <option value="30" selected>30 seconds</option>
+                  <option value="60">60 seconds</option>
+                  <option value="120">120 seconds</option>
+                </select>
+              </label>
               <label>Word count
                 <input id="testWordCount" type="number" min="1" max="3000" step="1" value="50" inputmode="numeric">
+              </label>
+              <label>Quote length
+                <select id="quoteLength">
+                  <option value="short">Short</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="long">Long</option>
+                  <option value="epic">Epic</option>
+                </select>
+              </label>
+              <label>Difficulty
+                <select id="difficulty">
+                  <option value="normal">Normal</option>
+                  <option value="expert">Expert</option>
+                  <option value="master">Master</option>
+                </select>
+              </label>
+              <label>Creative mode
+                <select id="creativeMode"></select>
+                <small class="setting-help creative-description" id="creativeModeDescription">Focuses the weakest letters in your saved progress.</small>
+              </label>
+              <label>Capitalization
+                <select id="capitalization">
+                  <option value="source">Source</option>
+                  <option value="lower">Lowercase only</option>
+                  <option value="sentences">Sentence case</option>
+                  <option value="words">Each Word</option>
+                </select>
+              </label>
+              <label>Quick restart
+                <select id="quickRestart">
+                  <option value="off">Off</option>
+                  <option value="escape">Escape</option>
+                  <option value="tab">Tab</option>
+                  <option value="enter">Enter</option>
+                </select>
               </label>
               <label>Dictation prompts
                 <select id="dictationPromptCount">
@@ -383,41 +418,6 @@
                   <option value="ignore">Ignore punctuation</option>
                 </select>
               </label>
-              <label>Quote length
-                <select id="quoteLength">
-                  <option value="short">Short</option>
-                  <option value="medium" selected>Medium</option>
-                  <option value="long">Long</option>
-                  <option value="epic">Epic</option>
-                </select>
-              </label>
-              <label>Difficulty
-                <select id="difficulty">
-                  <option value="normal">Normal</option>
-                  <option value="expert">Expert</option>
-                  <option value="master">Master</option>
-                </select>
-              </label>
-              <label>Capitalization
-                <select id="capitalization">
-                  <option value="source">Source</option>
-                  <option value="lower">Lowercase only</option>
-                  <option value="sentences">Sentence case</option>
-                  <option value="words">Each Word</option>
-                </select>
-              </label>
-              <label>Quick restart
-                <select id="quickRestart">
-                  <option value="off">Off</option>
-                  <option value="escape">Escape</option>
-                  <option value="tab">Tab</option>
-                  <option value="enter">Enter</option>
-                </select>
-              </label>
-              <label>Creative mode
-                <select id="creativeMode"></select>
-                <small class="setting-help creative-description" id="creativeModeDescription">Focuses the weakest letters in your saved progress.</small>
-              </label>
             </div>
             <div class="toggle-list">
               <label><input type="checkbox" id="includePunctuation" checked> Punctuation</label>
@@ -434,9 +434,80 @@
             </div>
           </section>
 
-          <section class="settings-pane" data-settings-panel="input">
+          <section class="settings-pane" data-settings-panel="progress">
             <div class="settings-section-heading">
               <span>02</span>
+              <div><h3>Adaptive Learning</h3><p>Set the goal; choose focus letters from the main letter tracker.</p></div>
+            </div>
+            <div class="settings-grid">
+              <label>Starting alphabet
+                <select id="practiceLetters"></select>
+              </label>
+              <label>Target speed
+                <select id="targetSpeed">
+                  <option value="20">20 WPM</option>
+                  <option value="25">25 WPM</option>
+                  <option value="30">30 WPM</option>
+                  <option value="35" selected>35 WPM</option>
+                  <option value="40">40 WPM</option>
+                  <option value="50">50 WPM</option>
+                  <option value="60">60 WPM</option>
+                  <option value="70">70 WPM</option>
+                  <option value="80">80 WPM</option>
+                  <option value="90">90 WPM</option>
+                  <option value="100">100 WPM</option>
+                  <option value="120">120 WPM</option>
+                  <option value="140">140 WPM</option>
+                  <option value="160">160 WPM</option>
+                  <option value="180">180 WPM</option>
+                  <option value="200">200 WPM</option>
+                  <option value="225">225 WPM</option>
+                  <option value="250">250 WPM</option>
+                  <option value="275">275 WPM</option>
+                  <option value="300">300 WPM</option>
+                </select>
+              </label>
+              <label>Practice focus
+                <select id="practicePreset">
+                  <option value="balanced">Balanced</option>
+                  <option value="weak">Weak keys</option>
+                  <option value="accuracy">Accuracy repair</option>
+                  <option value="speed">Speed builder</option>
+                  <option value="finger">Finger focus</option>
+                  <option value="alternation">Hand alternation</option>
+                  <option value="workout">Zone workout</option>
+                </select>
+                <small class="setting-help practice-focus-description" id="practicePresetDescription">Mixes common words, weak-letter focus, and gradually introduced moderate vocabulary for steady progress.</small>
+              </label>
+              <label>Words per row
+                <select id="wordsPerRow">
+                  <option value="8">8 words</option>
+                  <option value="10" selected>10 words</option>
+                  <option value="12">12 words</option>
+                </select>
+              </label>
+              <label>Daily goal
+                <select id="dailyGoalMinutes">
+                  <option value="2">2 minutes</option>
+                  <option value="5">5 minutes</option>
+                  <option value="10">10 minutes</option>
+                  <option value="15" selected>15 minutes</option>
+                  <option value="20">20 minutes</option>
+                  <option value="30">30 minutes</option>
+                  <option value="45">45 minutes</option>
+                  <option value="60">60 minutes</option>
+                </select>
+              </label>
+            </div>
+            <div class="toggle-list">
+              <label><input type="checkbox" id="recoverKeys" checked> Recover weaker earned letters</label>
+              <label><input type="checkbox" id="naturalWords" checked> Prefer natural words</label>
+            </div>
+          </section>
+
+          <section class="settings-pane" data-settings-panel="input">
+            <div class="settings-section-heading">
+              <span>03</span>
               <div><h3>Behavior</h3><p>Control how strict, quiet, or competitive each lesson feels.</p></div>
             </div>
             <div class="settings-grid">
@@ -519,7 +590,7 @@
 
           <section class="settings-pane" data-settings-panel="display">
             <div class="settings-section-heading">
-              <span>03</span>
+              <span>04</span>
               <div><h3>Appearance</h3><p>Keep the page calm while making the words unmistakably yours.</p></div>
             </div>
             <div class="settings-grid">
@@ -551,11 +622,35 @@
                   <option value="white">White</option>
                 </select>
               </label>
+              <label>Text size
+                <select id="fontSize">
+                  <option value="small">Small</option>
+                  <option value="medium" selected>Medium</option>
+                  <option value="large">Large</option>
+                  <option value="xlarge">Extra large</option>
+                </select>
+              </label>
+              <label>Line width
+                <select id="lineWidth">
+                  <option value="compact">Compact</option>
+                  <option value="comfortable" selected>Comfortable</option>
+                  <option value="wide">Wide</option>
+                  <option value="full">Full</option>
+                </select>
+              </label>
               <label>Current letter
                 <select id="currentCue">
                   <option value="highlight">Highlight</option>
                   <option value="underline">Underline</option>
                   <option value="color">Color</option>
+                </select>
+              </label>
+              <label>Highlight
+                <select id="highlightMode">
+                  <option value="letter">Letter</option>
+                  <option value="word">Word</option>
+                  <option value="next-word">Next word</option>
+                  <option value="off">Off</option>
                 </select>
               </label>
               <label>Caret
@@ -581,30 +676,6 @@
                   <option value="fade">Fade</option>
                   <option value="hide">Hide completed words</option>
                   <option value="dots">Dots</option>
-                </select>
-              </label>
-              <label>Highlight
-                <select id="highlightMode">
-                  <option value="letter">Letter</option>
-                  <option value="word">Word</option>
-                  <option value="next-word">Next word</option>
-                  <option value="off">Off</option>
-                </select>
-              </label>
-              <label>Text size
-                <select id="fontSize">
-                  <option value="small">Small</option>
-                  <option value="medium" selected>Medium</option>
-                  <option value="large">Large</option>
-                  <option value="xlarge">Extra large</option>
-                </select>
-              </label>
-              <label>Line width
-                <select id="lineWidth">
-                  <option value="compact">Compact</option>
-                  <option value="comfortable" selected>Comfortable</option>
-                  <option value="wide">Wide</option>
-                  <option value="full">Full</option>
                 </select>
               </label>
               <label>Tape mode
@@ -647,10 +718,18 @@
 
           <section class="settings-pane" data-settings-panel="keyboard">
             <div class="settings-section-heading">
-              <span>04</span>
+              <span>05</span>
               <div><h3>Keyboard</h3><p>Use finger zones, live presses, or a clean keyboard-free view.</p></div>
             </div>
             <div class="settings-grid">
+              <label>Keyboard view
+                <select id="keymapMode">
+                  <option value="react">Reactive</option>
+                  <option value="next">Next key</option>
+                  <option value="static">Static</option>
+                  <option value="off">Off</option>
+                </select>
+              </label>
               <label>Keyboard layout
                 <select id="keyboardLayout">
                   <option value="mac">Mac</option>
@@ -666,14 +745,6 @@
                   <option value="large">Large</option>
                 </select>
               </label>
-              <label>Keyboard view
-                <select id="keymapMode">
-                  <option value="react">Reactive</option>
-                  <option value="next">Next key</option>
-                  <option value="static">Static</option>
-                  <option value="off">Off</option>
-                </select>
-              </label>
               <label>Key legends
                 <select id="keymapLegend">
                   <option value="uppercase">Uppercase</option>
@@ -686,10 +757,18 @@
 
           <section class="settings-pane" data-settings-panel="audio">
             <div class="settings-section-heading">
-              <span>05</span>
+              <span>06</span>
               <div><h3>Audio</h3><p>Accepted keys, blocked mistakes, and lesson rewards.</p></div>
             </div>
             <div class="settings-grid">
+              <label>Volume
+                <select id="soundVolume">
+                  <option value="0.25">25%</option>
+                  <option value="0.5" selected>50%</option>
+                  <option value="0.75">75%</option>
+                  <option value="1">100%</option>
+                </select>
+              </label>
               <label>Keystroke sound
                 <select id="soundStyle">
                   <option value="off">Off</option>
@@ -719,14 +798,6 @@
                   <option value="24">Razer Green</option>
                   <option value="25">Tealios V2</option>
                   <option value="26">Trust GXT</option>
-                </select>
-              </label>
-              <label>Volume
-                <select id="soundVolume">
-                  <option value="0.25">25%</option>
-                  <option value="0.5" selected>50%</option>
-                  <option value="0.75">75%</option>
-                  <option value="1">100%</option>
                 </select>
               </label>
               <label>Reward sound
@@ -763,8 +834,8 @@
               </label>
             </div>
             <div class="toggle-list">
-              <label><input type="checkbox" id="typingSounds" checked> Typing sounds</label>
               <label><input type="checkbox" id="errorSounds" checked> Error sounds</label>
+              <label><input type="checkbox" id="typingSounds" checked> Typing sounds</label>
             </div>
             <section class="spoken-reminder-settings" aria-labelledby="spokenReminderSettingsTitle">
               <div class="spoken-reminder-heading">
@@ -805,77 +876,6 @@
                 <span id="spokenReminderStatus" role="status" aria-live="polite">Spoken reminders are off.</span>
               </div>
             </section>
-          </section>
-
-          <section class="settings-pane" data-settings-panel="progress">
-            <div class="settings-section-heading">
-              <span>06</span>
-              <div><h3>Adaptive Learning</h3><p>Set the goal; choose focus letters from the main letter tracker.</p></div>
-            </div>
-            <div class="settings-grid">
-              <label>Starting alphabet
-                <select id="practiceLetters"></select>
-              </label>
-              <label>Target speed
-                <select id="targetSpeed">
-                  <option value="20">20 WPM</option>
-                  <option value="25">25 WPM</option>
-                  <option value="30">30 WPM</option>
-                  <option value="35" selected>35 WPM</option>
-                  <option value="40">40 WPM</option>
-                  <option value="50">50 WPM</option>
-                  <option value="60">60 WPM</option>
-                  <option value="70">70 WPM</option>
-                  <option value="80">80 WPM</option>
-                  <option value="90">90 WPM</option>
-                  <option value="100">100 WPM</option>
-                  <option value="120">120 WPM</option>
-                  <option value="140">140 WPM</option>
-                  <option value="160">160 WPM</option>
-                  <option value="180">180 WPM</option>
-                  <option value="200">200 WPM</option>
-                  <option value="225">225 WPM</option>
-                  <option value="250">250 WPM</option>
-                  <option value="275">275 WPM</option>
-                  <option value="300">300 WPM</option>
-                </select>
-              </label>
-              <label>Practice focus
-                <select id="practicePreset">
-                  <option value="balanced">Balanced</option>
-                  <option value="weak">Weak keys</option>
-                  <option value="accuracy">Accuracy repair</option>
-                  <option value="speed">Speed builder</option>
-                  <option value="finger">Finger focus</option>
-                  <option value="alternation">Hand alternation</option>
-                  <option value="workout">Zone workout</option>
-                </select>
-                <small class="setting-help practice-focus-description" id="practicePresetDescription">Mixes common words, weak-letter focus, and gradually introduced moderate vocabulary for steady progress.</small>
-              </label>
-              <label>Words per row
-                <select id="wordsPerRow">
-                  <option value="8">8 words</option>
-                  <option value="10" selected>10 words</option>
-                  <option value="12">12 words</option>
-                </select>
-              </label>
-              <label>Daily goal
-                <select id="dailyGoalMinutes">
-                  <option value="2">2 minutes</option>
-                  <option value="5">5 minutes</option>
-                  <option value="10">10 minutes</option>
-                  <option value="15" selected>15 minutes</option>
-                  <option value="20">20 minutes</option>
-                  <option value="30">30 minutes</option>
-                  <option value="45">45 minutes</option>
-                  <option value="60">60 minutes</option>
-                </select>
-              </label>
-            </div>
-            <div class="toggle-list">
-              <label><input type="checkbox" id="recoverKeys" checked> Recover weaker earned letters</label>
-              <label><input type="checkbox" id="naturalWords" checked> Prefer natural words</label>
-            </div>
           </section>
         </div>
       </div>
@@ -927,6 +927,6 @@
     </form>
   </dialog>
 
-    <script src="app.js?v=20260722-keyboard-fit"></script>
+    <script src="app.js?v=20260722-settings-feng-shui"></script>
 </body>
 </html>
