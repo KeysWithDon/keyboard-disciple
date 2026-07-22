@@ -12,7 +12,7 @@ const masteryRequiredAttempts = 540;
 const STORAGE_KEY = "keyboard-disciple-web";
 const keyboardSoundStyles = new Set([...Array.from({ length: 26 }, (_, index) => String(index + 1)), "off"]);
 const rewardSoundStyles = new Set(["preacher", "key-bloom", "glass-keys"]);
-const reminderSoundStyles = new Set(["bike", "dinner", "trumpet"]);
+const reminderSoundStyles = new Set(["bell", "doorbell", "bike"]);
 const errorSoundStyles = new Set(["1", "2", "3", "4", "off"]);
 const practicePresetStyles = new Set(["balanced", "weak", "accuracy", "speed", "finger", "alternation", "workout"]);
 const practicePresetDescriptions = {
@@ -328,7 +328,7 @@ const defaultPrefs = {
   soundStyle: "1",
   soundVolume: .5,
   rewardStyle: "preacher",
-  reminderSound: "dinner",
+  reminderSound: "doorbell",
   spokenRemindersEnabled: false,
   reminderTtsModel: "chatterbox-english",
   reminderVoiceId: "default-english",
@@ -492,54 +492,54 @@ const rareLetterFocusWords = {
 };
 const rareLetterFocusPool = [...new Set(Object.values(rareLetterFocusWords).flat())];
 const creativeCatalog = [
-  ["weakspot", "Weakspot", "Focuses slow and mistyped letters from your saved progress."],
-  ["58008", "58008", "A numbers-only challenge."],
-  ["mirror", "Mirror", "Mirrors the practice text horizontally."],
-  ["upside_down", "Upside Down", "Turns the entire practice line upside down."],
-  ["nausea", "Nausea", "Adds a gentle moving challenge to the practice line."],
-  ["round_round_baby", "Round Round Baby", "Rotates the practice line while you type."],
-  ["simon_says", "Simon Says", "Shows only the word you are meant to follow."],
-  ["tts", "Listen Closely", "Reads the line aloud and hides the untyped text."],
-  ["choo_choo", "Choo Choo", "Spins the current character."],
+  ["weakspot", "Repair Drill", "Focuses slow and mistyped letters from your saved progress."],
+  ["58008", "Number Path", "A numbers-only challenge."],
+  ["mirror", "Reflection Line", "Mirrors the practice text horizontally."],
+  ["upside_down", "Inverted Line", "Turns the entire practice line upside down."],
+  ["nausea", "Steady Eyes", "Adds a gentle moving challenge to the practice line."],
+  ["round_round_baby", "Compass Spin", "Rotates the practice line while you type."],
+  ["simon_says", "Follow the Lead", "Shows only the word you are meant to follow."],
+  ["tts", "Hear and Type", "Reads the line aloud and hides the untyped text."],
+  ["choo_choo", "Rolling Letter", "Spins the current character."],
   ["arrows", "Arrows", "Use the four arrow keys instead of letters."],
-  ["rAnDoMcAsE", "Random Case", "Randomizes the capitalization of each letter."],
-  ["sPoNgEcAsE", "Sponge Case", "Alternates upper and lower case."],
-  ["capitals", "Capitals", "Capitalizes every word."],
-  ["layout_mirror", "Layout Mirror", "Mirrors the on-screen keyboard layout."],
-  ["layoutfluid", "Layout Fluid", "Cycles the visible keyboard style after each line."],
-  ["earthquake", "Earthquake", "Shakes the current character."],
-  ["space_balls", "Space Balls", "Tilts the text into a distant perspective."],
-  ["gibberish", "Gibberish", "Generates pronounceable-looking nonsense words."],
+  ["rAnDoMcAsE", "Case Shuffle", "Randomizes the capitalization of each letter."],
+  ["sPoNgEcAsE", "Case Ladder", "Alternates upper and lower case."],
+  ["capitals", "Crown Words", "Capitalizes every word."],
+  ["layout_mirror", "Keyboard Reflection", "Mirrors the on-screen keyboard layout."],
+  ["layoutfluid", "Keyboard Current", "Cycles the visible keyboard style after each line."],
+  ["earthquake", "Tremor Letter", "Shakes the current character."],
+  ["space_balls", "Deep Space Line", "Tilts the text into a distant perspective."],
+  ["gibberish", "Syllable Forge", "Generates pronounceable-looking nonsense words."],
   ["ascii", "ASCII", "Uses printable ASCII character groups."],
   ["specials", "Specials", "Uses only punctuation and symbol groups."],
   ["plus_zero", "+0", "Only the current word stays visible."],
   ["plus_one", "+1", "Shows one word ahead."],
   ["plus_two", "+2", "Shows two words ahead."],
   ["plus_three", "+3", "Shows three words ahead."],
-  ["read_ahead_easy", "Read Ahead Easy", "Hides the current word."],
-  ["read_ahead", "Read Ahead", "Hides the current word and the next word."],
-  ["read_ahead_hard", "Read Ahead Hard", "Hides the current word and the next two words."],
-  ["memory", "Memory", "Shows each line briefly, then asks you to type it from memory."],
-  ["nospace", "No Space", "Removes every space from the test."],
-  ["poetry", "Poetry", "Practices a locally included public-domain verse."],
-  ["wikipedia", "Encyclopedia", "Practices clear factual prose without a network request."],
-  ["pseudolang", "Pseudo Language", "Builds English-looking invented words."],
+  ["read_ahead_easy", "Veiled Current", "Hides the current word."],
+  ["read_ahead", "Veiled Pair", "Hides the current word and the next word."],
+  ["read_ahead_hard", "Veiled Triple", "Hides the current word and the next two words."],
+  ["memory", "Recall Line", "Shows each line briefly, then asks you to type it from memory."],
+  ["nospace", "Seamless Text", "Removes every space from the test."],
+  ["poetry", "Verse Practice", "Practices a locally included public-domain verse."],
+  ["wikipedia", "Knowledge Prose", "Practices clear factual prose without a network request."],
+  ["pseudolang", "Invented Tongue", "Builds English-looking invented words."],
   ["IPv4", "IPv4", "Generates IPv4 addresses."],
   ["IPv6", "IPv6", "Generates IPv6 addresses."],
   ["binary", "Binary", "Generates eight-bit binary groups."],
   ["hexadecimal", "Hexadecimal", "Generates hexadecimal byte groups."],
-  ["zipf", "Zipf", "Heavily favors common words and occasionally surfaces rare ones."],
+  ["zipf", "Common Current", "Heavily favors common words and occasionally surfaces rare ones."],
   ["morse", "Morse", "Converts a short phrase to Morse code."],
-  ["crt", "CRT", "Adds a restrained old-monitor glow."],
-  ["backwards", "Backwards", "Reverses every word."],
-  ["ddoouubblleedd", "Doubled", "Repeats every character twice."],
-  ["instant_messaging", "Instant Messaging", "Removes capitalization."],
-  ["underscore_spaces", "Underscore Spaces", "Replaces spaces with underscores."],
-  ["ALL_CAPS", "All Caps", "Turns every letter into uppercase."],
-  ["polyglot", "Polyglot", "Mixes familiar words from several languages."],
+  ["crt", "Lantern Glow", "Adds a restrained old-monitor glow."],
+  ["backwards", "Reverse Walk", "Reverses every word."],
+  ["ddoouubblleedd", "Echo Keys", "Repeats every character twice."],
+  ["instant_messaging", "Plain Chat", "Removes capitalization."],
+  ["underscore_spaces", "Bridge Spaces", "Replaces spaces with underscores."],
+  ["ALL_CAPS", "Banner Voice", "Turns every letter into uppercase."],
+  ["polyglot", "Many Tongues", "Mixes familiar words from several languages."],
   ["asl", "Finger Spelling Focus", "Presents short single-letter groups for finger-spelling drills."],
-  ["rot13", "ROT13", "Encodes regular words with ROT13."],
-  ["no_quit", "No Quit", "Disables restart until the current section is complete."]
+  ["rot13", "Cipher Walk", "Encodes regular words with ROT13."],
+  ["no_quit", "Stay the Course", "Disables restart until the current section is complete."]
 ].map(([id, label, description]) => ({ id, label, description }));
 const creativeModeLabels = Object.fromEntries(creativeCatalog.map(item => [item.id, item.label]));
 
@@ -2227,8 +2227,8 @@ function modeCopy() {
     words: ["Word Test", `${lessonPageCount()} page challenge`],
     placement: ["Placement Check", "Find your starting point"],
     quote: ["Quote Test", "Complete the quote"],
-    zen: ["Zen Mode", `${lessonPageCount()} page freewrite`],
-    creative: ["Creative Test", creativeModeLabels[prefs.creativeMode]],
+    zen: ["Flow Writing", `${lessonPageCount()} page freewrite`],
+    creative: ["Skill Forge", creativeModeLabels[prefs.creativeMode]],
     dictation: ["Dictation", "Listen, then type"],
     bible: ["Scripture Reading", "Bible Reading"],
     bibleQuotes: ["Bible Quotes", "Complete Quotes"]
@@ -3591,45 +3591,37 @@ function stopReminderSound() {
   });
   activeReminderNodes.clear();
 }
+const reminderSoundFiles = {
+  bell: "assets/reminder-sounds/bell-ding.wav",
+  doorbell: "assets/reminder-sounds/doorbell-chime.wav",
+  bike: "assets/reminder-sounds/bike-bell.wav"
+};
+const reminderSoundBuffers = {};
+const reminderSoundLoading = {};
+
+async function ensureReminderSoundStyle(style) {
+  if (!reminderSoundFiles[style] || reminderSoundBuffers[style]) return;
+  if (reminderSoundLoading[style]) return reminderSoundLoading[style];
+  reminderSoundLoading[style] = decodeAudioFile(reminderSoundFiles[style]).then(decoded => {
+    reminderSoundBuffers[style] = decoded;
+  }).catch(error => {
+    delete reminderSoundLoading[style];
+    console.warn(`Reminder sound ${style} could not be loaded.`, error);
+  });
+  return reminderSoundLoading[style];
+}
+
 function playReminderSound(style = prefs.reminderSound) {
   unlockAudio();
   if (!reminderSoundStyles.has(style) || Number(prefs.soundVolume) <= 0) return;
-  withAudioReady(c => {
-    const strike = c.currentTime;
-    const tones = {
-      bike: [
-        [1318.5, .22, .72, 0, "sine"],
-        [1760, .12, .56, .02, "sine"],
-        [1568, .1, .62, .13, "sine"]
-      ],
-      dinner: [
-        [659.25, .22, 1.18, 0, "sine"],
-        [1318.5, .12, .92, 0, "sine"],
-        [1977.75, .06, .72, 0, "sine"],
-        [2637, .035, .56, 0, "sine"]
-      ],
-      trumpet: [
-        [392, .26, .5, 0, "sawtooth"],
-        [784, .1, .42, 0, "triangle"],
-        [1174.65, .055, .34, 0, "sine"]
-      ]
-    }[style];
-    tones.forEach(([frequency, gainValue, duration, delay, type]) => {
-      const start = strike + delay;
-      const oscillator = c.createOscillator();
-      const gain = c.createGain();
-      oscillator.type = type;
-      oscillator.frequency.setValueAtTime(frequency, start);
-      oscillator.frequency.exponentialRampToValueAtTime(frequency * .994, start + duration);
-      gain.gain.setValueAtTime(.0001, start);
-      gain.gain.exponentialRampToValueAtTime(gainValue * Number(prefs.soundVolume), start + .012);
-      gain.gain.exponentialRampToValueAtTime(.0001, start + duration);
-      oscillator.connect(gain).connect(c.destination);
-      trackReminderNode(oscillator);
-      oscillator.start(start);
-      oscillator.stop(start + duration + .02);
+  const buffer = reminderSoundBuffers[style];
+  if (!buffer) {
+    ensureReminderSoundStyle(style).then(() => {
+      if (prefs.reminderSound === style && reminderSoundBuffers[style]) playDecodedBuffer(reminderSoundBuffers[style], 1.1);
     });
-  });
+    return;
+  }
+  playDecodedBuffer(buffer, 1.1);
 }
 
 function cleanSpokenReminderText(value) {
@@ -4219,6 +4211,7 @@ async function preloadKeySounds() {
     ensureKeySoundStyle(prefs.soundStyle),
     ensureKeySoundStyle("4"),
     ensureErrorSoundStyle(prefs.errorStyle),
+    ensureReminderSoundStyle(prefs.reminderSound),
     prefs.timeWarning === "off" ? Promise.resolve() : ensureTimeWarningSound()
   ]);
 }
@@ -4354,8 +4347,8 @@ const settingDescriptions = {
   quoteLength: "Limits general quotes to the selected length range.",
   difficulty: "Controls how broad and challenging the regular word pool is.",
   capitalization: "Controls letter case in generated practice outside Scripture.",
-  quickRestart: "Assigns one key to restart the current test immediately.",
-  creativeMode: "Chooses the word or character transformation used by Creative tests.",
+  quickRestart: "Assigns one key to restart the current lesson immediately.",
+  creativeMode: "Chooses the word or character transformation used by Skill Forge.",
   repeatQuotes: "Chooses whether restart loads a new quote or repeats the current one.",
   resultSaving: "Turns local lesson-history saving on or off. Adaptive progress requires saved results.",
   minWpm: "Marks a completed test as failed when corrected speed is below this value.",

@@ -14,13 +14,13 @@ The public-domain KJV text is included for complete Bible reading and quote prac
 
 Adaptive Letters focuses the least-confident earned letter, tracks speed and accuracy per key, and unlocks the alphabet gradually. Mastery requires at least 27 completed pages and 540 attempts per letter so progress reflects sustained practice.
 
-The single-page settings, test behaviors, broad font catalog, and Creative tests are tailored to Keyboard Disciple's Christian identity, KJV modes, letter-confidence system, and blocked-error practice.
+The single-page settings, lesson behaviors, broad font catalog, and Skill Forge modes are tailored to Keyboard Disciple's Christian identity, KJV modes, letter-confidence system, and blocked-error practice.
 
 ## Sound Credits
 
 The keystroke, error, and timer-warning sounds are bundled with their GPL-3.0 license at `assets/keyboard-sounds/LICENSE-GPL-3.0.txt`.
 
-Creative tests are original Keyboard Disciple implementations built for focused, playful practice.
+Skill Forge modes are original Keyboard Disciple implementations built for focused, playful practice.
 
 ## Spoken Reminders
 
