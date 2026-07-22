@@ -676,6 +676,11 @@ body[data-mode="adaptive"] .typing-card[data-size="small"] .typing-text { font-s
 body[data-mode="adaptive"] .typing-card[data-size="medium"] .typing-text { font-size: clamp(32px, 3vw, 48px); }
 body[data-mode="adaptive"] .typing-card[data-size="large"] .typing-text { font-size: clamp(40px, 3.8vw, 60px); }
 body[data-mode="adaptive"] .typing-card[data-size="xlarge"] .typing-text { font-size: clamp(48px, 4.5vw, 72px); }
+body[data-mode="adaptive"] .practice-line {
+  white-space: normal;
+  overflow: visible;
+  line-height: 1.45;
+}
 
 .typing-word { display: inline-flex; white-space: nowrap; }
 .typing-space { display: inline; white-space: pre; }

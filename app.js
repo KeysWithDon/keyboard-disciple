@@ -1457,10 +1457,33 @@ function lessonWordTarget() {
   return lessonLineLimit() * visibleWordsPerRow();
 }
 
+function adaptiveRowCharacterBudget() {
+  const viewport = window.innerWidth || 1200;
+  const base = { small: 72, medium: 56, large: 44, xlarge: 36 }[prefs.fontSize] || 56;
+  const viewportAdjustment = viewport <= 620 ? .62 : viewport <= 900 ? .78 : 1;
+  return Math.max(18, Math.round(base * viewportAdjustment));
+}
+
+function pickWordForRow(list, index, currentWords, budget, fallbackList = []) {
+  const candidates = [...new Set([...(list || []), ...(fallbackList || [])])].filter(Boolean);
+  if (!candidates.length) return "practice";
+  const used = currentWords.join(" ");
+  const usedLength = used.length;
+  const remaining = Math.max(1, budget - usedLength - (currentWords.length ? 1 : 0));
+  const start = Math.max(0, index % candidates.length);
+  for (let offset = 0; offset < candidates.length; offset++) {
+    const word = candidates[(start + offset) % candidates.length];
+    if (word.length <= remaining) return word;
+  }
+  const shortest = candidates.slice().sort((a, b) => a.length - b.length || a.localeCompare(b))[0];
+  return currentWords.length && shortest.length > remaining ? "" : shortest;
+}
+
 function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
   const deck = wordDeck();
   const rows = [];
   const wordsPerRow = visibleWordsPerRow();
+  const rowBudget = adaptiveRowCharacterBudget();
   let ci = 0, mi = 0, ri = 0, fi = 0, rfi = 0;
   let wi = 0;
   const recoveryMode = adaptiveRecoveryActive();
@@ -1498,7 +1521,9 @@ function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
       else if (pos % rareInterval === 0 && deck.rare.length) { list = deck.rare; index = ri++; }
       else if (pos % moderateInterval === 0 && deck.moderate.length) { list = deck.moderate; index = mi++; }
       if (!list.length) list = deck.common.length ? deck.common : deck.focus.length ? deck.focus : ["a", "an", "in", "is", "it"];
-      words.push(list[index % list.length]);
+      const word = pickWordForRow(list, index, words, rowBudget, deck.common);
+      if (!word) break;
+      words.push(word);
     }
     rows.push(transformText(words.join(" ")));
   }
@@ -2490,6 +2515,12 @@ function renderPlainLine(line) {
 
 function fitPracticeLines(lines) {
   if (!["adaptive", "time", "words", "creative", "placement"].includes(state.mode)) {
+    els.typingText.style.fontSize = "";
+    state.practiceFontSize = null;
+    state.practiceFitSignature = "";
+    return;
+  }
+  if (state.mode === "adaptive") {
     els.typingText.style.fontSize = "";
     state.practiceFontSize = null;
     state.practiceFitSignature = "";
