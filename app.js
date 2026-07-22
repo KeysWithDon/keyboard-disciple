@@ -247,6 +247,8 @@ const state = {
   postureReminder: null,
   postureReminderLastIndex: -1,
   practiceFontSize: null,
+  practiceFitSignature: "",
+  practiceFitRaf: 0,
   dictationAudioBlob: null,
   dictationAudioStatus: "idle",
   dictationPromptHeard: false,
@@ -272,6 +274,7 @@ const defaultPrefs = {
   targetSpeed: 35,
   practicePreset: "balanced",
   practicePresets: ["balanced"],
+  adaptiveEndless: false,
   recoverKeys: true,
   naturalWords: true,
   dailyGoalMinutes: 15,
@@ -391,6 +394,7 @@ if (!Array.isArray(prefs.practicePresets)) prefs.practicePresets = [prefs.practi
 prefs.practicePresets = [...new Set(prefs.practicePresets.filter(preset => practicePresetStyles.has(preset)))].slice(0, 3);
 if (!prefs.practicePresets.length) prefs.practicePresets = [prefs.practicePreset];
 prefs.practicePreset = prefs.practicePresets[0];
+prefs.adaptiveEndless = Boolean(prefs.adaptiveEndless);
 if (!creativeModeStyles.has(prefs.creativeMode)) prefs.creativeMode = defaultPrefs.creativeMode;
 if (!themeStyles.has(prefs.theme)) prefs.theme = defaultPrefs.theme;
 if (!lessonColorStyles.has(prefs.lessonColor)) prefs.lessonColor = defaultPrefs.lessonColor;
@@ -1346,6 +1350,27 @@ function handForLetter(letter) {
   return "qwertasdfgzxcvb".includes(String(letter).toLowerCase()) ? "left" : "right";
 }
 
+function handWeight(word, hand) {
+  const letters = [...String(word || "").toLowerCase()].filter(letter => /^[a-z]$/.test(letter));
+  if (!letters.length) return 0;
+  const matches = letters.filter(letter => handForLetter(letter) === hand).length;
+  return matches / letters.length;
+}
+
+function fingerBand(letter) {
+  const zone = fingerZone(String(letter || "").toLowerCase()).label.toLowerCase();
+  if (zone.includes("pinky") || zone.includes("ring")) return "outer";
+  if (zone.includes("index") || zone.includes("middle")) return "inner";
+  return "neutral";
+}
+
+function fingerBandWeight(word, band) {
+  const letters = [...String(word || "").toLowerCase()].filter(letter => /^[a-z]$/.test(letter));
+  if (!letters.length) return 0;
+  const matches = letters.filter(letter => fingerBand(letter) === band).length;
+  return matches / letters.length;
+}
+
 function alternatingWord(word) {
   const letters = [...word.toLowerCase()].filter(letter => /^[a-z]$/.test(letter));
   if (letters.length < 4) return false;
@@ -1383,10 +1408,25 @@ function wordDeck() {
     return [...word].some(candidate => /^[a-z]$/i.test(candidate) && fingerZone(candidate).label === zone);
   })));
   const alternating = shuffle(allNatural.filter(alternatingWord));
+  const leftHand = shuffle(allNatural.filter(word => handWeight(word, "left") >= .64));
+  const rightHand = shuffle(allNatural.filter(word => handWeight(word, "right") >= .64));
+  const outerFinger = shuffle(allNatural.filter(word => fingerBandWeight(word, "outer") >= .42));
+  const innerFinger = shuffle(allNatural.filter(word => fingerBandWeight(word, "inner") >= .58));
   return {
     common, moderate, rare, rareFocus, focus, weak, finger, alternating,
+    leftHand, rightHand, outerFinger, innerFinger,
     focusLetter: focusLetters[0], focusLetters: selectedFocusLetters
   };
+}
+
+function adaptiveFlowPhase(rowNumber = state.rowIndex) {
+  const block = Math.floor(Math.max(0, rowNumber) / 5) % 4;
+  return [
+    { hand: "left", band: "outer", label: "left outer" },
+    { hand: "left", band: "inner", label: "left inner" },
+    { hand: "right", band: "outer", label: "right outer" },
+    { hand: "right", band: "inner", label: "right inner" }
+  ][block];
 }
 
 function visibleWordsPerRow(minimum = 2) {
@@ -1428,11 +1468,16 @@ function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
   const explicitFocus = deck.focusLetters.length > 0;
   for (let r = 0; r < rowCount; r++) {
     const words = [];
+    const phase = adaptiveFlowPhase(state.rowIndex + r);
+    const handPool = phase.hand === "left" ? deck.leftHand : deck.rightHand;
+    const bandPool = phase.band === "outer" ? deck.outerFinger : deck.innerFinger;
+    const phasePool = shuffle([...new Set([...handPool, ...bandPool])]);
     for (let i = 0; i < wordsPerRow; i++) {
       const pos = r * wordsPerRow + i + 1;
       let list = deck.common;
       let index = ci++;
       if (explicitFocus && deck.focus.length && pos % 5 !== 0) { list = deck.focus; index = fi++; }
+      else if (phasePool.length && pos % 4 !== 1) { list = phasePool; index = wi++; }
       else if (presetPool.length && pos % 2 === 0) { list = presetPool; index = wi++; }
       else if (pos % 3 === 0 && deck.focus.length) { list = deck.focus; index = fi++; }
       else if (pos % 11 === 0 && deck.rareFocus.length) { list = deck.rareFocus; index = rfi++; }
@@ -1784,6 +1829,11 @@ async function restart() {
   state.postureReminder = null;
   state.postureReminderLastIndex = -1;
   state.practiceFontSize = null;
+  state.practiceFitSignature = "";
+  if (state.practiceFitRaf) {
+    cancelAnimationFrame(state.practiceFitRaf);
+    state.practiceFitRaf = 0;
+  }
   state.dictationAudioBlob = null;
   state.dictationAudioStatus = "idle";
   state.dictationPromptHeard = false;
@@ -2364,14 +2414,25 @@ function fitPracticeLines(lines) {
   if (!["adaptive", "time", "words", "creative", "placement"].includes(state.mode)) {
     els.typingText.style.fontSize = "";
     state.practiceFontSize = null;
+    state.practiceFitSignature = "";
     return;
   }
-  if (state.practiceFontSize) {
+  const availableWidth = Math.floor(els.typingText.getBoundingClientRect().width || els.typingText.clientWidth || 0);
+  const lineSignature = [
+    state.mode,
+    prefs.fontSize,
+    prefs.fontFamily,
+    prefs.lineWidth,
+    availableWidth,
+    ...lines.map(line => String(line || ""))
+  ].join("\u001f");
+  if (state.practiceFontSize && state.practiceFitSignature === lineSignature) {
     els.typingText.style.fontSize = `${state.practiceFontSize}px`;
     return;
   }
   els.typingText.style.fontSize = "";
-  const availableWidth = els.typingText.clientWidth;
+  state.practiceFontSize = null;
+  state.practiceFitSignature = "";
   const lineWidths = [...els.typingText.querySelectorAll(".practice-line")]
     .map(line => line.scrollWidth)
     .filter(width => width > 0);
@@ -2380,12 +2441,27 @@ function fitPracticeLines(lines) {
   if (!availableWidth) return;
   if (!widestLine || widestLine <= availableWidth) {
     state.practiceFontSize = baseSize;
+    state.practiceFitSignature = lineSignature;
     els.typingText.style.fontSize = `${state.practiceFontSize}px`;
     return;
   }
-  const fittedSize = Math.max(12, baseSize * (availableWidth / widestLine));
+  const fittedSize = Math.max(12, baseSize * Math.min(1, availableWidth / widestLine));
   state.practiceFontSize = Number(fittedSize.toFixed(2));
+  state.practiceFitSignature = lineSignature;
   els.typingText.style.fontSize = `${state.practiceFontSize}px`;
+}
+
+function schedulePracticeRefit(lines) {
+  if (!["adaptive", "time", "words", "creative", "placement"].includes(state.mode)) return;
+  if (state.practiceFitRaf) cancelAnimationFrame(state.practiceFitRaf);
+  const visibleLines = lines.slice();
+  state.practiceFitRaf = requestAnimationFrame(() => {
+    state.practiceFitRaf = 0;
+    if (state.testCompleted) return;
+    state.practiceFontSize = null;
+    state.practiceFitSignature = "";
+    fitPracticeLines(visibleLines);
+  });
 }
 
 function renderText() {
@@ -2433,6 +2509,7 @@ function renderText() {
     els.typingText.innerHTML = `<span class="practice-line active">${escapeHtml(state.input || "\u00a0")}</span>`;
     els.typingText.style.fontSize = "";
     state.practiceFontSize = null;
+    state.practiceFitSignature = "";
     return;
   }
   if (isDictation) {
@@ -2442,6 +2519,7 @@ function renderText() {
     els.typingText.innerHTML = `<div class="dictation-stage"><div class="dictation-typed">${typed}</div><span class="dictation-hint">Type what you hear while the prompt plays.</span></div>`;
     els.typingText.style.fontSize = "";
     state.practiceFontSize = null;
+    state.practiceFitSignature = "";
     return;
   }
 
@@ -2453,12 +2531,14 @@ function renderText() {
     while (state.mode === "adaptive" && lines.length < 2) lines.push("");
     els.typingText.innerHTML = lines.map((line, index) => `<span class="practice-line${index === 0 ? " active" : ""}" data-line-offset="${index}">${index === 0 ? renderInteractiveTarget(line) : renderPlainLine(line)}</span>`).join("");
     fitPracticeLines(lines);
+    schedulePracticeRefit(lines);
     return;
   }
 
   els.typingText.innerHTML = renderInteractiveTarget(target);
   els.typingText.style.fontSize = "";
   state.practiceFontSize = null;
+  state.practiceFitSignature = "";
 }
 
 let keyboardElements = new Map();
@@ -2878,8 +2958,14 @@ function finishAdaptiveLine() {
       const summary = buildAdaptiveLessonSummary(state.adaptiveLessonLines);
       summary.recommendation = recommendAdaptiveFocus(progress.adaptiveLessonHistory);
       saveAdaptiveLessonSummary(summary);
-      state.result = { ...summary, ...rankAdaptiveLesson(summary) };
-      state.testCompleted = true;
+      if (prefs.adaptiveEndless) {
+        state.adaptiveLessonLines = [];
+        state.adaptiveLessonPages = [];
+        adaptiveLessonComplete = false;
+      } else {
+        state.result = { ...summary, ...rankAdaptiveLesson(summary) };
+        state.testCompleted = true;
+      }
     }
   }
   progress.rowsCleared++;
@@ -3802,6 +3888,7 @@ const keyboardSoundBuffers = {};
 const keyboardSoundLoading = {};
 const errorSoundBuffers = {};
 const errorSoundLoading = {};
+const decodedAudioPromises = new Map();
 let timeWarningBuffer;
 let timeWarningLoading;
 
@@ -3810,7 +3897,10 @@ async function ensureKeySoundStyle(style) {
   if (keyboardSoundLoading[style]) return keyboardSoundLoading[style];
   keyboardSoundLoading[style] = Promise.all(keyboardSoundFiles[style].map(decodeAudioFile)).then(decoded => {
     keyboardSoundBuffers[style] = decoded;
-  }).catch(error => console.warn(`Keyboard sound ${style} could not be loaded.`, error));
+  }).catch(error => {
+    delete keyboardSoundLoading[style];
+    console.warn(`Keyboard sound ${style} could not be loaded.`, error);
+  });
   return keyboardSoundLoading[style];
 }
 
@@ -3819,7 +3909,10 @@ async function ensureErrorSoundStyle(style) {
   if (errorSoundLoading[style]) return errorSoundLoading[style];
   errorSoundLoading[style] = Promise.all(errorSoundFiles[style].map(decodeAudioFile)).then(decoded => {
     errorSoundBuffers[style] = decoded;
-  }).catch(error => console.warn(`Error sound ${style} could not be loaded.`, error));
+  }).catch(error => {
+    delete errorSoundLoading[style];
+    console.warn(`Error sound ${style} could not be loaded.`, error);
+  });
   return errorSoundLoading[style];
 }
 
@@ -3827,7 +3920,10 @@ async function ensureTimeWarningSound() {
   if (timeWarningBuffer) return;
   timeWarningLoading ||= decodeAudioFile("assets/keyboard-sounds/time-warning.wav").then(decoded => {
     timeWarningBuffer = decoded;
-  }).catch(error => console.warn("Time warning sound could not be loaded.", error));
+  }).catch(error => {
+    timeWarningLoading = null;
+    console.warn("Time warning sound could not be loaded.", error);
+  });
   return timeWarningLoading;
 }
 
@@ -3847,15 +3943,27 @@ const activeRewardNodes = new Set();
 let specialRewardBuffer;
 
 async function decodeAudioFile(file) {
-  const response = await fetch(new URL(file, document.baseURI));
-  if (!response.ok) throw new Error(`Could not load ${file}`);
-  return ctx().decodeAudioData(await response.arrayBuffer());
+  const url = new URL(file, document.baseURI).href;
+  if (decodedAudioPromises.has(url)) return decodedAudioPromises.get(url);
+  const promise = fetch(url, { cache: "force-cache" })
+    .then(response => {
+      if (!response.ok) throw new Error(`Could not load ${file}`);
+      return response.arrayBuffer();
+    })
+    .then(buffer => ctx().decodeAudioData(buffer))
+    .catch(error => {
+      decodedAudioPromises.delete(url);
+      throw error;
+    });
+  decodedAudioPromises.set(url, promise);
+  return promise;
 }
 
 async function preloadRewardSounds() {
+  if (rowRewardBuffers.length === rowRewardFiles.length && specialRewardBuffer) return;
   try {
     const buffers = await Promise.all([...rowRewardFiles, specialRewardFile].map(decodeAudioFile));
-    rowRewardBuffers.push(...buffers.slice(0, rowRewardFiles.length));
+    rowRewardBuffers.splice(0, rowRewardBuffers.length, ...buffers.slice(0, rowRewardFiles.length));
     specialRewardBuffer = buffers.at(-1);
   } catch (error) {
     console.warn("Reward sounds could not be preloaded.", error);
@@ -3969,6 +4077,7 @@ const settingDescriptions = {
   includePunctuation: "Adds sentence marks to generated Time and Words tests.",
   includeNumbers: "Mixes number groups into generated Time and Words tests.",
   practicePreset: "Sets the default adaptive focus. The lesson summary can combine up to three suggested focuses before the next lesson begins.",
+  adaptiveEndless: "Keeps adaptive practice moving after each ten-line block. Results are saved quietly, and the next block rotates hand and finger emphasis.",
   confidenceMode: "Limits backspacing to the current word or disables it completely.",
   errorLimit: "Caps repeated errors on one character so accidental key holds cannot ruin statistics.",
   blindMode: "Hides feedback on completed characters to encourage rhythm over correction.",
@@ -4111,7 +4220,10 @@ function setupSettings() {
     el.value = prefs[prefKey];
     el.addEventListener("change", event => {
       prefs[prefKey] = numericIds.has(id) ? Number(event.target.value) : event.target.value;
-      if (["fontSize", "lineWidth", "fontFamily"].includes(id)) state.practiceFontSize = null;
+      if (["fontSize", "lineWidth", "fontFamily"].includes(id)) {
+        state.practiceFontSize = null;
+        state.practiceFitSignature = "";
+      }
       if (id === "testWordCount") {
         prefs.testWordCount = Math.max(1, Math.min(3000, Math.round(prefs.testWordCount || defaultPrefs.testWordCount)));
         event.target.value = String(prefs.testWordCount);
@@ -4160,7 +4272,7 @@ function setupSettings() {
     "includePunctuation", "includeNumbers", "blindMode", "quickEnd", "capsLockWarning", "focusMode", "showLiveWpm",
     "freedomMode", "strictSpace", "oppositeShiftMode", "britishEnglish", "lazyMode", "showLiveAccuracy", "showLiveRaw",
     "showLiveConsistency", "rhythmCoach", "techniqueTips", "showProgress", "smoothLineScroll", "textGlow", "flipTestColors", "colorfulMode", "typingSounds",
-    "errorSounds", "recoverKeys", "naturalWords"
+    "errorSounds", "adaptiveEndless", "recoverKeys", "naturalWords"
   ];
   toggleIds.forEach(id => {
     const el = document.getElementById(id);

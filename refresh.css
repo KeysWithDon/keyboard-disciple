@@ -639,11 +639,13 @@ body[data-mode="dictation"] .typing-card { justify-content: center; }
 
 .typing-text {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   min-height: 218px;
   display: grid;
   grid-template-rows: auto;
   align-content: center;
-  overflow: visible;
+  overflow: hidden;
   text-align: center;
   color: var(--faint);
   font-size: clamp(22px, 2.15vw, 32px);
@@ -653,10 +655,11 @@ body[data-mode="dictation"] .typing-card { justify-content: center; }
 }
 
 .practice-line {
+  max-width: 100%;
   min-width: 0;
   min-height: 1.45em;
   display: block;
-  overflow: visible;
+  overflow: hidden;
   white-space: nowrap;
   text-align: center;
   opacity: .34;
@@ -690,6 +693,44 @@ body[data-mode="adaptive"] .typing-card[data-size="xlarge"] .typing-text { font-
 .typing-text .current.color { color: var(--lesson-color); background: none; }
 .typing-text .current.highlight { color: var(--bg); background: var(--lesson-color); }
 .typing-card.typo-flash .typing-text .current { color: var(--red); }
+
+html,
+body {
+  max-width: 100%;
+  overflow-x: clip;
+}
+
+img,
+svg,
+canvas,
+video {
+  max-width: 100%;
+}
+
+button,
+a,
+select,
+input {
+  touch-action: manipulation;
+}
+
+.app-shell,
+.stage,
+.app-header,
+.letter-hud,
+.typing-card,
+.result-panel,
+.keyboard-wrap,
+.settings-dialog,
+.settings-pane,
+.settings-grid,
+.adaptive-recommendation,
+.adaptive-profile-card,
+.adaptive-chart-panel,
+.adaptive-missed-panel,
+.adaptive-technique-panel {
+  min-width: 0;
+}
 
 .completion-banner {
   width: fit-content;
