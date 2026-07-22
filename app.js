@@ -1939,8 +1939,12 @@ function currentTarget() {
   return state.targetRows[state.rowIndex] || "";
 }
 
+function isListenCloselyMode() {
+  return state.mode === "creative" && prefs.creativeMode === "tts";
+}
+
 function usesDictationTypingRules() {
-  return state.mode === "dictation" || (state.mode === "creative" && prefs.creativeMode === "tts");
+  return state.mode === "dictation" || isListenCloselyMode();
 }
 
 function currentTypingTarget() {
@@ -2535,8 +2539,10 @@ function renderText() {
       ? `${state.input.length} typed`
       : `${state.input.length} / ${typingTarget.length}`;
   const isDictation = state.mode === "dictation";
-  els.dictationControls?.classList.toggle("hidden", !isDictation || state.testCompleted);
-  if (isDictation && els.dictationAudioStatus && els.dictationReplayButton) {
+  const isListenClosely = isListenCloselyMode();
+  const hasPromptControls = isDictation || isListenClosely;
+  els.dictationControls?.classList.toggle("hidden", !hasPromptControls || state.testCompleted);
+  if (hasPromptControls && els.dictationAudioStatus && els.dictationReplayButton) {
     const statusCopy = {
       idle: "Preparing prompt",
       loading: "Generating audio...",
@@ -2545,12 +2551,15 @@ function renderText() {
       playing: "Type while listening...",
       error: "Audio unavailable. Try replay."
     }[state.dictationAudioStatus] || "Listen before typing.";
-    els.dictationAudioStatus.textContent = statusCopy;
-    els.dictationReplayButton.disabled = (!state.dictationAudioBlob && !state.dictationBrowserFallback) || ["loading", "playing"].includes(state.dictationAudioStatus);
-    els.dictationReplayButton.textContent = state.dictationAudioStatus === "playing"
+    els.dictationAudioStatus.textContent = isListenClosely ? "Listen Closely prompt" : statusCopy;
+    els.dictationReplayButton.disabled = isDictation
+      ? (!state.dictationAudioBlob && !state.dictationBrowserFallback) || ["loading", "playing"].includes(state.dictationAudioStatus)
+      : false;
+    els.dictationReplayButton.textContent = isDictation && state.dictationAudioStatus === "playing"
       ? "Playing..."
-      : state.dictationPromptHeard ? "Replay prompt" : "Play prompt";
-    els.dictationSubmitButton.disabled = !state.input.length;
+      : "Replay audio";
+    els.dictationSubmitButton.classList.toggle("hidden", isListenClosely);
+    els.dictationSubmitButton.disabled = isListenClosely || !state.input.length;
   }
   if (state.mode === "zen") {
     ensureZenTargetBuffer();
@@ -2856,7 +2865,7 @@ function handleKey(event) {
     renderLetterProgress();
     renderPerformance();
     renderLiveMetrics();
-    if (state.mode !== "dictation") return;
+    if (state.mode !== "dictation" && !isListenCloselyMode()) return;
   } else if (state.mode !== "zen") {
     recordCharacterAttempt(expected, true);
     recordLetterAttempt(expected, true, recordedAt);
@@ -4400,6 +4409,10 @@ function setupSpokenReminderSettings() {
 
 els.dictationReplayButton?.addEventListener("click", () => {
   unlockAudio();
+  if (isListenCloselyMode()) {
+    speakCurrentTarget();
+    return;
+  }
   if (state.dictationAudioStatus === "error" && !state.dictationAudioBlob) {
     prepareDictationPrompt(restartRequestId);
     return;
