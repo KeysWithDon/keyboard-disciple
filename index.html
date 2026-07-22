@@ -13,8 +13,8 @@
   <link rel="canonical" href="https://keyswithdon.github.io/keyboard-disciple/">
   <link rel="sitemap" type="application/xml" href="https://keyswithdon.github.io/keyboard-disciple/sitemap.xml">
   <link rel="icon" href="assets/keyboard-disciple-mark.png">
-    <link rel="stylesheet" href="styles.css?v=20260722-strict-zone-workout">
-    <link rel="stylesheet" href="refresh.css?v=20260722-strict-zone-workout">
+    <link rel="stylesheet" href="styles.css?v=20260722-line-space-themes">
+    <link rel="stylesheet" href="refresh.css?v=20260722-line-space-themes">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Keyboard Disciple">
   <meta property="og:title" content="Keyboard Disciple | Free Typing Practice Game">
@@ -594,8 +594,9 @@
               <div><h3>Appearance</h3><p>Keep the page calm while making the words unmistakably yours.</p></div>
             </div>
             <div class="settings-grid">
-              <label>Theme
-                <select id="theme">
+              <div class="theme-setting theme-setting-control">
+                <span>Theme</span>
+                <select id="theme" class="theme-native-select" aria-hidden="true" tabindex="-1">
                   <option value="disciple">Disciple</option>
                   <option value="morning-light">Morning Light</option>
                   <option value="sanctuary">Sanctuary</option>
@@ -609,7 +610,15 @@
                   <option value="revelation">Revelation</option>
                   <option value="clarity">Clarity</option>
                 </select>
-              </label>
+                <div id="themePicker" class="theme-picker">
+                  <button id="themePickerButton" class="theme-picker-trigger" type="button" aria-haspopup="listbox" aria-expanded="false">
+                    <span id="themePickerName" class="theme-picker-name">Disciple</span>
+                    <span id="themePickerSwatches" class="theme-swatches" aria-hidden="true"></span>
+                    <span class="theme-picker-caret" aria-hidden="true">⌄</span>
+                  </button>
+                  <div id="themePickerMenu" class="theme-picker-menu" role="listbox" hidden></div>
+                </div>
+              </div>
               <label>Font family
                 <select id="fontFamily"></select>
               </label>
@@ -927,6 +936,6 @@
     </form>
   </dialog>
 
-    <script src="app.js?v=20260722-strict-zone-workout"></script>
+    <script src="app.js?v=20260722-line-space-themes"></script>
 </body>
 </html>

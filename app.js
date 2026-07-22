@@ -113,6 +113,20 @@ const themeStyles = new Set([
   "disciple", "morning-light", "sanctuary", "living-water", "midnight-prayer", "mustard-seed", "eden",
   "royal-priesthood", "grace", "armor-of-light", "revelation", "clarity"
 ]);
+const themePalettes = {
+  disciple: ["#10110f", "#181b16", "#f3c844", "#67d9ff"],
+  "morning-light": ["#f0eee7", "#e7e4da", "#8d7235", "#537a60"],
+  sanctuary: ["#171413", "#211c1a", "#b99a58", "#a66c65"],
+  "living-water": ["#111719", "#182124", "#6f9ca7", "#6f9b88"],
+  "midnight-prayer": ["#101114", "#181a20", "#748d9e", "#8a819f"],
+  "mustard-seed": ["#191812", "#222119", "#c1a64f", "#7f9271"],
+  eden: ["#121814", "#19221c", "#71977c", "#b0a064"],
+  "royal-priesthood": ["#171419", "#201b23", "#9582a3", "#b8a064"],
+  grace: ["#f1efed", "#e8e4e2", "#8f7546", "#a36167"],
+  "armor-of-light": ["#eef1f0", "#e4e9e7", "#507761", "#4b747e"],
+  revelation: ["#151313", "#201b1a", "#bc9b55", "#bb6c61"],
+  clarity: ["#090a09", "#121412", "#ffffff", "#d5b95f"]
+};
 const lessonColorStyles = new Set(["theme", "cyan", "green", "purple", "white"]);
 const lessonColorValues = {
   theme: "var(--gold)",
@@ -2170,6 +2184,16 @@ function currentTypingTarget() {
   return typingTarget;
 }
 
+function shouldRequireLineEndSpace() {
+  if (["zen", "dictation", "bible", "bibleQuotes", "quote"].includes(state.mode)) return false;
+  return state.rowIndex < state.targetRows.length - 1;
+}
+
+function currentInputTarget() {
+  const target = currentTypingTarget();
+  return shouldRequireLineEndSpace() && target ? `${target} ` : target;
+}
+
 function currentReference() {
   if (["bible", "bibleQuotes", "quote"].includes(state.mode)) return state.scripturePages[state.pageIndex]?.[0] || "";
   return "";
@@ -2685,6 +2709,12 @@ function renderPlainLine(line) {
     : `<span class="typing-word">${escapeHtml(group)}</span>`).join("");
 }
 
+function renderLineEndSpaceCue(line) {
+  if (!shouldRequireLineEndSpace()) return "";
+  const isCurrent = state.input.length >= String(line || "").length;
+  return `<span class="line-end-space${isCurrent ? " current" : ""}" aria-label="space required">space</span>`;
+}
+
 function fitPracticeLines(lines) {
   if (!["adaptive", "time", "words", "creative", "placement"].includes(state.mode)) {
     els.typingText.style.fontSize = "";
@@ -2761,6 +2791,7 @@ function positionAdaptiveLineMask() {
 function renderText() {
   const target = currentTarget();
   const typingTarget = currentTypingTarget();
+  const inputTarget = currentInputTarget();
   const reference = currentReference();
   els.scriptureStrip.classList.toggle("hidden", !reference);
   els.scriptureRef.textContent = reference;
@@ -2781,7 +2812,7 @@ function renderText() {
     ? `${state.input.length} / ${target.length}`
     : state.mode === "dictation"
       ? `${state.input.length} typed`
-      : `${state.input.length} / ${typingTarget.length}`;
+      : `${state.input.length} / ${inputTarget.length}`;
   const isDictation = state.mode === "dictation";
   const isListenClosely = isListenCloselyMode();
   const hasPromptControls = isDictation || isListenClosely;
@@ -2830,7 +2861,12 @@ function renderText() {
       ? state.targetRows.slice(state.rowIndex, state.rowIndex + 2)
       : [usesDictationTypingRules() ? typingTarget : state.targetRows[state.rowIndex] || ""];
     while (state.mode === "adaptive" && lines.length < 2) lines.push("");
-    els.typingText.innerHTML = lines.map((line, index) => `<span class="practice-line${index === 0 ? " active" : ""}" data-line-offset="${index}">${index === 0 ? renderInteractiveTarget(line) : renderPlainLine(line)}</span>`).join("");
+    els.typingText.innerHTML = lines.map((line, index) => {
+      const renderedLine = index === 0
+        ? `${renderInteractiveTarget(line)}${renderLineEndSpaceCue(line)}`
+        : renderPlainLine(line);
+      return `<span class="practice-line${index === 0 ? " active" : ""}" data-line-offset="${index}">${renderedLine}</span>`;
+    }).join("");
     if (state.mode === "adaptive") positionAdaptiveLineMask();
     fitPracticeLines(lines);
     schedulePracticeRefit(lines);
@@ -2963,7 +2999,8 @@ function renderKeyboardKey(key, unlocked) {
   const isLetter = /^[a-z]$/.test(key.id);
   const isLockedLetter = state.mode === "adaptive" && isLetter && !unlocked.has(key.id.toUpperCase());
   const isModifier = !isLetter && !key.shift && !/^[`0-9\-=\[\]\\;',./]$/.test(key.id);
-  const expectedKey = currentTarget()[state.input.length]?.toLowerCase() === " " ? "space" : currentTarget()[state.input.length]?.toLowerCase();
+  const nextCharacter = currentInputTarget()[state.input.length];
+  const expectedKey = nextCharacter?.toLowerCase() === " " ? "space" : nextCharacter?.toLowerCase();
   const isNext = prefs.keymapMode === "next" && expectedKey === key.id;
   const isWorkoutZone = keyMatchesWorkoutPhase(key.id);
   const classes = ["key", zone.className, isLockedLetter ? "locked" : "", isModifier ? "modifier" : "", key.id === "space" ? "spacebar" : "", isNext ? "next-key" : "", isWorkoutZone ? "workout-zone" : "", keyboardStateClasses(key.id)].join(" ");
@@ -3107,7 +3144,7 @@ function handleKey(event) {
   }
   state.lastKeyAt = recordedAt;
   trackDailyActivity(recordedAt);
-  const target = currentTypingTarget();
+  const target = currentInputTarget();
   const enteredKey = arrowCharacter || event.key;
   const key = usesDictationTypingRules() && prefs.dictationCapitalization === "ignore"
     ? enteredKey.toLowerCase()
@@ -4646,6 +4683,86 @@ function setupSettings() {
   updateCreativeDescription();
   updatePracticePresetDescription();
   installSettingDescriptions();
+  setupThemePicker();
+}
+
+function makeThemeSwatches(value) {
+  const swatches = document.createElement("span");
+  swatches.className = "theme-swatches";
+  swatches.setAttribute("aria-hidden", "true");
+  (themePalettes[value] || themePalettes.disciple).forEach(color => {
+    const swatch = document.createElement("span");
+    swatch.className = "theme-swatch";
+    swatch.style.background = color;
+    swatches.append(swatch);
+  });
+  return swatches;
+}
+
+function updateThemePicker() {
+  const select = document.getElementById("theme");
+  const picker = document.getElementById("themePicker");
+  const button = document.getElementById("themePickerButton");
+  const name = document.getElementById("themePickerName");
+  const swatchSlot = document.getElementById("themePickerSwatches");
+  if (!select || !picker || !button || !name || !swatchSlot) return;
+  const selected = select.selectedOptions[0] || select.options[0];
+  name.textContent = selected?.textContent || "Disciple";
+  swatchSlot.replaceChildren(...makeThemeSwatches(select.value).childNodes);
+  picker.dataset.value = select.value;
+  picker.querySelectorAll("[data-theme-value]").forEach(option => {
+    const active = option.dataset.themeValue === select.value;
+    option.classList.toggle("active", active);
+    option.setAttribute("aria-selected", String(active));
+  });
+}
+
+function closeThemePicker() {
+  const menu = document.getElementById("themePickerMenu");
+  const button = document.getElementById("themePickerButton");
+  if (!menu || !button) return;
+  menu.hidden = true;
+  button.setAttribute("aria-expanded", "false");
+}
+
+function setupThemePicker() {
+  const select = document.getElementById("theme");
+  const picker = document.getElementById("themePicker");
+  const button = document.getElementById("themePickerButton");
+  const menu = document.getElementById("themePickerMenu");
+  if (!select || !picker || !button || !menu || picker.dataset.ready === "true") return;
+  picker.dataset.ready = "true";
+  menu.replaceChildren(...[...select.options].map(option => {
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "theme-picker-option";
+    item.dataset.themeValue = option.value;
+    item.setAttribute("role", "option");
+    const label = document.createElement("span");
+    label.className = "theme-picker-name";
+    label.textContent = option.textContent;
+    item.append(label, makeThemeSwatches(option.value));
+    item.addEventListener("click", () => {
+      select.value = option.value;
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+      closeThemePicker();
+      button.focus();
+    });
+    return item;
+  }));
+  button.addEventListener("click", () => {
+    const nextOpen = menu.hidden;
+    menu.hidden = !nextOpen;
+    button.setAttribute("aria-expanded", String(nextOpen));
+  });
+  document.addEventListener("pointerdown", event => {
+    if (!picker.contains(event.target)) closeThemePicker();
+  });
+  document.addEventListener("keydown", event => {
+    if (event.key === "Escape") closeThemePicker();
+  });
+  select.addEventListener("change", updateThemePicker);
+  updateThemePicker();
 }
 
 function setupSpokenReminderSettings() {
