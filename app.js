@@ -550,7 +550,7 @@ const fontCatalog = [
   "Comfortaa", "Coming_Soon", "Atkinson_Hyperlegible", "Lato", "Lalezar", "Boon", "Open_Dyslexic", "Ubuntu", "Ubuntu_Mono",
   "Georgia", "Cascadia_Mono", "IBM_Plex_Mono", "Overpass_Mono", "Hack", "CommitMono", "Mononoki",
   "Parkinsans", "Geist", "Sarabun", "Kanit", "Geist_Mono", "Iosevka", "Proto", "Adwaita_Mono",
-  "Inter_Tight", "Space_Grotesk", "Noto_Sans_Lao", "Open_Sans", "Rubik", "Shantell_Sans", "Cormorant",
+  "Inter_Tight", "Space_Grotesk", "Noto_Sans_Lao", "Arad", "Open_Sans", "Rubik", "Shantell_Sans", "Cormorant",
   "Newsreader", "Spectral", "Noto_Sans_JP", "Noto_Serif_JP", "Shippori_Mincho"
 ];
 const googleFontFamilies = new Set([
