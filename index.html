@@ -13,8 +13,8 @@
   <link rel="canonical" href="https://keyswithdon.github.io/keyboard-disciple/">
   <link rel="sitemap" type="application/xml" href="https://keyswithdon.github.io/keyboard-disciple/sitemap.xml">
   <link rel="icon" href="assets/keyboard-disciple-mark.png">
-    <link rel="stylesheet" href="styles.css?v=20260722-zone-workout">
-    <link rel="stylesheet" href="refresh.css?v=20260722-zone-workout">
+    <link rel="stylesheet" href="styles.css?v=20260722-settings-nav">
+    <link rel="stylesheet" href="refresh.css?v=20260722-settings-nav">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Keyboard Disciple">
   <meta property="og:title" content="Keyboard Disciple | Free Typing Practice Game">
@@ -305,6 +305,14 @@
         </div>
         <button value="close" class="icon-button" aria-label="Close settings">×</button>
       </header>
+      <nav class="settings-nav" aria-label="Settings sections">
+        <button type="button" data-settings-jump="test">Test</button>
+        <button type="button" data-settings-jump="input">Behavior</button>
+        <button type="button" data-settings-jump="display">Appearance</button>
+        <button type="button" data-settings-jump="keyboard">Keyboard</button>
+        <button type="button" data-settings-jump="audio">Audio</button>
+        <button type="button" data-settings-jump="progress">Adaptive</button>
+      </nav>
       <div class="settings-layout settings-page">
         <div class="settings-panes">
           <section class="settings-pane active" data-settings-panel="test">
@@ -681,24 +689,6 @@
                 </select>
               </label>
             </div>
-            <div class="settings-map-panel">
-              <header>
-                <div>
-                  <h3>Letter finger map</h3>
-                  <p>See where each letter lives and which finger zone is assigned to it.</p>
-                </div>
-                <span>All letters shown</span>
-              </header>
-              <div class="settings-keyboard-map" id="settingsKeyboardMap" aria-label="Keyboard letter finger map"></div>
-              <div class="finger-legend settings-map-legend" aria-label="Finger zone legend">
-                <span class="zone-pinky">Pinky</span>
-                <span class="zone-ring">Ring</span>
-                <span class="zone-middle">Middle</span>
-                <span class="zone-left-index">Left index</span>
-                <span class="zone-right-index">Right index</span>
-                <span class="zone-thumb">Thumbs</span>
-              </div>
-            </div>
           </section>
 
           <section class="settings-pane" data-settings-panel="audio">
@@ -944,6 +934,6 @@
     </form>
   </dialog>
 
-    <script src="app.js?v=20260722-zone-workout"></script>
+    <script src="app.js?v=20260722-settings-nav"></script>
 </body>
 </html>

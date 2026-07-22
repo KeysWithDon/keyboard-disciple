@@ -1145,24 +1145,80 @@ body[data-mode="quote"] .typing-text {
 .settings-dialog > form > header span { color: var(--gold); font-size: 9px; font-weight: 650; text-transform: uppercase; }
 .settings-dialog > form > header h2 { margin: 2px 0 0; font-size: 18px; font-weight: 600; }
 
+.settings-nav {
+  position: sticky;
+  top: 66px;
+  z-index: 4;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  padding: 12px clamp(18px, 3vw, 34px);
+  border-bottom: 1px solid var(--line);
+  background: color-mix(in srgb, var(--bg) 94%, transparent);
+  backdrop-filter: blur(12px);
+}
+.settings-nav button {
+  min-width: 0;
+  min-height: 34px;
+  padding: 0 10px;
+  border: 1px solid color-mix(in srgb, var(--line) 78%, transparent);
+  border-radius: 5px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--panel) 56%, transparent);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.settings-nav button:hover,
+.settings-nav button:focus-visible,
+.settings-nav button.active {
+  color: var(--text);
+  border-color: color-mix(in srgb, var(--gold) 58%, var(--line));
+  background: linear-gradient(135deg, color-mix(in srgb, var(--gold) 18%, var(--panel)), color-mix(in srgb, var(--panel-strong) 82%, transparent));
+  outline: 0;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--gold) 10%, transparent);
+}
+
 .settings-layout,
 .settings-panes { display: block; padding: 0; }
 .settings-pane {
+  scroll-margin-top: 134px;
   display: block !important;
   padding: clamp(26px, 4vw, 42px) clamp(20px, 4vw, 46px);
   border-bottom: 1px solid var(--line);
-  background: transparent;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--panel) 18%, transparent), transparent 130px);
 }
 .settings-pane:last-child { border-bottom: 0; }
 .settings-section-heading {
   display: grid;
-  grid-template-columns: 34px minmax(0, 1fr);
-  gap: 12px;
-  margin-bottom: 25px;
+  grid-template-columns: 48px minmax(0, 1fr);
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 28px;
 }
-.settings-section-heading > span { color: var(--gold); font-size: 10px; padding-top: 4px; }
-.settings-section-heading h3 { margin: 0; font-size: 17px; font-weight: 600; }
-.settings-section-heading p { margin: 5px 0 0; color: var(--muted); font-size: 11px; line-height: 1.45; }
+.settings-section-heading > span {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--gold) 44%, var(--line));
+  border-radius: 6px;
+  color: var(--gold);
+  background: color-mix(in srgb, var(--gold) 10%, transparent);
+  font-size: 12px;
+  font-weight: 850;
+  box-shadow: 0 0 18px color-mix(in srgb, var(--gold) 9%, transparent);
+}
+.settings-section-heading h3 {
+  margin: 0;
+  color: var(--text);
+  font-size: clamp(22px, 3vw, 34px);
+  font-weight: 850;
+  line-height: 1;
+}
+.settings-section-heading p { max-width: 68ch; margin: 8px 0 0; color: var(--muted); font-size: 12px; line-height: 1.45; }
 
 .settings-grid {
   display: grid;
@@ -1416,7 +1472,19 @@ body[data-mode="zen"] .typing-word {
   .special-heatmap { grid-template-columns: repeat(13, minmax(0, 1fr)); gap: 3px; }
   .adaptive-recommendation .primary-button { width: 100%; }
   .settings-dialog { width: calc(100vw - 16px); }
+  .settings-nav {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    top: 62px;
+    padding: 10px 18px;
+  }
+  .settings-nav button { min-height: 32px; font-size: 9px; }
   .settings-pane { padding: 26px 18px; }
+  .settings-section-heading {
+    grid-template-columns: 40px minmax(0, 1fr);
+    gap: 11px;
+  }
+  .settings-section-heading > span { width: 36px; height: 36px; }
+  .settings-section-heading h3 { font-size: 24px; }
   .settings-grid > label { grid-template-columns: 1fr; align-items: stretch; }
   .settings-grid.compact-grid { grid-template-columns: 1fr 1fr; }
   .toggle-list { grid-template-columns: 1fr; }

@@ -4479,6 +4479,16 @@ function setupSettings() {
     els.settingsDialog.showModal();
     spokenReminderManager.loadCatalog();
   });
+  els.settingsDialog.querySelectorAll("[data-settings-jump]").forEach(button => {
+    button.addEventListener("click", () => {
+      const target = els.settingsDialog.querySelector(`[data-settings-panel="${button.dataset.settingsJump}"]`);
+      if (!target) return;
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+      els.settingsDialog.querySelectorAll("[data-settings-jump]").forEach(item => {
+        item.classList.toggle("active", item === button);
+      });
+    });
+  });
 
   updateCreativeDescription();
   updatePracticePresetDescription();
