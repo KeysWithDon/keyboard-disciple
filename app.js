@@ -1939,9 +1939,13 @@ function currentTarget() {
   return state.targetRows[state.rowIndex] || "";
 }
 
+function usesDictationTypingRules() {
+  return state.mode === "dictation" || (state.mode === "creative" && prefs.creativeMode === "tts");
+}
+
 function currentTypingTarget() {
   const target = currentTarget();
-  if (state.mode !== "dictation") return target;
+  if (!usesDictationTypingRules()) return target;
   let typingTarget = target;
   if (prefs.dictationPunctuation === "ignore") typingTarget = typingTarget.replace(/[^\w\s]/g, "");
   if (prefs.dictationCapitalization === "ignore") typingTarget = typingTarget.toLowerCase();
@@ -2508,6 +2512,7 @@ function schedulePracticeRefit(lines) {
 
 function renderText() {
   const target = currentTarget();
+  const typingTarget = currentTypingTarget();
   const reference = currentReference();
   els.scriptureStrip.classList.toggle("hidden", !reference);
   els.scriptureRef.textContent = reference;
@@ -2528,7 +2533,7 @@ function renderText() {
     ? `${state.input.length}`
     : state.mode === "dictation"
       ? `${state.input.length} typed`
-      : `${state.input.length} / ${target.length}`;
+      : `${state.input.length} / ${typingTarget.length}`;
   const isDictation = state.mode === "dictation";
   els.dictationControls?.classList.toggle("hidden", !isDictation || state.testCompleted);
   if (isDictation && els.dictationAudioStatus && els.dictationReplayButton) {
@@ -2570,7 +2575,7 @@ function renderText() {
   if (streamMode) {
     const lines = state.mode === "adaptive"
       ? state.targetRows.slice(state.rowIndex, state.rowIndex + 2)
-      : [state.targetRows[state.rowIndex] || ""];
+      : [usesDictationTypingRules() ? typingTarget : state.targetRows[state.rowIndex] || ""];
     while (state.mode === "adaptive" && lines.length < 2) lines.push("");
     els.typingText.innerHTML = lines.map((line, index) => `<span class="practice-line${index === 0 ? " active" : ""}" data-line-offset="${index}">${index === 0 ? renderInteractiveTarget(line) : renderPlainLine(line)}</span>`).join("");
     fitPracticeLines(lines);
@@ -2578,7 +2583,7 @@ function renderText() {
     return;
   }
 
-  els.typingText.innerHTML = renderInteractiveTarget(target);
+  els.typingText.innerHTML = renderInteractiveTarget(typingTarget);
   els.typingText.style.fontSize = "";
   state.practiceFontSize = null;
   state.practiceFitSignature = "";
@@ -2815,7 +2820,7 @@ function handleKey(event) {
   trackDailyActivity(recordedAt);
   const target = currentTypingTarget();
   const enteredKey = arrowCharacter || event.key;
-  const key = state.mode === "dictation" && prefs.dictationCapitalization === "ignore"
+  const key = usesDictationTypingRules() && prefs.dictationCapitalization === "ignore"
     ? enteredKey.toLowerCase()
     : enteredKey;
   const expected = target[state.input.length];
