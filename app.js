@@ -2573,6 +2573,19 @@ function schedulePracticeRefit(lines) {
   });
 }
 
+function positionAdaptiveLineMask() {
+  if (state.mode !== "adaptive") return;
+  const activeLine = els.typingText.querySelector(".practice-line.active");
+  if (!activeLine) return;
+  const current = activeLine.querySelector(".current") || activeLine.querySelector(".word-in-progress") || activeLine.querySelector(".done:last-child");
+  if (!current) {
+    activeLine.scrollLeft = 0;
+    return;
+  }
+  const targetLeft = current.offsetLeft - Math.round(activeLine.clientWidth * .18);
+  activeLine.scrollLeft = Math.max(0, targetLeft);
+}
+
 function renderText() {
   const target = currentTarget();
   const typingTarget = currentTypingTarget();
@@ -2646,6 +2659,7 @@ function renderText() {
       : [usesDictationTypingRules() ? typingTarget : state.targetRows[state.rowIndex] || ""];
     while (state.mode === "adaptive" && lines.length < 2) lines.push("");
     els.typingText.innerHTML = lines.map((line, index) => `<span class="practice-line${index === 0 ? " active" : ""}" data-line-offset="${index}">${index === 0 ? renderInteractiveTarget(line) : renderPlainLine(line)}</span>`).join("");
+    if (state.mode === "adaptive") positionAdaptiveLineMask();
     fitPracticeLines(lines);
     schedulePracticeRefit(lines);
     return;

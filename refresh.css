@@ -313,6 +313,38 @@ button, select, input, textarea { font-family: inherit; }
   padding: clamp(22px, 4vh, 48px) clamp(22px, 4vw, 56px) 54px;
 }
 
+body.is-fullscreen {
+  overflow: hidden;
+}
+body.is-fullscreen .app-shell {
+  min-height: 100svh;
+}
+body.is-fullscreen .stage {
+  min-height: calc(100svh - 74px);
+  justify-content: space-between;
+  gap: clamp(10px, 1.6vh, 18px);
+  padding-top: clamp(12px, 2vh, 24px);
+  padding-bottom: clamp(12px, 2vh, 24px);
+}
+body.is-fullscreen .devotion-line,
+body.is-fullscreen .live-metrics,
+body.is-fullscreen .row-status,
+body.is-fullscreen .scripture-strip {
+  flex-shrink: 0;
+}
+body.is-fullscreen .typing-card {
+  min-height: clamp(210px, 34vh, 330px);
+  padding-top: clamp(6px, 1vh, 12px);
+  padding-bottom: clamp(6px, 1vh, 12px);
+}
+body.is-fullscreen .keyboard-wrap {
+  flex-shrink: 0;
+  margin-top: 0;
+}
+body.is-fullscreen .keyboard {
+  width: min(100%, 980px);
+}
+
 .devotion-line {
   min-height: 28px;
   display: flex;
@@ -613,6 +645,10 @@ body[data-mode="dictation"] .typing-card { justify-content: center; }
   background: transparent;
   box-shadow: none;
 }
+.typing-card[data-width="compact"] { max-width: 760px; margin-left: auto; margin-right: auto; }
+.typing-card[data-width="comfortable"] { max-width: 1080px; margin-left: auto; margin-right: auto; }
+.typing-card[data-width="wide"] { max-width: 1280px; margin-left: auto; margin-right: auto; }
+.typing-card[data-width="full"] { max-width: none; }
 
 .row-status {
   min-height: 22px;
@@ -676,10 +712,25 @@ body[data-mode="adaptive"] .typing-card[data-size="small"] .typing-text { font-s
 body[data-mode="adaptive"] .typing-card[data-size="medium"] .typing-text { font-size: clamp(32px, 3vw, 48px); }
 body[data-mode="adaptive"] .typing-card[data-size="large"] .typing-text { font-size: clamp(40px, 3.8vw, 60px); }
 body[data-mode="adaptive"] .typing-card[data-size="xlarge"] .typing-text { font-size: clamp(48px, 4.5vw, 72px); }
+body[data-mode="adaptive"] .typing-text {
+  min-height: 190px;
+  display: grid;
+  grid-template-rows: repeat(2, 1.45em);
+  align-content: center;
+  gap: .34em;
+}
 body[data-mode="adaptive"] .practice-line {
-  white-space: normal;
-  overflow: visible;
+  width: 100%;
+  overflow: hidden;
+  white-space: nowrap;
+  text-align: left;
   line-height: 1.45;
+  scrollbar-width: none;
+}
+body[data-mode="adaptive"] .practice-line::-webkit-scrollbar { display: none; }
+body[data-mode="adaptive"] .practice-line:not(.active) {
+  text-align: left;
+  opacity: .25;
 }
 
 .typing-word { display: inline-flex; white-space: nowrap; }
@@ -765,10 +816,10 @@ body[data-mode="quote"] .typing-text {
 .keyboard {
   width: min(100%, 1060px);
   margin: 0 auto;
-  padding: clamp(10px, 1.5vw, 16px);
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--panel) 78%, transparent);
+  padding: clamp(6px, 1vw, 10px) 0 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
   box-shadow: none;
 }
 .key {
