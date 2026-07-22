@@ -484,6 +484,13 @@ const expandedWords = `abandon ability abroad absence absolute absorb abstract a
 const rareWords = `abeyance acumen adroit aegis alacrity amity apprise ardor askance behoove benison bereft blithe boon celerity comely cordial doughty dulcet efface emprise erstwhile fallow fervor forbear forthright gallant halcyon inure lissome morrow obeisance pensive prudent quaint quell redolent resolute sagacity sallow sojourn stately succor sundry verdant winsome`.split(" ");
 const dictionaryExtra = `ability absence account address advance advice affair agency agreement animal answer appeal arrival article artist aspect attempt balance beauty benefit brother budget camera career ceiling channel chapter charity choice church citizen comfort command company concern conduct courage cousin culture damage danger dealer debate degree demand desire detail device dinner doctor effort energy engine estate evening event family father figure flower garden glory habit harbor heaven history honor income island journey kingdom ladder leader lesson letter liberty member memory mercy minute modern moment morning motion mother nation notice number office option palace parent pastor patient pattern period person phrase planet player plenty prayer promise public purpose reason record refuge return rhythm river safety season second secret servant service signal sister spirit station story student summer supply teacher temple tender theory thread travel valley virtue vision window wisdom wonder worker worship writer`.split(" ");
 const workoutWords = `against already apartment appeared approach awkward beautiful because beneath breathing brother building business capable chapter clothing company confusion continued daughter darkness decided different downstairs emotions enormous everyone exactly expected expression followed footsteps forward friends getting glanced glasses grabbed happened happiness herself honestly hospital however ignoring including information instead journey kitchen laughing lightning location managed military mission mountain mountains muttered noticed obvious opposite opportunity original outside painful perfect physical plastic pleasure position possible powerful problems process professor purpose quickly reached realized remember returned running seconds shadows shooting shrugged silently situation slipped smiling soldiers somewhere sounding special standing started straight strength suddenly surprise surprised swallowed themselves thinking thoughts tomorrow touched touching towards understanding vampire watched watching weapons whatever whispered worried wrapped yourself alongside breakthrough comfortable complicated concentrate considerable construction conversation discovery encourage faithfully foundation important instruction meaningful messenger ministered mysterious particular practical promising questions recovery religious remarkable returning reverence sanctified scripture shoulder sunlight thanksgiving therefore together training troublesome victorious whispers worshipful yesterday`.split(" ");
+const workoutZoneWords = {
+  farLeft: `axis axes ease eases seas sees sizes sixes sexes seize seizes squeeze squeezes quiz quizzes swiss waxes wise was saw wax sax wow wows zowie`.split(" "),
+  middleLeft: `active advert advice affect after arcade arctic barrier better border brave brace bridge budget career craft crafted creator credit direct divided doctor effect effective fabric factor favorite fever force forbid forever forgive grace great greater grief guide guitar record regard river target traffic verdict vector virtue`.split(" "),
+  middle: `banana bathing beauty beginning beneath bounty button buying eighth eighty enough anything night ninth thing thingy thought taught tonight tough youth young tenant tenth hunting huntington buttoning`.split(" "),
+  middleRight: `human humane honey hunky junky kayak khaki make mania many mink money monkey monk moon mummy yummy hymn hike knee keen kin ninja union`.split(" "),
+  farRight: `apple appeal kale keep keel kilo lake leak leek leap like look loop lope pale pal papal peal peak peek peel pile pike plop polka pole poll pool pope pupil pulp pulpal pull ukulele`.split(" ")
+};
 const rareLetterFocusWords = {
   q: `quick quiet quite queen quest query quote quality equal square quarter require unique liquid sequence acquire frequent equipment question`.split(" "),
   z: `size zero zone maze lazy dozen crazy amaze breeze freeze prize zebra cozy zoom dizzy fuzzy buzz blaze bronze realize organize recognize puzzle`.split(" "),
@@ -1450,6 +1457,12 @@ function workoutZoneWeight(word, zoneId) {
   return matches / letters.length;
 }
 
+function isWorkoutZoneWord(word, zoneId) {
+  const zone = workoutZones.find(item => item.id === zoneId);
+  const consonants = workoutLetters(word);
+  return Boolean(zone && consonants.length && consonants.every(letter => zone.consonants.has(letter)));
+}
+
 function zoneWorkoutPhase(rowNumber = state.rowIndex) {
   const block = Math.floor(Math.max(0, rowNumber) / 5) % workoutZones.length;
   return workoutZones[block];
@@ -1496,16 +1509,17 @@ function wordDeck() {
   const rightHand = shuffle(allNatural.filter(word => handWeight(word, "right") >= .64));
   const outerFinger = shuffle(allNatural.filter(word => fingerBandWeight(word, "outer") >= .42));
   const innerFinger = shuffle(allNatural.filter(word => fingerBandWeight(word, "inner") >= .58));
-  const workoutNatural = [...new Set(workoutWords.concat(expandedWords, moderateWords, rareWords, dictionaryExtra))]
+  const workoutNatural = [...new Set(Object.values(workoutZoneWords).flat().concat(workoutWords, expandedWords, moderateWords, rareWords, dictionaryExtra))]
     .filter(isAllowed)
     .filter(word => word.length >= 7);
   const rankWorkout = (words, scorer) => shuffle(words)
     .sort((a, b) => (scorer(b) * 10 + b.length / 14) - (scorer(a) * 10 + a.length / 14));
   const workout = Object.fromEntries(workoutZones.map(zone => {
-    const threshold = zone.id === "farRight" ? .5 : zone.id === "middle" ? .46 : .54;
-    const pool = workoutNatural.filter(word => workoutZoneWeight(word, zone.id) >= threshold);
-    const fallback = workoutNatural.filter(word => workoutZoneWeight(word, zone.id) > 0);
-    return [zone.id, rankWorkout(pool.length >= 16 ? pool : fallback, word => workoutZoneWeight(word, zone.id))];
+    const zoneBank = [...new Set((workoutZoneWords[zone.id] || []).concat(workoutNatural))]
+      .filter(isAllowed)
+      .filter(word => word.length >= 3)
+      .filter(word => isWorkoutZoneWord(word, zone.id));
+    return [zone.id, rankWorkout(zoneBank, word => workoutZoneWeight(word, zone.id))];
   }));
   return {
     common, moderate, rare, rareFocus, focus, weak, finger, alternating,
@@ -1648,7 +1662,7 @@ function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
     const workoutFallbackPool = workoutActive
       ? deck.common
         .concat(deck.moderate, deck.rare)
-        .filter(word => workoutZoneWeight(word, workoutPhase.id) > 0)
+        .filter(word => isWorkoutZoneWord(word, workoutPhase.id))
         .sort((a, b) => workoutZoneWeight(b, workoutPhase.id) - workoutZoneWeight(a, workoutPhase.id))
       : [];
     const workoutPool = workoutActive ? shuffle([...new Set([...workoutStrictPool, ...workoutFallbackPool])]) : [];
@@ -1665,7 +1679,8 @@ function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
       else if (pos % rareInterval === 0 && deck.rare.length) { list = deck.rare; index = ri++; }
       else if (pos % moderateInterval === 0 && deck.moderate.length) { list = deck.moderate; index = mi++; }
       if (!list.length) list = deck.common.length ? deck.common : deck.focus.length ? deck.focus : ["a", "an", "in", "is", "it"];
-      const word = pickWordForRow(list, index, words, rowBudget, deck.common, previousRowWord);
+      const fallbackList = workoutActive && workoutPool.length ? workoutPool : deck.common;
+      const word = pickWordForRow(list, index, words, rowBudget, fallbackList, previousRowWord);
       if (!word) break;
       words.push(word);
     }
