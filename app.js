@@ -324,7 +324,6 @@ const defaultPrefs = {
   keyboardLayout: "mac",
   keyboardSize: "standard",
   keymapMode: "react",
-  keymapStyle: "staggered",
   keymapLegend: "uppercase",
   soundStyle: "1",
   soundVolume: .5,
@@ -2792,7 +2791,7 @@ function renderKeyboard() {
     ? fluidLayouts[state.rowIndex % fluidLayouts.length]
     : prefs.keyboardLayout;
   const layout = keyboardLayouts[layoutName] || keyboardLayouts.mac;
-  els.keyboard.className = `keyboard ${prefs.keyboardSize} layout-${layoutName} style-${prefs.keymapStyle}`;
+  els.keyboard.className = `keyboard ${prefs.keyboardSize} layout-${layoutName} style-staggered`;
   els.keyboard.innerHTML = layout.map((row, rowIndex) => {
     const keys = row.map(key => {
       if (key.type === "arrow-stack") return renderArrowStack(key);
@@ -2819,7 +2818,7 @@ function renderWorkoutZoneOutline() {
     rowKeys.forEach(key => {
       const box = key.getBoundingClientRect();
       const lastGroup = groups.at(-1);
-      if (!lastGroup || box.left - lastGroup.right > 10) {
+      if (!lastGroup || box.left - lastGroup.right > 12) {
         groups.push({ left: box.left, top: box.top, right: box.right, bottom: box.bottom });
         return;
       }
@@ -2830,10 +2829,10 @@ function renderWorkoutZoneOutline() {
     groups.forEach(group => {
       const outline = document.createElement("span");
       outline.className = "workout-zone-outline";
-      outline.style.left = `${group.left - keyboardBox.left - 5}px`;
-      outline.style.top = `${group.top - keyboardBox.top - 5}px`;
-      outline.style.width = `${group.right - group.left + 10}px`;
-      outline.style.height = `${group.bottom - group.top + 10}px`;
+      outline.style.left = `${group.left - keyboardBox.left - 4}px`;
+      outline.style.top = `${group.top - keyboardBox.top - 4}px`;
+      outline.style.width = `${group.right - group.left + 8}px`;
+      outline.style.height = `${group.bottom - group.top + 8}px`;
       els.keyboard.appendChild(outline);
     });
   });
@@ -2844,7 +2843,7 @@ function renderSettingsKeyboardMap() {
   const layout = keyboardLayouts[prefs.keyboardLayout] || keyboardLayouts.mac;
   const earned = new Set(letterOrder.slice(0, Number(prefs.practiceLetters)));
   const focused = new Set(selectedAdaptiveFocusLetters());
-  els.settingsKeyboardMap.className = `settings-keyboard-map keyboard ${prefs.keyboardSize} layout-${prefs.keyboardLayout} style-${prefs.keymapStyle}`;
+  els.settingsKeyboardMap.className = `settings-keyboard-map keyboard ${prefs.keyboardSize} layout-${prefs.keyboardLayout} style-staggered`;
   els.settingsKeyboardMap.innerHTML = layout.map((row, rowIndex) => {
     const keys = row.map(key => {
       if (key.type === "arrow-stack" || key.type === "spacer") {
@@ -4400,7 +4399,6 @@ const settingDescriptions = {
   keyboardLayout: "Changes the labels and key arrangement of the on-screen keyboard.",
   keyboardSize: "Changes the on-screen keyboard scale.",
   keymapMode: "Shows pressed keys, the next key, a static keyboard, or no keyboard.",
-  keymapStyle: "Displays the keyboard as staggered, matrix, or split rows.",
   keymapLegend: "Shows uppercase, lowercase, or blank letter keys.",
   soundStyle: "Chooses the keystroke sound played for accepted keys.",
   soundVolume: "Sets the volume of keystrokes, errors, warnings, reminders, and rewards.",
@@ -4484,7 +4482,7 @@ function setupSettings() {
     "practiceMode", "testDuration", "lessonLengthPages", "testWordCount", "dictationPromptCount", "dictationCapitalization", "dictationPunctuation", "quoteLength", "difficulty", "creativeMode", "capitalization", "quickRestart",
     "repeatQuotes", "resultSaving", "minWpm", "minAccuracy", "minBurst", "indicateTypos", "confidenceMode", "errorLimit",
     "theme", "fontFamily", "lessonColor", "currentCue", "caretStyle", "smoothCaret", "typedEffect", "highlightMode", "fontSize",
-    "lineWidth", "tapeMode", "timerStyle", "speedUnit", "keyboardLayout", "keyboardSize", "keymapMode", "keymapStyle",
+    "lineWidth", "tapeMode", "timerStyle", "speedUnit", "keyboardLayout", "keyboardSize", "keymapMode",
     "keymapLegend", "soundStyle", "soundVolume", "rewardStyle", "reminderSound", "errorStyle", "timeWarning", "practiceLetters",
     "targetSpeed", "practicePreset", "wordsPerRow", "dailyGoalMinutes", "bibleBook", "bibleChapter", "bibleStart", "bibleEnd"
   ];
@@ -4497,7 +4495,7 @@ function setupSettings() {
     "practiceMode", "testDuration", "lessonLengthPages", "testWordCount", "dictationPromptCount", "dictationCapitalization", "dictationPunctuation", "quoteLength", "difficulty", "creativeMode", "capitalization",
     "practiceLetters", "targetSpeed", "practicePreset", "wordsPerRow", "bibleBook", "bibleChapter", "bibleStart", "bibleEnd"
   ]);
-  const keyboardIds = new Set(["keyboardLayout", "keyboardSize", "keymapMode", "keymapStyle", "keymapLegend"]);
+  const keyboardIds = new Set(["keyboardLayout", "keyboardSize", "keymapMode", "keymapLegend"]);
 
   selectIds.forEach(id => {
     const el = document.getElementById(id);

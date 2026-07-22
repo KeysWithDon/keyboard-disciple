@@ -536,16 +536,16 @@ select, input, textarea {
 .keyboard {
   --quarter-key: 11px;
   --key-height: 48px;
-  --key-gap: 2px;
+  --key-gap: 5px;
   width: min(100%, 960px);
   display: grid;
-  gap: 4px;
+  gap: 6px;
   padding: 14px;
   border-radius: var(--radius);
   border: 1px solid var(--line);
   background: rgba(255,255,255,.07);
-  overflow-x: auto;
-  scrollbar-width: thin;
+  overflow: hidden;
+  scrollbar-width: none;
 }
 .key-row {
   min-width: max-content;
@@ -586,16 +586,11 @@ select, input, textarea {
 .key.pressed { transform: translateY(2px) scale(.96); box-shadow: 0 0 0 4px rgba(126,217,130,.18); }
 .key.mistake { background: rgba(255,107,98,.55); box-shadow: 0 0 0 5px rgba(255,107,98,.16); }
 .key.next-key { outline: 3px solid var(--gold); outline-offset: -3px; box-shadow: 0 0 18px rgba(243,200,68,.42); }
-.keyboard.compact { --quarter-key: 8px; --key-height: 38px; }
-.keyboard.standard { --quarter-key: 11px; --key-height: 48px; }
-.keyboard.large { --quarter-key: 13px; --key-height: 58px; }
-.keyboard.style-matrix .key-row { transform: none; }
-.keyboard.style-matrix .key-row > :first-child { margin-left: 0; }
-.keyboard.style-split .key-row { column-gap: calc(var(--key-gap) + 1px); }
-.keyboard.style-split .key-row > :nth-child(6) { margin-right: 16px; }
-.keyboard.style-split .key-row:first-child > :nth-child(7) { margin-right: 16px; }
+.keyboard.compact { --quarter-key: 7.5px; --key-height: 38px; }
+.keyboard.standard { --quarter-key: 10px; --key-height: 48px; }
+.keyboard.large { --quarter-key: 11.5px; --key-height: 58px; }
 .keyboard.layout-windows .key { border-radius: 3px; }
-.keyboard.layout-compact { --key-gap: 1px; padding: 10px; }
+.keyboard.layout-compact { padding: 10px; }
 .keyboard.layout-compact .key { border-radius: 4px; }
 .keyboard.layout-typewriter { padding: 18px; gap: 7px; background: rgba(12,15,13,.92); box-shadow: inset 0 0 0 3px rgba(255,255,255,.035); }
 .keyboard.layout-typewriter .key:not(.modifier):not(.spacebar) { border-radius: 50%; box-shadow: inset 0 0 0 2px rgba(255,255,255,.1), 0 3px 0 rgba(0,0,0,.28); }
@@ -756,8 +751,8 @@ select, input, textarea {
   .typing-card[data-width="comfortable"] { max-width: 1460px; }
   .typing-card[data-width="wide"] { max-width: 1640px; }
   .keyboard { width: min(100%, 1120px); }
-  .keyboard.standard { --quarter-key: 13px; --key-height: 56px; }
-  .keyboard.large { --quarter-key: 15px; --key-height: 66px; }
+  .keyboard.standard { --quarter-key: 11.5px; --key-height: 56px; }
+  .keyboard.large { --quarter-key: 13px; --key-height: 66px; }
   .typing-card[data-size="medium"] .typing-text { font-size: 52px; }
   .typing-card[data-size="large"] .typing-text { font-size: 62px; }
   .typing-card[data-size="xlarge"] .typing-text { font-size: 68px; }
@@ -769,7 +764,7 @@ select, input, textarea {
   .mode-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .stage { padding: 18px; }
   .topbar { align-items: flex-start; }
-  .keyboard.standard, .keyboard.large { --quarter-key: 9px; --key-height: 42px; }
+  .keyboard.standard, .keyboard.large { --quarter-key: 7.5px; --key-height: 42px; }
   .letter-hud { grid-template-columns: 1fr; }
   .heatmap-panel { border-left: 0; border-top: 1px solid var(--line); }
   .typing-card[data-size="small"] .typing-text { font-size: 30px; }
@@ -798,12 +793,12 @@ select, input, textarea {
   .keyboard.compact,
   .keyboard.standard,
   .keyboard.large {
-    --quarter-key: 4.5px;
+    --quarter-key: 3.35px;
     --key-height: 34px;
-    --key-gap: 1px;
+    --key-gap: 2px;
     gap: 3px;
     padding: 8px;
-    overflow-x: hidden;
+    overflow: hidden;
   }
   .key { font-size: 9px; }
   .key.modifier { padding: 0 2px; font-size: 6px; }

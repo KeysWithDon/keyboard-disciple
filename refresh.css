@@ -343,6 +343,7 @@ body.is-fullscreen .keyboard-wrap {
 }
 body.is-fullscreen .keyboard {
   width: min(100%, 980px);
+  overflow: hidden;
 }
 
 .devotion-line {
@@ -812,17 +813,28 @@ body[data-mode="quote"] .typing-text {
   line-height: 1.65;
 }
 
-.keyboard-wrap { width: 100%; margin: 4px auto 0; }
+.keyboard-wrap {
+  width: 100%;
+  max-width: 100%;
+  margin: 4px auto 0;
+  overflow: hidden;
+}
 .keyboard {
   position: relative;
   width: min(100%, 1060px);
+  max-width: 100%;
   margin: 0 auto;
   padding: clamp(6px, 1vw, 10px) 0 0;
   border: 0;
   border-radius: 0;
   background: transparent;
   box-shadow: none;
+  overflow: hidden;
+  --key-gap: 5px;
 }
+.keyboard.compact { --quarter-key: 7px; --key-height: 36px; }
+.keyboard.standard { --quarter-key: 9.5px; --key-height: 44px; }
+.keyboard.large { --quarter-key: 11px; --key-height: 52px; }
 .key {
   color: color-mix(in srgb, var(--text) 82%, transparent);
   border-color: color-mix(in srgb, currentColor 20%, transparent);
@@ -841,7 +853,7 @@ body[data-mode="quote"] .typing-text {
 .workout-zone-outline {
   position: absolute;
   z-index: 3;
-  border: 2px solid color-mix(in srgb, var(--lesson-color) 82%, #fff);
+  border: 1.5px solid color-mix(in srgb, var(--lesson-color) 82%, #fff);
   border-radius: 9px;
   box-shadow:
     0 0 0 1px color-mix(in srgb, var(--bg) 60%, transparent),
@@ -994,9 +1006,10 @@ body[data-mode="quote"] .typing-text {
   max-width: none;
   margin: 0;
   --key-height: 39px;
-  --quarter-key: 8px;
+  --quarter-key: 7px;
+  --key-gap: 5px;
   padding: 10px;
-  overflow-x: auto;
+  overflow: hidden;
   background: color-mix(in srgb, var(--panel) 72%, transparent);
 }
 .settings-keyboard-map .key { cursor: default; user-select: none; }
@@ -1488,7 +1501,13 @@ body[data-mode="zen"] .typing-word {
   body[data-mode="adaptive"] .typing-card[data-size="medium"] .typing-text { font-size: clamp(25px, 6.2vw, 32px); }
   body[data-mode="adaptive"] .typing-card[data-size="large"] .typing-text { font-size: clamp(30px, 7vw, 40px); }
   body[data-mode="adaptive"] .typing-card[data-size="xlarge"] .typing-text { font-size: clamp(36px, 7.8vw, 48px); }
-  .keyboard { padding: 7px; }
+  .keyboard {
+    --quarter-key: 3.35px;
+    --key-gap: 2px;
+    --key-height: 34px;
+    padding: 7px 0 0;
+    overflow: hidden;
+  }
   .finger-legend { display: none; }
   .adaptive-result-heading { align-items: flex-start; flex-direction: column; gap: 8px; }
   .adaptive-result-heading > strong { text-align: left; }
