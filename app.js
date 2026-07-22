@@ -7,7 +7,6 @@ const specialProgressKeys = [
 ];
 const startLetters = 6;
 const rowsPerPage = 10;
-const adaptiveLinesPerLesson = rowsPerPage;
 const masteryRequiredPages = 27;
 const masteryRequiredAttempts = 540;
 const STORAGE_KEY = "keyboard-disciple-web";
@@ -271,10 +270,10 @@ const defaultPrefs = {
   practiceLetters: startLetters,
   focusLetters: [],
   wordsPerRow: 10,
+  lessonLengthPages: 1,
   targetSpeed: 35,
   practicePreset: "balanced",
   practicePresets: ["balanced"],
-  adaptiveEndless: false,
   recoverKeys: true,
   naturalWords: true,
   dailyGoalMinutes: 15,
@@ -368,6 +367,7 @@ prefs.focusLetters = [...new Set(prefs.focusLetters.map(letter => String(letter)
 prefs.testDuration = Math.max(5, Math.min(600, Number(prefs.testDuration) || defaultPrefs.testDuration));
 prefs.testWordCount = Math.max(1, Math.min(3000, Math.round(Number(prefs.testWordCount) || defaultPrefs.testWordCount)));
 prefs.dictationPromptCount = Math.max(5, Math.min(30, Math.round(Number(prefs.dictationPromptCount) || defaultPrefs.dictationPromptCount)));
+prefs.lessonLengthPages = Math.max(1, Math.min(100, Math.round(Number(prefs.lessonLengthPages) || defaultPrefs.lessonLengthPages)));
 if (!new Set(["exact", "ignore"]).has(prefs.dictationCapitalization)) prefs.dictationCapitalization = defaultPrefs.dictationCapitalization;
 if (!new Set(["exact", "ignore"]).has(prefs.dictationPunctuation)) prefs.dictationPunctuation = defaultPrefs.dictationPunctuation;
 prefs.errorLimit = Math.max(1, Math.min(8, Number(prefs.errorLimit) || defaultPrefs.errorLimit));
@@ -394,7 +394,6 @@ if (!Array.isArray(prefs.practicePresets)) prefs.practicePresets = [prefs.practi
 prefs.practicePresets = [...new Set(prefs.practicePresets.filter(preset => practicePresetStyles.has(preset)))].slice(0, 3);
 if (!prefs.practicePresets.length) prefs.practicePresets = [prefs.practicePreset];
 prefs.practicePreset = prefs.practicePresets[0];
-prefs.adaptiveEndless = Boolean(prefs.adaptiveEndless);
 if (!creativeModeStyles.has(prefs.creativeMode)) prefs.creativeMode = defaultPrefs.creativeMode;
 if (!themeStyles.has(prefs.theme)) prefs.theme = defaultPrefs.theme;
 if (!lessonColorStyles.has(prefs.lessonColor)) prefs.lessonColor = defaultPrefs.lessonColor;
@@ -944,9 +943,12 @@ function formattedSpeed(wpm) {
 function currentProgress() {
   const target = currentTarget();
   if (state.mode === "time") return Math.max(0, Math.min(1, 1 - state.timeRemaining / Number(prefs.testDuration)));
-  if (state.mode === "adaptive") return Math.max(0, Math.min(1, (state.rowIndex + (target.length ? state.input.length / target.length : 0)) / rowsPerPage));
+  if (state.mode === "adaptive") return Math.max(0, Math.min(1, (state.rowIndex + (target.length ? state.input.length / target.length : 0)) / lessonLineLimit()));
   if (["words", "creative", "placement"].includes(state.mode)) return Math.max(0, Math.min(1, (state.rowIndex + (target.length ? state.input.length / target.length : 0)) / Math.max(1, state.targetRows.length)));
-  if (state.mode === "zen") return 0;
+  if (state.mode === "zen") return target.length ? Math.max(0, Math.min(1, state.input.length / target.length)) : 0;
+  if (["quote", "bible", "bibleQuotes"].includes(state.mode)) {
+    return Math.max(0, Math.min(1, (state.pageIndex + (target.length ? state.input.length / target.length : 0)) / Math.max(1, state.scripturePages.length)));
+  }
   return target.length ? Math.max(0, Math.min(1, state.input.length / target.length)) : 0;
 }
 
@@ -1443,6 +1445,18 @@ function visibleWordsPerRow(minimum = 2) {
   return Math.max(minimum, Math.min(requested, Math.round(requested * density), viewportCap || Infinity));
 }
 
+function lessonPageCount() {
+  return Math.max(1, Math.min(100, Math.round(Number(prefs.lessonLengthPages) || 1)));
+}
+
+function lessonLineLimit() {
+  return lessonPageCount() * rowsPerPage;
+}
+
+function lessonWordTarget() {
+  return lessonLineLimit() * visibleWordsPerRow();
+}
+
 function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
   const deck = wordDeck();
   const rows = [];
@@ -1491,9 +1505,9 @@ function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
   return rows;
 }
 
-function makePlacementRows() {
+function makePlacementRows(rowCount = lessonLineLimit()) {
   const pool = shuffle([...new Set(commonWords.concat(expandedWords, moderateWords, dictionaryExtra))]);
-  const words = Array.from({ length: 80 }, (_, index) => {
+  const words = Array.from({ length: rowCount * visibleWordsPerRow() }, (_, index) => {
     if ((index + 1) % 7 === 0 && rareLetterFocusPool.length) return rareLetterFocusPool[index % rareLetterFocusPool.length];
     return pool[index % Math.max(1, pool.length)] || "practice";
   });
@@ -1543,7 +1557,7 @@ function makeTestWords(count) {
   return decorateTestWords(words);
 }
 
-function makeWordSections(count) {
+function makeWordSections(count = lessonWordTarget()) {
   const words = makeTestWords(count);
   const sections = [];
   const size = visibleWordsPerRow();
@@ -1553,7 +1567,7 @@ function makeWordSections(count) {
   return sections.length ? sections : ["practice"];
 }
 
-function makeZenParagraph(wordCount = 160) {
+function makeZenParagraph(wordCount = lessonWordTarget()) {
   const words = makeTestWords(wordCount).map(word => word.toLowerCase());
   const sentences = [];
   let index = 0;
@@ -1573,10 +1587,6 @@ function ensureZenTargetBuffer() {
   const current = state.targetRows[0] || "";
   if (!current) {
     state.targetRows = [makeZenParagraph()];
-    return;
-  }
-  if (current.length - state.input.length < 220) {
-    state.targetRows[0] = `${current} ${makeZenParagraph(90)}`;
   }
 }
 
@@ -1684,10 +1694,10 @@ function makeCreativeWords(count) {
   return words;
 }
 
-function makeCreativeSections(count) {
+function makeCreativeSections(count = lessonWordTarget()) {
   if (prefs.creativeMode === "tts") {
     const sentences = shuffle(dictationSentenceBank);
-    const sectionCount = Math.max(1, Math.ceil(Number(count) / Math.max(6, visibleWordsPerRow())));
+    const sectionCount = Math.max(1, lessonLineLimit(), Math.ceil(Number(count) / Math.max(6, visibleWordsPerRow())));
     return Array.from({ length: sectionCount }, (_, index) => transformText(sentences[index % sentences.length]));
   }
   const words = makeCreativeWords(count);
@@ -1702,8 +1712,8 @@ function makeCreativeSections(count) {
   return sections.length ? sections : ["practice"];
 }
 
-function makeTimedRows() {
-  const words = makeTestWords(600);
+function makeTimedRows(rowCount = lessonLineLimit()) {
+  const words = makeTestWords(rowCount * visibleWordsPerRow());
   const size = visibleWordsPerRow();
   const rows = [];
   for (let index = 0; index < words.length; index += size) {
@@ -1712,7 +1722,7 @@ function makeTimedRows() {
   return rows;
 }
 
-async function makeDictationRows(count = prefs.dictationPromptCount) {
+async function makeDictationRows(count = lessonLineLimit()) {
   let passages = [];
   try {
     passages = makeBibleQuotePages(await loadKJV()).map(([, text]) => text).filter(Boolean);
@@ -1754,6 +1764,22 @@ async function bibleQuoteForLength() {
     return count >= min && count <= max;
   });
   return shuffle(matches.length ? matches : pages)[0] || ["John 3:16 KJV", "For God so loved the world, that he gave his only begotten Son."];
+}
+
+async function makeBibleQuoteLessonPages() {
+  const pages = makeBibleQuotePages(await loadKJV());
+  const ranges = {
+    short: [0, 11],
+    medium: [12, 20],
+    long: [21, 32],
+    epic: [33, Infinity]
+  };
+  const [min, max] = ranges[prefs.quoteLength] || ranges.medium;
+  const matches = pages.filter(([, text]) => {
+    const count = text.split(/\s+/).length;
+    return count >= min && count <= max;
+  });
+  return (matches.length ? matches : pages).slice(0, lessonPageCount());
 }
 
 function transformText(text) {
@@ -1884,40 +1910,42 @@ async function restart() {
     state.targetRows = makeAdaptiveRows(rowsPerPage * 2);
     state.scripturePages = [];
   } else if (state.mode === "time") {
-    state.targetRows = makeTimedRows();
+    state.targetRows = makeTimedRows(lessonLineLimit());
     state.scripturePages = [];
   } else if (state.mode === "words") {
-    state.targetRows = makeWordSections(Number(prefs.testWordCount));
+    state.targetRows = makeWordSections(lessonWordTarget());
     state.scripturePages = [];
   } else if (state.mode === "creative") {
-    state.targetRows = makeCreativeSections(Number(prefs.testWordCount));
+    state.targetRows = makeCreativeSections(lessonWordTarget());
     state.scripturePages = [];
   } else if (state.mode === "placement") {
-    state.targetRows = makePlacementRows();
+    state.targetRows = makePlacementRows(lessonLineLimit());
     state.scripturePages = [];
   } else if (state.mode === "dictation") {
-    state.targetRows = await makeDictationRows();
+    state.targetRows = await makeDictationRows(lessonLineLimit());
     if (requestId !== restartRequestId) return;
     state.scripturePages = [];
   } else if (state.mode === "quote") {
     const shouldRepeat = prefs.repeatQuotes === "always" || (prefs.repeatQuotes === "typing" && wasTyping);
-    const quote = shouldRepeat && state.lastQuote ? state.lastQuote : await bibleQuoteForLength();
+    const quotePages = shouldRepeat && state.lastQuote
+      ? [state.lastQuote]
+      : await makeBibleQuoteLessonPages();
     if (requestId !== restartRequestId) return;
-    state.lastQuote = quote;
-    state.scripturePages = [[quote[0], transformText(quote[1])]];
+    state.lastQuote = quotePages[0] || null;
+    state.scripturePages = quotePages.map(([ref, text]) => [ref, transformText(text)]);
     state.targetRows = [];
   } else if (state.mode === "bibleQuotes") {
-    const data = await loadKJV();
+    const pages = await makeBibleQuoteLessonPages();
     if (requestId !== restartRequestId) return;
-    state.scripturePages = makeBibleQuotePages(data);
+    state.scripturePages = pages;
     state.targetRows = [];
   } else if (state.mode === "bible") {
     const pages = await makeBiblePages();
     if (requestId !== restartRequestId) return;
-    state.scripturePages = pages;
+    state.scripturePages = pages.slice(0, lessonPageCount());
     state.targetRows = [];
   } else if (state.mode === "zen") {
-    state.targetRows = [makeZenParagraph()];
+    state.targetRows = [makeZenParagraph(lessonWordTarget())];
     state.scripturePages = [];
   } else {
     state.targetRows = [""];
@@ -2065,12 +2093,12 @@ function speakBrowserDictationPrompt(text) {
 
 function modeCopy() {
   const copy = {
-    adaptive: ["Adaptive letters", `Focus ${adaptiveFocusLabel()} / ${prefs.targetSpeed} WPM target`],
+    adaptive: ["Adaptive letters", `${lessonPageCount()} page lesson / ${prefs.targetSpeed} WPM target`],
     time: ["Timed Test", `${prefs.testDuration} second sprint`],
-    words: ["Word Test", `${prefs.testWordCount} word challenge`],
+    words: ["Word Test", `${lessonPageCount()} page challenge`],
     placement: ["Placement Check", "Find your starting point"],
     quote: ["Quote Test", "Complete the quote"],
-    zen: ["Zen Mode", "Type without limits"],
+    zen: ["Zen Mode", `${lessonPageCount()} page freewrite`],
     creative: ["Creative Test", creativeModeLabels[prefs.creativeMode]],
     dictation: ["Dictation", "Listen, then type"],
     bible: ["Scripture Reading", "Bible Reading"],
@@ -2521,20 +2549,20 @@ function renderText() {
   els.scriptureStrip.classList.toggle("hidden", !reference);
   els.scriptureRef.textContent = reference;
   const rowLabels = {
-    adaptive: `Line ${(state.rowIndex % rowsPerPage) + 1} of ${rowsPerPage}`,
+    adaptive: `Line ${Math.min(lessonLineLimit(), state.rowIndex + 1)} of ${lessonLineLimit()}`,
     time: `${Math.max(0, Math.ceil(state.timeRemaining))} seconds`,
     words: `Line ${state.rowIndex + 1} of ${state.targetRows.length}`,
     creative: `${creativeModeLabels[prefs.creativeMode]} / line ${state.rowIndex + 1} of ${state.targetRows.length}`,
     placement: `Placement line ${state.rowIndex + 1} of ${state.targetRows.length}`,
     dictation: `Prompt ${state.rowIndex + 1} of ${state.targetRows.length}`,
     quote: "Complete quote",
-    zen: "Endless practice",
+    zen: `Freewrite ${state.input.length} / ${target.length}`,
     bible: `Scripture ${state.pageIndex + 1} of ${state.scripturePages.length}`,
     bibleQuotes: `Quote ${state.pageIndex + 1} of ${state.scripturePages.length}`
   };
   els.rowLabel.textContent = rowLabels[state.mode] || "Practice";
   els.charLabel.textContent = state.mode === "zen"
-    ? `${state.input.length}`
+    ? `${state.input.length} / ${target.length}`
     : state.mode === "dictation"
       ? `${state.input.length} typed`
       : `${state.input.length} / ${typingTarget.length}`;
@@ -2880,7 +2908,7 @@ function handleKey(event) {
     state.lineRawTyped++;
   }
   if (prefs.typingSounds) playKey(event.code, event.shiftKey || state.capsLock);
-  if (state.mode !== "zen" && state.input.length >= target.length) {
+  if (state.input.length >= target.length) {
     finishLine();
     return;
   }
@@ -2977,8 +3005,8 @@ function finishLine() {
   else if (state.mode === "time") finishTimedLine();
   else if (["words", "creative", "placement"].includes(state.mode)) finishWordSection();
   else if (state.mode === "dictation") finishDictationLine();
-  else if (state.mode === "quote") finishTest();
-  else if (["bible", "bibleQuotes"].includes(state.mode)) finishScripture();
+  else if (state.mode === "zen") finishTest();
+  else if (["quote", "bible", "bibleQuotes"].includes(state.mode)) finishScripture();
 }
 
 function updateLifetimeAverages(metrics) {
@@ -3005,7 +3033,7 @@ function finishAdaptiveLine() {
       letterStats
     });
     state.adaptiveLessonPages.push(pageResult);
-    adaptiveLessonComplete = state.adaptiveLessonLines.length >= adaptiveLinesPerLesson;
+    adaptiveLessonComplete = state.adaptiveLessonLines.length >= lessonLineLimit();
     if (canUnlockNextLetter()) {
       newlyUnlocked = letterOrder[Number(prefs.practiceLetters)] || "";
       prefs.practiceLetters = Math.min(letterOrder.length, Number(prefs.practiceLetters) + 1);
@@ -3016,14 +3044,8 @@ function finishAdaptiveLine() {
       const summary = buildAdaptiveLessonSummary(state.adaptiveLessonLines);
       summary.recommendation = recommendAdaptiveFocus(progress.adaptiveLessonHistory);
       saveAdaptiveLessonSummary(summary);
-      if (prefs.adaptiveEndless) {
-        state.adaptiveLessonLines = [];
-        state.adaptiveLessonPages = [];
-        adaptiveLessonComplete = false;
-      } else {
-        state.result = { ...summary, ...rankAdaptiveLesson(summary) };
-        state.testCompleted = true;
-      }
+      state.result = { ...summary, ...rankAdaptiveLesson(summary) };
+      state.testCompleted = true;
     }
   }
   progress.rowsCleared++;
@@ -3073,7 +3095,7 @@ function finishAdaptiveLine() {
     } else if (state.targetRows.length - state.rowIndex < 8) {
       state.targetRows.push(...makeAdaptiveRows(rowsPerPage));
     }
-    if (completedPage && state.rowIndex >= 100) {
+    if (completedPage && state.rowIndex >= Math.max(1000, lessonLineLimit() + rowsPerPage)) {
       state.targetRows = state.targetRows.slice(state.rowIndex);
       state.rowIndex = 0;
     }
@@ -3083,6 +3105,10 @@ function finishAdaptiveLine() {
 }
 
 function finishTimedLine() {
+  if (state.rowIndex >= state.targetRows.length - 1) {
+    finishTest();
+    return;
+  }
   progress.rowsCleared++;
   save();
   els.completionBanner.textContent = state.lineErrors === 0 ? "Perfect line" : "Line cleared";
@@ -3093,7 +3119,6 @@ function finishTimedLine() {
     state.input = "";
     state.lineErrors = 0;
     state.rowIndex++;
-    if (state.rowIndex >= state.targetRows.length - 2) state.targetRows.push(...makeTimedRows());
     renderText();
     renderLiveMetrics();
     if (prefs.keymapMode === "next") renderKeyboard();
@@ -3239,13 +3264,21 @@ function finishDictationLine() {
 function finishScripture() {
   const metrics = currentMetrics();
   updateLifetimeAverages(metrics);
-  recordCompletedLesson(metrics.wpm, metrics.accuracy, { raw: metrics.raw, consistency: metrics.consistency, elapsedMs: metrics.elapsedMs });
+  const savedResult = recordCompletedLesson(metrics.wpm, metrics.accuracy, { raw: metrics.raw, consistency: metrics.consistency, elapsedMs: metrics.elapsedMs });
+  const finalPage = state.pageIndex >= state.scripturePages.length - 1;
   progress.rowsCleared++;
   save();
-  els.completionBanner.textContent = "Scripture cleared";
+  els.completionBanner.textContent = finalPage ? "Lesson complete" : state.mode === "quote" ? "Quote cleared" : "Scripture cleared";
   els.completionBanner.classList.remove("hidden");
   setTimeout(() => {
     els.completionBanner.classList.add("hidden");
+    if (finalPage) {
+      state.result = { ...savedResult, ...metrics };
+      state.testCompleted = true;
+      save();
+      render();
+      return;
+    }
     state.input = "";
     state.lineErrors = 0;
     state.startedAt = null;
@@ -3254,7 +3287,7 @@ function finishScripture() {
     state.errors = 0;
     state.keyIntervals = [];
     state.lastKeyAt = null;
-    state.pageIndex = (state.pageIndex + 1) % state.scripturePages.length;
+    state.pageIndex++;
     render();
   }, 100);
 }
@@ -4117,8 +4150,9 @@ function escapeHtml(text) {
 const settingDescriptions = {
   practiceMode: "Changes the active typing experience. Dictation plays a hidden sentence while you type, then scores the submitted answer for speed, accuracy, errors, and follow rate.",
   testDuration: "Sets the length of timed tests.",
-  testWordCount: "Sets Words and Creative test length up to 3,000 words. Only four lines are shown at once.",
-  dictationPromptCount: "Sets how many prompts are queued before Dictation starts a fresh batch. Each submitted prompt gets its own summary.",
+  lessonLengthPages: "Sets how many ten-line pages a lesson runs before results are shown. This applies across practice modes.",
+  testWordCount: "Keeps a custom word-count value available for word challenges; Lesson length controls the standard page cap.",
+  dictationPromptCount: "Keeps a custom prompt-count value available for Dictation; Lesson length controls the standard page cap.",
   dictationCapitalization: "Choose whether Dictation requires uppercase letters or accepts the same words in lowercase.",
   dictationPunctuation: "Choose whether Dictation requires punctuation or accepts the spoken words without sentence marks.",
   quoteLength: "Limits general quotes to the selected length range.",
@@ -4135,7 +4169,6 @@ const settingDescriptions = {
   includePunctuation: "Adds sentence marks to generated Time and Words tests.",
   includeNumbers: "Mixes number groups into generated Time and Words tests.",
   practicePreset: "Sets the default adaptive focus. The lesson summary can combine up to three suggested focuses before the next lesson begins.",
-  adaptiveEndless: "Keeps adaptive practice moving after each ten-line block. Results are saved quietly, and the next block rotates hand and finger emphasis.",
   confidenceMode: "Limits backspacing to the current word or disables it completely.",
   errorLimit: "Caps repeated errors on one character so accidental key holds cannot ruin statistics.",
   blindMode: "Hides feedback on completed characters to encourage rhythm over correction.",
@@ -4253,7 +4286,7 @@ function setupSettings() {
   }
 
   const selectIds = [
-    "practiceMode", "testDuration", "testWordCount", "dictationPromptCount", "dictationCapitalization", "dictationPunctuation", "quoteLength", "difficulty", "creativeMode", "capitalization", "quickRestart",
+    "practiceMode", "testDuration", "lessonLengthPages", "testWordCount", "dictationPromptCount", "dictationCapitalization", "dictationPunctuation", "quoteLength", "difficulty", "creativeMode", "capitalization", "quickRestart",
     "repeatQuotes", "resultSaving", "minWpm", "minAccuracy", "minBurst", "indicateTypos", "confidenceMode", "errorLimit",
     "theme", "fontFamily", "lessonColor", "currentCue", "caretStyle", "smoothCaret", "typedEffect", "highlightMode", "fontSize",
     "lineWidth", "tapeMode", "timerStyle", "speedUnit", "keyboardLayout", "keyboardSize", "keymapMode", "keymapStyle",
@@ -4262,11 +4295,11 @@ function setupSettings() {
   ];
   const prefKeys = { practiceMode: "mode" };
   const numericIds = new Set([
-    "testDuration", "testWordCount", "dictationPromptCount", "minWpm", "minAccuracy", "minBurst", "errorLimit", "soundVolume", "practiceLetters",
+    "testDuration", "lessonLengthPages", "testWordCount", "dictationPromptCount", "minWpm", "minAccuracy", "minBurst", "errorLimit", "soundVolume", "practiceLetters",
     "targetSpeed", "wordsPerRow", "dailyGoalMinutes", "bibleChapter", "bibleStart", "bibleEnd"
   ]);
   const restartIds = new Set([
-    "practiceMode", "testDuration", "testWordCount", "dictationPromptCount", "dictationCapitalization", "dictationPunctuation", "quoteLength", "difficulty", "creativeMode", "capitalization",
+    "practiceMode", "testDuration", "lessonLengthPages", "testWordCount", "dictationPromptCount", "dictationCapitalization", "dictationPunctuation", "quoteLength", "difficulty", "creativeMode", "capitalization",
     "practiceLetters", "targetSpeed", "practicePreset", "wordsPerRow", "bibleBook", "bibleChapter", "bibleStart", "bibleEnd"
   ]);
   const keyboardIds = new Set(["keyboardLayout", "keyboardSize", "keymapMode", "keymapStyle", "keymapLegend"]);
@@ -4289,6 +4322,10 @@ function setupSettings() {
       if (id === "dictationPromptCount") {
         prefs.dictationPromptCount = Math.max(5, Math.min(30, Math.round(prefs.dictationPromptCount || defaultPrefs.dictationPromptCount)));
         event.target.value = String(prefs.dictationPromptCount);
+      }
+      if (id === "lessonLengthPages") {
+        prefs.lessonLengthPages = Math.max(1, Math.min(100, Math.round(prefs.lessonLengthPages || defaultPrefs.lessonLengthPages)));
+        event.target.value = String(prefs.lessonLengthPages);
       }
       if (["bibleStart", "bibleEnd"].includes(id) && prefs.bibleEnd < prefs.bibleStart) {
         prefs.bibleEnd = prefs.bibleStart;
@@ -4330,7 +4367,7 @@ function setupSettings() {
     "includePunctuation", "includeNumbers", "blindMode", "quickEnd", "capsLockWarning", "focusMode", "showLiveWpm",
     "freedomMode", "strictSpace", "oppositeShiftMode", "britishEnglish", "lazyMode", "showLiveAccuracy", "showLiveRaw",
     "showLiveConsistency", "rhythmCoach", "techniqueTips", "showProgress", "smoothLineScroll", "textGlow", "flipTestColors", "colorfulMode", "typingSounds",
-    "errorSounds", "adaptiveEndless", "recoverKeys", "naturalWords"
+    "errorSounds", "recoverKeys", "naturalWords"
   ];
   toggleIds.forEach(id => {
     const el = document.getElementById(id);
