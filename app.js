@@ -1553,6 +1553,33 @@ function makeWordSections(count) {
   return sections.length ? sections : ["practice"];
 }
 
+function makeZenParagraph(wordCount = 160) {
+  const words = makeTestWords(wordCount).map(word => word.toLowerCase());
+  const sentences = [];
+  let index = 0;
+  while (index < words.length) {
+    const length = 9 + Math.floor(Math.random() * 8);
+    const slice = words.slice(index, index + length);
+    if (!slice.length) break;
+    slice[0] = slice[0][0].toUpperCase() + slice[0].slice(1);
+    sentences.push(`${slice.join(" ")}.`);
+    index += length;
+  }
+  return transformText(sentences.join(" "));
+}
+
+function ensureZenTargetBuffer() {
+  if (state.mode !== "zen") return;
+  const current = state.targetRows[0] || "";
+  if (!current) {
+    state.targetRows = [makeZenParagraph()];
+    return;
+  }
+  if (current.length - state.input.length < 220) {
+    state.targetRows[0] = `${current} ${makeZenParagraph(90)}`;
+  }
+}
+
 function weakestPracticeLetters() {
   return letterOrder
     .slice(0, Number(prefs.practiceLetters))
@@ -1884,6 +1911,9 @@ async function restart() {
     if (requestId !== restartRequestId) return;
     state.scripturePages = pages;
     state.targetRows = [];
+  } else if (state.mode === "zen") {
+    state.targetRows = [makeZenParagraph()];
+    state.scripturePages = [];
   } else {
     state.targetRows = [""];
     state.scripturePages = [];
@@ -1897,7 +1927,10 @@ async function restart() {
 
 function currentTarget() {
   if (["bible", "bibleQuotes", "quote"].includes(state.mode)) return state.scripturePages[state.pageIndex]?.[1] || "";
-  if (state.mode === "zen") return "";
+  if (state.mode === "zen") {
+    ensureZenTargetBuffer();
+    return state.targetRows[0] || "";
+  }
   return state.targetRows[state.rowIndex] || "";
 }
 
@@ -2510,7 +2543,8 @@ function renderText() {
     els.dictationSubmitButton.disabled = !state.input.length;
   }
   if (state.mode === "zen") {
-    els.typingText.innerHTML = `<span class="practice-line active">${escapeHtml(state.input || "\u00a0")}</span>`;
+    ensureZenTargetBuffer();
+    els.typingText.innerHTML = `<span class="practice-line zen-paragraph active">${renderInteractiveTarget(currentTarget())}</span>`;
     els.typingText.style.fontSize = "";
     state.practiceFontSize = null;
     state.practiceFitSignature = "";
@@ -2821,6 +2855,7 @@ function handleKey(event) {
   state.input += enteredKey;
   state.charsTyped++;
   state.rawTyped++;
+  if (state.mode === "zen") ensureZenTargetBuffer();
   if (state.mode === "adaptive") {
     state.lineCharsTyped++;
     state.lineRawTyped++;

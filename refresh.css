@@ -1199,6 +1199,30 @@ body[data-mode="quote"] .typing-text {
 .tape-mode .typing-text { display: block; min-height: 72px; white-space: nowrap; overflow: hidden; }
 .tape-mode .practice-line:not(.active) { display: none; }
 
+body[data-mode="zen"] .typing-text,
+body[data-mode="zen"].tape-mode .typing-text {
+  min-height: 260px;
+  display: block;
+  overflow: visible;
+  text-align: left;
+  white-space: normal;
+  line-height: 1.75;
+}
+
+body[data-mode="zen"] .practice-line,
+body[data-mode="zen"].tape-mode .practice-line {
+  display: block;
+  max-width: min(100%, 78ch);
+  margin: 0 auto;
+  overflow: visible;
+  white-space: normal;
+  text-align: left;
+}
+
+body[data-mode="zen"] .typing-word {
+  display: inline-flex;
+}
+
 .funbox-mirror .typing-text { transform: scaleX(-1); }
 .funbox-upside_down .typing-text { transform: rotate(180deg); }
 .funbox-layout_mirror .keyboard { transform: scaleX(-1); }
