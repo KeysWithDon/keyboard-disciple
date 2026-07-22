@@ -1382,8 +1382,8 @@ function handWeight(word, hand) {
 
 function fingerBand(letter) {
   const zone = fingerZone(String(letter || "").toLowerCase()).label.toLowerCase();
-  if (zone.includes("pinky") || zone.includes("ring")) return "outer";
-  if (zone.includes("index") || zone.includes("middle")) return "inner";
+  if (zone.includes("ring") || zone.includes("middle")) return "outer";
+  if (zone.includes("index")) return "inner";
   return "neutral";
 }
 
@@ -1392,8 +1392,8 @@ function keyMatchesWorkoutPhase(keyId, phase = zoneWorkoutPhase()) {
   const label = fingerZone(String(keyId || "").toLowerCase()).label.toLowerCase();
   if (phase.id === "left") return label.startsWith("left ");
   if (phase.id === "right") return label.startsWith("right ");
-  if (phase.id === "inner") return label.includes("index") || label.includes("middle");
-  if (phase.id === "outer") return label.includes("ring") || label.includes("pinky");
+  if (phase.id === "inner") return label.includes("index");
+  if (phase.id === "outer") return label.includes("ring") || label.includes("middle");
   return false;
 }
 
@@ -1409,8 +1409,8 @@ function zoneWorkoutPhase(rowNumber = state.rowIndex) {
   return [
     { id: "left", label: "Left-hand heavy", description: "Five lines weighted heavily toward left-hand keys without banning natural crossing letters.", type: "hand", value: "left" },
     { id: "right", label: "Right-hand heavy", description: "Five lines weighted heavily toward right-hand keys without banning natural crossing letters.", type: "hand", value: "right" },
-    { id: "inner", label: "Inside-finger heavy", description: "Five lines weighted heavily toward index and middle fingers.", type: "band", value: "inner" },
-    { id: "outer", label: "Outside-finger heavy", description: "Five lines weighted heavily toward ring and pinky fingers.", type: "band", value: "outer" }
+    { id: "inner", label: "Middle focus", description: "Five lines weighted heavily toward the blue and purple index zones.", type: "band", value: "inner" },
+    { id: "outer", label: "Outer focus", description: "Five lines weighted heavily toward the orange and yellow middle and ring zones.", type: "band", value: "outer" }
   ][block];
 }
 
