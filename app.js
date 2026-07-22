@@ -4412,7 +4412,6 @@ function setupSettings() {
   });
 
   const fontFamily = document.getElementById("fontFamily");
-  const fontPreviewGrid = document.getElementById("fontPreviewGrid");
   fontCatalog.forEach(font => {
     const option = document.createElement("option");
     option.value = font;
@@ -4421,23 +4420,6 @@ function setupSettings() {
     fontFamily.appendChild(option);
   });
   loadFontPreviewStylesheet();
-  if (fontPreviewGrid) {
-    fontPreviewGrid.innerHTML = fontCatalog.map(font => `
-      <button type="button" class="font-preview-option" data-font="${escapeHtml(font)}" style="font-family:${escapeHtml(fontCssStack(font))}">
-        <span>${escapeHtml(fontDisplayName(font))}</span>
-        <small>The quick brown fox</small>
-      </button>
-    `).join("");
-  }
-
-  function syncFontPreviewSelection() {
-    if (!fontPreviewGrid) return;
-    fontPreviewGrid.querySelectorAll("[data-font]").forEach(button => {
-      const active = button.dataset.font === prefs.fontFamily;
-      button.classList.toggle("active", active);
-      button.setAttribute("aria-pressed", String(active));
-    });
-  }
 
   const bibleBook = document.getElementById("bibleBook");
   books.forEach(book => {
@@ -4509,7 +4491,6 @@ function setupSettings() {
       save();
       if (id === "theme") applyTheme();
       if (id === "fontFamily") applyFont();
-      if (id === "fontFamily") syncFontPreviewSelection();
       if (id === "creativeMode") updateCreativeDescription();
       if (id === "practicePreset") updatePracticePresetDescription();
       if (id === "soundStyle") {
@@ -4535,13 +4516,6 @@ function setupSettings() {
         renderPerformance();
       }
     });
-  });
-
-  fontPreviewGrid?.addEventListener("click", event => {
-    const button = event.target.closest("[data-font]");
-    if (!button) return;
-    fontFamily.value = button.dataset.font;
-    fontFamily.dispatchEvent(new Event("change", { bubbles: true }));
   });
 
   const toggleIds = [
@@ -4580,7 +4554,6 @@ function setupSettings() {
 
   updateCreativeDescription();
   updatePracticePresetDescription();
-  syncFontPreviewSelection();
   installSettingDescriptions();
 }
 
