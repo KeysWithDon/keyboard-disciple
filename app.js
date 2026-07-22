@@ -2953,12 +2953,11 @@ function renderKeyboardKey(key, unlocked) {
   const isWorkoutZone = keyMatchesWorkoutPhase(key.id);
   const classes = ["key", zone.className, isLockedLetter ? "locked" : "", isModifier ? "modifier" : "", key.id === "space" ? "spacebar" : "", isNext ? "next-key" : "", isWorkoutZone ? "workout-zone" : "", keyboardStateClasses(key.id)].join(" ");
   let displayLabel = key.label;
-  if (isLetter) {
-    if (prefs.keymapLegend === "blank") displayLabel = "";
-    else displayLabel = prefs.keymapLegend === "lowercase" ? key.id : key.id.toUpperCase();
-  }
+  const blankLegend = prefs.keymapLegend === "blank";
+  if (blankLegend) displayLabel = "";
+  else if (isLetter) displayLabel = prefs.keymapLegend === "lowercase" ? key.id : key.id.toUpperCase();
   const label = key.shift
-    ? `<span class="key-symbols"><small>${escapeHtml(key.shift)}</small><span>${escapeHtml(displayLabel)}</span></span>`
+    ? `<span class="key-symbols"><small>${blankLegend ? "" : escapeHtml(key.shift)}</small><span>${escapeHtml(displayLabel)}</span></span>`
     : `<span>${escapeHtml(displayLabel)}</span>`;
   return `<span class="${classes}" style="grid-column: span ${key.units}" data-key="${escapeHtml(key.id)}" title="${zone.label}">${label}</span>`;
 }
@@ -4438,7 +4437,7 @@ const settingDescriptions = {
   keyboardLayout: "Changes the labels and key arrangement of the on-screen keyboard.",
   keyboardSize: "Changes the on-screen keyboard scale.",
   keymapMode: "Shows pressed keys, the next key, a static keyboard, or no keyboard.",
-  keymapLegend: "Shows uppercase, lowercase, or blank letter keys.",
+  keymapLegend: "Shows uppercase, lowercase, or fully blank key legends.",
   soundStyle: "Chooses the keystroke sound played for accepted keys.",
   soundVolume: "Sets the volume of keystrokes, errors, warnings, reminders, and rewards.",
   rewardStyle: "Chooses the sound used when a line or full section is completed.",
