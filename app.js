@@ -14,14 +14,15 @@ const keyboardSoundStyles = new Set([...Array.from({ length: 26 }, (_, index) =>
 const rewardSoundStyles = new Set(["preacher", "key-bloom", "glass-keys"]);
 const reminderSoundStyles = new Set(["bike", "dinner", "trumpet"]);
 const errorSoundStyles = new Set(["1", "2", "3", "4", "off"]);
-const practicePresetStyles = new Set(["balanced", "weak", "accuracy", "speed", "finger", "alternation"]);
+const practicePresetStyles = new Set(["balanced", "weak", "accuracy", "speed", "finger", "alternation", "workout"]);
 const practicePresetDescriptions = {
   balanced: "Mixes common words, weak-letter focus, and gradually introduced moderate vocabulary for steady progress.",
   weak: "Repeats natural words containing your least confident earned letters so weak keys get more useful practice.",
   accuracy: "Prioritizes letters with the most errors and keeps vocabulary simpler until clean typing returns.",
   speed: "Introduces more moderate-length natural words to build speed while keeping your current letters in rotation.",
   finger: "Chooses natural words that exercise the finger zone connected to your weakest letters.",
-  alternation: "Favors natural words that move between the left and right hands to build a smoother rhythm."
+  alternation: "Favors natural words that move between the left and right hands to build a smoother rhythm.",
+  workout: "Rotates every five lines through left hand, right hand, inside fingers, and outside fingers with visibly different word pools."
 };
 const practicePresetLabels = {
   balanced: "Balanced",
@@ -29,7 +30,8 @@ const practicePresetLabels = {
   accuracy: "Accuracy repair",
   speed: "Speed builder",
   finger: "Finger focus",
-  alternation: "Hand alternation"
+  alternation: "Hand alternation",
+  workout: "Zone workout"
 };
 const lessonReminders = [
   { kind: "posture", title: "Posture check", text: "Keep your wrists straight with your forearms. Avoid bending them up, down, or sideways." },
@@ -1366,11 +1368,31 @@ function fingerBand(letter) {
   return "neutral";
 }
 
+function keyMatchesWorkoutPhase(keyId, phase = zoneWorkoutPhase()) {
+  if (state.mode !== "adaptive" || !selectedAdaptivePracticePresets().includes("workout")) return false;
+  const label = fingerZone(String(keyId || "").toLowerCase()).label.toLowerCase();
+  if (phase.id === "left") return label.startsWith("left ");
+  if (phase.id === "right") return label.startsWith("right ");
+  if (phase.id === "inner") return label.includes("index") || label.includes("middle");
+  if (phase.id === "outer") return label.includes("ring") || label.includes("pinky");
+  return false;
+}
+
 function fingerBandWeight(word, band) {
   const letters = [...String(word || "").toLowerCase()].filter(letter => /^[a-z]$/.test(letter));
   if (!letters.length) return 0;
   const matches = letters.filter(letter => fingerBand(letter) === band).length;
   return matches / letters.length;
+}
+
+function zoneWorkoutPhase(rowNumber = state.rowIndex) {
+  const block = Math.floor(Math.max(0, rowNumber) / 5) % 4;
+  return [
+    { id: "left", label: "Left-hand heavy", description: "Five lines weighted heavily toward left-hand keys without banning natural crossing letters.", type: "hand", value: "left" },
+    { id: "right", label: "Right-hand heavy", description: "Five lines weighted heavily toward right-hand keys without banning natural crossing letters.", type: "hand", value: "right" },
+    { id: "inner", label: "Inside-finger heavy", description: "Five lines weighted heavily toward index and middle fingers.", type: "band", value: "inner" },
+    { id: "outer", label: "Outside-finger heavy", description: "Five lines weighted heavily toward ring and pinky fingers.", type: "band", value: "outer" }
+  ][block];
 }
 
 function alternatingWord(word) {
@@ -1414,9 +1436,15 @@ function wordDeck() {
   const rightHand = shuffle(allNatural.filter(word => handWeight(word, "right") >= .64));
   const outerFinger = shuffle(allNatural.filter(word => fingerBandWeight(word, "outer") >= .42));
   const innerFinger = shuffle(allNatural.filter(word => fingerBandWeight(word, "inner") >= .58));
+  const workout = {
+    left: shuffle(allNatural.filter(word => handWeight(word, "left") >= .76)),
+    right: shuffle(allNatural.filter(word => handWeight(word, "right") >= .76)),
+    inner: shuffle(allNatural.filter(word => fingerBandWeight(word, "inner") >= .72)),
+    outer: shuffle(allNatural.filter(word => fingerBandWeight(word, "outer") >= .58))
+  };
   return {
     common, moderate, rare, rareFocus, focus, weak, finger, alternating,
-    leftHand, rightHand, outerFinger, innerFinger,
+    leftHand, rightHand, outerFinger, innerFinger, workout,
     focusLetter: focusLetters[0], focusLetters: selectedFocusLetters
   };
 }
@@ -1487,7 +1515,8 @@ function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
   let ci = 0, mi = 0, ri = 0, fi = 0, rfi = 0;
   let wi = 0;
   const recoveryMode = adaptiveRecoveryActive();
-  const activePresets = recoveryMode ? ["accuracy"] : selectedAdaptivePracticePresets();
+  const selectedPresets = selectedAdaptivePracticePresets();
+  const activePresets = recoveryMode && !selectedPresets.includes("workout") ? ["accuracy"] : selectedPresets;
   const presetPools = activePresets.map(preset => ({
     preset,
     words: {
@@ -1495,7 +1524,8 @@ function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
       accuracy: deck.weak,
       finger: deck.finger,
       alternation: deck.alternating,
-      speed: deck.moderate
+      speed: deck.moderate,
+      workout: []
     }[preset] || []
   })).filter(item => item.words.length);
   const presetPool = shuffle([...new Set(presetPools.flatMap(item => item.words))]);
@@ -1503,17 +1533,27 @@ function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
   const moderateInterval = recoveryMode ? Number.MAX_SAFE_INTEGER : readiness > .7 ? 10 : 20;
   const rareInterval = recoveryMode ? Number.MAX_SAFE_INTEGER : readiness > .88 ? 50 : 100;
   const explicitFocus = deck.focusLetters.length > 0;
+  const workoutActive = activePresets.includes("workout");
   for (let r = 0; r < rowCount; r++) {
     const words = [];
     const phase = adaptiveFlowPhase(state.rowIndex + r);
+    const workoutPhase = zoneWorkoutPhase(state.rowIndex + r);
     const handPool = phase.hand === "left" ? deck.leftHand : deck.rightHand;
     const bandPool = phase.band === "outer" ? deck.outerFinger : deck.innerFinger;
     const phasePool = shuffle([...new Set([...handPool, ...bandPool])]);
+    const workoutStrictPool = workoutActive ? deck.workout[workoutPhase.id] || [] : [];
+    const workoutFallbackPool = workoutActive
+      ? workoutPhase.type === "hand"
+        ? workoutPhase.value === "left" ? deck.leftHand : deck.rightHand
+        : workoutPhase.value === "inner" ? deck.innerFinger : deck.outerFinger
+      : [];
+    const workoutPool = workoutActive ? shuffle([...new Set([...workoutStrictPool, ...workoutFallbackPool])]) : [];
     for (let i = 0; i < wordsPerRow; i++) {
       const pos = r * wordsPerRow + i + 1;
       let list = deck.common;
       let index = ci++;
-      if (explicitFocus && deck.focus.length && pos % 5 !== 0) { list = deck.focus; index = fi++; }
+      if (workoutActive && workoutPool.length && pos % 6 !== 0) { list = workoutPool; index = wi++; }
+      else if (explicitFocus && deck.focus.length && pos % 5 !== 0) { list = deck.focus; index = fi++; }
       else if (phasePool.length && pos % 4 !== 1) { list = phasePool; index = wi++; }
       else if (presetPool.length && pos % 2 === 0) { list = presetPool; index = wi++; }
       else if (pos % 3 === 0 && deck.focus.length) { list = deck.focus; index = fi++; }
@@ -2253,13 +2293,20 @@ function renderLetterProgress() {
   const focusLetter = adaptiveFocusLetter();
   const selectedFocusLetters = selectedAdaptiveFocusLetters();
   const recoveryMode = adaptiveRecoveryActive();
-  const activePresets = recoveryMode ? ["accuracy"] : selectedAdaptivePracticePresets();
+  const selectedPresets = selectedAdaptivePracticePresets();
+  const activePresets = recoveryMode && !selectedPresets.includes("workout") ? ["accuracy"] : selectedPresets;
   const activePreset = activePresets[0];
+  const workoutActive = activePresets.includes("workout");
+  const workoutPhase = zoneWorkoutPhase();
   els.practiceFocusIndicator.dataset.focus = activePreset;
-  els.practiceFocusName.textContent = selectedFocusLetters.length
+  els.practiceFocusName.textContent = workoutActive
+    ? `Zone workout · ${workoutPhase.label}`
+    : selectedFocusLetters.length
     ? `Letters ${selectedFocusLetters.join(" / ")}`
     : activePresets.map(preset => practicePresetLabels[preset] || practicePresetLabels.balanced).join(" + ");
-  els.practiceFocusDescription.textContent = selectedFocusLetters.length
+  els.practiceFocusDescription.textContent = workoutActive
+    ? `${workoutPhase.description} The keyboard highlights the zone in focus.`
+    : selectedFocusLetters.length
     ? `Upcoming words prioritize ${selectedFocusLetters.join(", ")} while staying inside the earned alphabet.`
     : activePresets.map(preset => practicePresetDescriptions[preset] || practicePresetDescriptions.balanced).join(" ");
   els.practiceFocusState.textContent = recoveryMode ? "Recovery" : "Active";
@@ -2758,7 +2805,8 @@ function renderKeyboardKey(key, unlocked) {
   const isModifier = !isLetter && !key.shift && !/^[`0-9\-=\[\]\\;',./]$/.test(key.id);
   const expectedKey = currentTarget()[state.input.length]?.toLowerCase() === " " ? "space" : currentTarget()[state.input.length]?.toLowerCase();
   const isNext = prefs.keymapMode === "next" && expectedKey === key.id;
-  const classes = ["key", zone.className, isLockedLetter ? "locked" : "", isModifier ? "modifier" : "", key.id === "space" ? "spacebar" : "", isNext ? "next-key" : "", keyboardStateClasses(key.id)].join(" ");
+  const isWorkoutZone = keyMatchesWorkoutPhase(key.id);
+  const classes = ["key", zone.className, isLockedLetter ? "locked" : "", isModifier ? "modifier" : "", key.id === "space" ? "spacebar" : "", isNext ? "next-key" : "", isWorkoutZone ? "workout-zone" : "", keyboardStateClasses(key.id)].join(" ");
   let displayLabel = key.label;
   if (isLetter) {
     if (prefs.keymapLegend === "blank") displayLabel = "";

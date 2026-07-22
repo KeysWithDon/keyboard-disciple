@@ -834,6 +834,15 @@ body[data-mode="quote"] .typing-text {
 .key.zone-right-index { background: color-mix(in srgb, var(--finger-right-index) 38%, var(--panel)); }
 .key.zone-thumb { background: color-mix(in srgb, var(--finger-thumb) 38%, var(--panel)); }
 .key.zone-neutral { background: color-mix(in srgb, var(--text) 7%, var(--panel)); }
+.key.workout-zone {
+  color: #fff;
+  border-color: color-mix(in srgb, var(--lesson-color) 76%, transparent);
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--lesson-color) 46%, transparent),
+    0 0 18px color-mix(in srgb, var(--lesson-color) 26%, transparent),
+    inset 0 0 18px color-mix(in srgb, var(--lesson-color) 18%, transparent);
+  filter: saturate(1.2) brightness(1.08);
+}
 .key.pressed { color: var(--bg); background: var(--text); transform: translateY(2px); }
 .key.mistake { color: var(--text); background: var(--red); border-color: var(--red); }
 .key.next-key { outline: 2px solid var(--gold); outline-offset: -2px; }
