@@ -4413,6 +4413,7 @@ function setupSettings() {
   });
 
   els.settingsBtn.addEventListener("click", () => {
+    hideProgressPeek();
     els.settingsDialog.showModal();
     spokenReminderManager.loadCatalog();
   });
@@ -4518,6 +4519,38 @@ async function toggleFullscreen() {
   }
 }
 
+let progressPeekPointerId = null;
+let progressPeekDialogOpen = false;
+
+function showProgressPeek(event) {
+  if (event?.pointerType === "mouse" && event.button !== 0) return;
+  event?.preventDefault();
+  progressPeekPointerId = event?.pointerId ?? null;
+  progressPeekDialogOpen = false;
+  if (event?.currentTarget?.setPointerCapture && progressPeekPointerId !== null) {
+    try { event.currentTarget.setPointerCapture(progressPeekPointerId); }
+    catch (_) { /* Pointer capture is best effort for older browsers. */ }
+  }
+  if (state.mode === "adaptive") {
+    renderLetterProgress();
+    document.body.classList.add("progress-peek-active");
+    return;
+  }
+  if (!els.statsDialog.open) {
+    els.statsDialog.showModal();
+    progressPeekDialogOpen = true;
+  }
+}
+
+function hideProgressPeek(event) {
+  if (progressPeekPointerId === null && !progressPeekDialogOpen && !document.body.classList.contains("progress-peek-active")) return;
+  if (progressPeekPointerId !== null && event?.pointerId !== undefined && event.pointerId !== progressPeekPointerId) return;
+  document.body.classList.remove("progress-peek-active");
+  if (progressPeekDialogOpen && els.statsDialog.open) els.statsDialog.close();
+  progressPeekPointerId = null;
+  progressPeekDialogOpen = false;
+}
+
 function startErrorReview() {
   if (!progress.errorReview.length) return;
   prefs.mode = "adaptive";
@@ -4596,11 +4629,19 @@ els.resultRestartBtn.addEventListener("click", () => {
 els.adaptiveRecommendationButton.addEventListener("click", startRecommendedAdaptiveFocus);
 els.adaptiveModePicker.addEventListener("change", syncAdaptiveModeButton);
 els.adaptiveRepairFocusButton.addEventListener("click", startAdaptiveRepairFocus);
-els.statsBtn.addEventListener("click", () => els.statsDialog.showModal());
+els.statsBtn.addEventListener("pointerdown", showProgressPeek);
+els.statsBtn.addEventListener("pointerup", hideProgressPeek);
+els.statsBtn.addEventListener("pointercancel", hideProgressPeek);
+els.statsBtn.addEventListener("lostpointercapture", hideProgressPeek);
+els.statsBtn.addEventListener("click", event => event.preventDefault());
 els.reviewErrorsBtn.addEventListener("click", startErrorReview);
 els.fullscreenBtn.addEventListener("click", toggleFullscreen);
 document.addEventListener("fullscreenchange", syncFullscreenButton);
 document.addEventListener("webkitfullscreenchange", syncFullscreenButton);
+document.addEventListener("pointerup", hideProgressPeek);
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) hideProgressPeek();
+});
 document.addEventListener("pointerdown", unlockAudio, { passive: true });
 document.addEventListener("keydown", unlockAudio, { capture: true });
 document.addEventListener("keydown", handleKey);

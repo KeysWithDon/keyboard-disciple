@@ -1201,6 +1201,35 @@ body[data-mode="quote"] .typing-text {
 .focus-mode .letter-hud,
 .focus-mode .keyboard-wrap { opacity: .1; pointer-events: none; }
 
+.letter-hud {
+  position: fixed;
+  left: 50%;
+  top: clamp(76px, 10vh, 132px);
+  z-index: 75;
+  width: min(1120px, calc(100vw - 32px));
+  max-height: min(72vh, 620px);
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid color-mix(in srgb, var(--gold) 24%, var(--line));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--panel) 92%, transparent);
+  box-shadow: 0 24px 70px rgb(0 0 0 / 42%), inset 0 1px 0 color-mix(in srgb, var(--text) 6%, transparent);
+  backdrop-filter: blur(12px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translate(-50%, -8px);
+  transition: opacity 110ms ease, transform 110ms ease, visibility 110ms ease;
+}
+
+body.progress-peek-active .letter-hud:not(.hidden),
+body.progress-peek-active.focus-mode .letter-hud:not(.hidden) {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translate(-50%, 0);
+}
+
 .tape-mode .typing-text { display: block; min-height: 72px; white-space: nowrap; overflow: hidden; }
 .tape-mode .practice-line:not(.active) { display: none; }
 
@@ -1332,6 +1361,12 @@ body[data-mode="zen"] .typing-word {
   .settings-grid.compact-grid { grid-template-columns: 1fr 1fr; }
   .toggle-list { grid-template-columns: 1fr; }
   .letter-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .letter-hud {
+    top: 70px;
+    width: calc(100vw - 18px);
+    max-height: 78vh;
+    padding: 12px;
+  }
   .letter-hud .letter-heatmap { grid-template-columns: minmax(0, 1fr); }
   .letter-hud .heat-row { grid-template-columns: repeat(13, minmax(0, 1fr)); gap: 3px; }
   .letter-hud .heat-key { min-width: 0; height: 34px; font-size: 10px; }
