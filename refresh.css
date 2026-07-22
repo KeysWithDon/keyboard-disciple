@@ -814,6 +814,7 @@ body[data-mode="quote"] .typing-text {
 
 .keyboard-wrap { width: 100%; margin: 4px auto 0; }
 .keyboard {
+  position: relative;
   width: min(100%, 1060px);
   margin: 0 auto;
   padding: clamp(6px, 1vw, 10px) 0 0;
@@ -835,13 +836,19 @@ body[data-mode="quote"] .typing-text {
 .key.zone-thumb { background: color-mix(in srgb, var(--finger-thumb) 38%, var(--panel)); }
 .key.zone-neutral { background: color-mix(in srgb, var(--text) 7%, var(--panel)); }
 .key.workout-zone {
-  color: #fff;
-  border-color: color-mix(in srgb, var(--lesson-color) 76%, transparent);
-  box-shadow:
-    0 0 0 1px color-mix(in srgb, var(--lesson-color) 46%, transparent),
-    0 0 18px color-mix(in srgb, var(--lesson-color) 26%, transparent),
-    inset 0 0 18px color-mix(in srgb, var(--lesson-color) 18%, transparent);
   filter: saturate(1.2) brightness(1.08);
+}
+.workout-zone-outline {
+  position: absolute;
+  z-index: 3;
+  border: 2px solid color-mix(in srgb, var(--lesson-color) 82%, #fff);
+  border-radius: 9px;
+  box-shadow:
+    0 0 0 1px color-mix(in srgb, var(--bg) 60%, transparent),
+    0 0 12px color-mix(in srgb, var(--lesson-color) 46%, transparent),
+    0 0 24px color-mix(in srgb, var(--lesson-color) 24%, transparent),
+    inset 0 0 14px color-mix(in srgb, var(--lesson-color) 10%, transparent);
+  pointer-events: none;
 }
 .key.pressed { color: var(--bg); background: var(--text); transform: translateY(2px); }
 .key.mistake { color: var(--text); background: var(--red); border-color: var(--red); }

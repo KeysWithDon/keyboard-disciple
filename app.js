@@ -2741,6 +2741,41 @@ function renderKeyboard() {
     return `<div class="key-row key-row-${rowIndex + 1}">${keys}</div>`;
   }).join("");
   keyboardElements = new Map([...els.keyboard.querySelectorAll("[data-key]")].map(key => [key.dataset.key, key]));
+  renderWorkoutZoneOutline();
+}
+
+function renderWorkoutZoneOutline() {
+  els.keyboard.querySelectorAll(".workout-zone-outline").forEach(outline => outline.remove());
+  const activeKeys = [...els.keyboard.querySelectorAll(".key.workout-zone")];
+  if (!activeKeys.length) return;
+  const keyboardBox = els.keyboard.getBoundingClientRect();
+  const rows = [...els.keyboard.querySelectorAll(".key-row")];
+  rows.forEach(row => {
+    const rowKeys = activeKeys
+      .filter(key => key.closest(".key-row") === row)
+      .sort((a, b) => a.getBoundingClientRect().left - b.getBoundingClientRect().left);
+    const groups = [];
+    rowKeys.forEach(key => {
+      const box = key.getBoundingClientRect();
+      const lastGroup = groups.at(-1);
+      if (!lastGroup || box.left - lastGroup.right > 10) {
+        groups.push({ left: box.left, top: box.top, right: box.right, bottom: box.bottom });
+        return;
+      }
+      lastGroup.right = Math.max(lastGroup.right, box.right);
+      lastGroup.top = Math.min(lastGroup.top, box.top);
+      lastGroup.bottom = Math.max(lastGroup.bottom, box.bottom);
+    });
+    groups.forEach(group => {
+      const outline = document.createElement("span");
+      outline.className = "workout-zone-outline";
+      outline.style.left = `${group.left - keyboardBox.left - 5}px`;
+      outline.style.top = `${group.top - keyboardBox.top - 5}px`;
+      outline.style.width = `${group.right - group.left + 10}px`;
+      outline.style.height = `${group.bottom - group.top + 10}px`;
+      els.keyboard.appendChild(outline);
+    });
+  });
 }
 
 function renderSettingsKeyboardMap() {
@@ -4582,6 +4617,7 @@ function syncFullscreenButton() {
   els.fullscreenBtn.setAttribute("aria-pressed", String(active));
   els.fullscreenBtn.classList.toggle("active", active);
   document.body.classList.toggle("is-fullscreen", active);
+  requestAnimationFrame(renderWorkoutZoneOutline);
 }
 
 async function toggleFullscreen() {
@@ -4733,6 +4769,7 @@ window.addEventListener("resize", () => {
       state.practiceFontSize = null;
       renderText();
     }
+    renderWorkoutZoneOutline();
   }, 120);
 });
 window.addEventListener("pagehide", () => {
