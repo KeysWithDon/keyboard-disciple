@@ -22,7 +22,7 @@ const practicePresetDescriptions = {
   speed: "Introduces more moderate-length natural words to build speed while keeping your current letters in rotation.",
   finger: "Chooses natural words that exercise the finger zone connected to your weakest letters.",
   alternation: "Favors natural words that move between the left and right hands to build a smoother rhythm.",
-  workout: "Rotates every five lines through left hand, right hand, inside fingers, and outside fingers with visibly different word pools."
+  workout: "Sweeps every five lines through keyboard regions from far left to far right. Vowels can travel naturally, but consonants carry the zone focus."
 };
 const practicePresetLabels = {
   balanced: "Balanced",
@@ -1389,12 +1389,8 @@ function fingerBand(letter) {
 
 function keyMatchesWorkoutPhase(keyId, phase = zoneWorkoutPhase()) {
   if (state.mode !== "adaptive" || !selectedAdaptivePracticePresets().includes("workout")) return false;
-  const label = fingerZone(String(keyId || "").toLowerCase()).label.toLowerCase();
-  if (phase.id === "left") return label.startsWith("left ");
-  if (phase.id === "right") return label.startsWith("right ");
-  if (phase.id === "inner") return label.includes("index");
-  if (phase.id === "outer") return label.includes("pinky") || label.includes("ring") || label.includes("middle");
-  return false;
+  const normalized = String(keyId || "").toLowerCase();
+  return Boolean(phase?.keySet?.has(normalized));
 }
 
 function fingerBandWeight(word, band) {
@@ -1404,14 +1400,59 @@ function fingerBandWeight(word, band) {
   return matches / letters.length;
 }
 
+const workoutVowels = new Set(["a", "e", "i", "o", "u"]);
+const workoutZones = [
+  {
+    id: "farLeft",
+    label: "Far-left reach",
+    description: "Five lines weighted toward the far-left consonants while vowels stay free for natural words.",
+    keys: "`1qaz2wsx"
+  },
+  {
+    id: "middleLeft",
+    label: "Middle-left drive",
+    description: "Five lines weighted toward the left-center consonants while vowels stay free for natural words.",
+    keys: "3edc4rfv5tgb"
+  },
+  {
+    id: "middle",
+    label: "Center bridge",
+    description: "Five lines weighted toward the center consonants that bridge both hands.",
+    keys: "5tgb6yhn"
+  },
+  {
+    id: "middleRight",
+    label: "Middle-right drive",
+    description: "Five lines weighted toward the right-center consonants while vowels stay free for natural words.",
+    keys: "6yhn7ujm8ik,"
+  },
+  {
+    id: "farRight",
+    label: "Far-right reach",
+    description: "Five lines weighted toward the far-right consonants while vowels stay free for natural words.",
+    keys: "8ik,9ol.0p;/-=[]\\'"
+  }
+].map(zone => ({
+  ...zone,
+  keySet: new Set([...zone.keys]),
+  consonants: new Set([...zone.keys].filter(key => /^[a-z]$/.test(key) && !workoutVowels.has(key)))
+}));
+
+function workoutLetters(word) {
+  return [...String(word || "").toLowerCase()].filter(letter => /^[a-z]$/.test(letter) && !workoutVowels.has(letter));
+}
+
+function workoutZoneWeight(word, zoneId) {
+  const zone = workoutZones.find(item => item.id === zoneId);
+  const letters = workoutLetters(word);
+  if (!zone || !letters.length) return 0;
+  const matches = letters.filter(letter => zone.consonants.has(letter)).length;
+  return matches / letters.length;
+}
+
 function zoneWorkoutPhase(rowNumber = state.rowIndex) {
-  const block = Math.floor(Math.max(0, rowNumber) / 5) % 4;
-  return [
-    { id: "left", label: "Left-hand heavy", description: "Five lines weighted heavily toward left-hand keys without banning natural crossing letters.", type: "hand", value: "left" },
-    { id: "right", label: "Right-hand heavy", description: "Five lines weighted heavily toward right-hand keys without banning natural crossing letters.", type: "hand", value: "right" },
-    { id: "inner", label: "Middle focus", description: "Five lines weighted heavily toward the blue and purple index zones.", type: "band", value: "inner" },
-    { id: "outer", label: "Outer focus", description: "Five lines weighted heavily toward the orange, yellow, and green middle, ring, and pinky zones.", type: "band", value: "outer" }
-  ][block];
+  const block = Math.floor(Math.max(0, rowNumber) / 5) % workoutZones.length;
+  return workoutZones[block];
 }
 
 function alternatingWord(word) {
@@ -1460,12 +1501,12 @@ function wordDeck() {
     .filter(word => word.length >= 7);
   const rankWorkout = (words, scorer) => shuffle(words)
     .sort((a, b) => (scorer(b) * 10 + b.length / 14) - (scorer(a) * 10 + a.length / 14));
-  const workout = {
-    left: rankWorkout(workoutNatural.filter(word => handWeight(word, "left") >= .58), word => handWeight(word, "left")),
-    right: rankWorkout(workoutNatural.filter(word => handWeight(word, "right") >= .58), word => handWeight(word, "right")),
-    inner: rankWorkout(workoutNatural.filter(word => fingerBandWeight(word, "inner") >= .56), word => fingerBandWeight(word, "inner")),
-    outer: rankWorkout(workoutNatural.filter(word => fingerBandWeight(word, "outer") >= .42), word => fingerBandWeight(word, "outer"))
-  };
+  const workout = Object.fromEntries(workoutZones.map(zone => {
+    const threshold = zone.id === "farRight" ? .5 : zone.id === "middle" ? .46 : .54;
+    const pool = workoutNatural.filter(word => workoutZoneWeight(word, zone.id) >= threshold);
+    const fallback = workoutNatural.filter(word => workoutZoneWeight(word, zone.id) > 0);
+    return [zone.id, rankWorkout(pool.length >= 16 ? pool : fallback, word => workoutZoneWeight(word, zone.id))];
+  }));
   return {
     common, moderate, rare, rareFocus, focus, weak, finger, alternating,
     leftHand, rightHand, outerFinger, innerFinger, workout,
@@ -1605,16 +1646,17 @@ function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
     const phasePool = shuffle([...new Set([...handPool, ...bandPool])]);
     const workoutStrictPool = workoutActive ? deck.workout[workoutPhase.id] || [] : [];
     const workoutFallbackPool = workoutActive
-      ? workoutPhase.type === "hand"
-        ? workoutPhase.value === "left" ? deck.leftHand : deck.rightHand
-        : workoutPhase.value === "inner" ? deck.innerFinger : deck.outerFinger
+      ? deck.common
+        .concat(deck.moderate, deck.rare)
+        .filter(word => workoutZoneWeight(word, workoutPhase.id) > 0)
+        .sort((a, b) => workoutZoneWeight(b, workoutPhase.id) - workoutZoneWeight(a, workoutPhase.id))
       : [];
     const workoutPool = workoutActive ? shuffle([...new Set([...workoutStrictPool, ...workoutFallbackPool])]) : [];
     for (let i = 0; i < wordsPerRow; i++) {
       const pos = r * wordsPerRow + i + 1;
       let list = deck.common;
       let index = ci++;
-      if (workoutActive && workoutPool.length && pos % 8 !== 0) { list = workoutPool; index = wi++; }
+      if (workoutActive && workoutPool.length) { list = workoutPool; index = wi++; }
       else if (explicitFocus && deck.focus.length && pos % 5 !== 0) { list = deck.focus; index = fi++; }
       else if (phasePool.length && pos % 4 !== 1) { list = phasePool; index = wi++; }
       else if (presetPool.length && pos % 2 === 0) { list = presetPool; index = wi++; }
