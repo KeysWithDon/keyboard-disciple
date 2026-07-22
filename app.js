@@ -415,9 +415,11 @@ function fontDisplayName(name) {
 
 function fontCssStack(name) {
   const cssName = name === "Comic_Sans_MS" ? "Helvetica Neue" : String(name || "").replaceAll("_", " ");
-  const generic = /Sans|Roboto$|Montserrat|Nunito|Oxygen|Lato|Ubuntu$|Geist$|Kanit|Sarabun|Parkinsans|Comfortaa|Itim|Coming Soon|Titillium/.test(cssName)
-    ? "ui-sans-serif, system-ui, sans-serif"
-    : "ui-monospace, SFMono-Regular, Menlo, monospace";
+  const generic = /Mono|Code|Courier|Inconsolata|Hack|CommitMono|Mononoki|Iosevka|Proto|Adwaita/.test(cssName)
+    ? "ui-monospace, SFMono-Regular, Menlo, monospace"
+    : /Georgia|Boon|Cormorant|Newsreader|Spectral|Shippori|Noto Serif/.test(cssName)
+      ? "ui-serif, Georgia, Cambria, 'Times New Roman', serif"
+      : "ui-sans-serif, system-ui, sans-serif";
   return `"${cssName}", ${generic}`;
 }
 
@@ -548,13 +550,15 @@ const fontCatalog = [
   "Comfortaa", "Coming_Soon", "Atkinson_Hyperlegible", "Lato", "Lalezar", "Boon", "Open_Dyslexic", "Ubuntu", "Ubuntu_Mono",
   "Georgia", "Cascadia_Mono", "IBM_Plex_Mono", "Overpass_Mono", "Hack", "CommitMono", "Mononoki",
   "Parkinsans", "Geist", "Sarabun", "Kanit", "Geist_Mono", "Iosevka", "Proto", "Adwaita_Mono",
-  "Inter_Tight", "Space_Grotesk", "Noto_Sans_Lao"
+  "Inter_Tight", "Space_Grotesk", "Noto_Sans_Lao", "Open_Sans", "Rubik", "Shantell_Sans", "Cormorant",
+  "Newsreader", "Spectral", "Noto_Sans_JP", "Noto_Serif_JP", "Shippori_Mincho"
 ];
 const googleFontFamilies = new Set([
   "Roboto_Mono", "Noto_Naskh_Arabic", "Source_Code_Pro", "IBM_Plex_Sans", "Inconsolata", "Fira_Code", "JetBrains_Mono", "Roboto",
   "Montserrat", "Titillium_Web", "Lexend_Deca", "Oxygen", "Nunito", "Itim", "Comfortaa", "Coming_Soon",
   "Atkinson_Hyperlegible", "Lato", "Lalezar", "Ubuntu", "Ubuntu_Mono", "IBM_Plex_Mono", "Overpass_Mono", "Parkinsans",
-  "Sarabun", "Kanit", "Inter_Tight", "Space_Grotesk", "Noto_Sans_Lao"
+  "Sarabun", "Kanit", "Inter_Tight", "Space_Grotesk", "Noto_Sans_Lao", "Open_Sans", "Rubik", "Shantell_Sans",
+  "Cormorant", "Newsreader", "Spectral", "Noto_Sans_JP", "Noto_Serif_JP", "Shippori_Mincho"
 ]);
 
 const poetryPassages = [
