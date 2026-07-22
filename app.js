@@ -1517,18 +1517,55 @@ function adaptiveRowCharacterBudget() {
   return Math.max(18, Math.round(base * viewportAdjustment));
 }
 
-function pickWordForRow(list, index, currentWords, budget, fallbackList = []) {
+function wordLetters(word) {
+  return String(word || "").replace(/[^a-z]/gi, "");
+}
+
+function isShortPracticeWord(word) {
+  const letters = wordLetters(word);
+  return letters.length > 0 && letters.length < 4;
+}
+
+function shortWordConflict(previousWord, candidate) {
+  return isShortPracticeWord(previousWord) && isShortPracticeWord(candidate);
+}
+
+function repairShortWordAdjacency(words, fallbackList = []) {
+  const output = words.slice();
+  const fallback = shuffle([...new Set([...(fallbackList || []), ...testWordPool(), "practice"])])
+    .filter(word => !isShortPracticeWord(word));
+  let fallbackIndex = 0;
+  for (let index = 1; index < output.length; index++) {
+    if (!shortWordConflict(output[index - 1], output[index])) continue;
+    const replacement = fallback.find((word, offset) => {
+      const candidateIndex = (fallbackIndex + offset) % fallback.length;
+      const candidate = fallback[candidateIndex];
+      return !shortWordConflict(output[index - 1], candidate) && !shortWordConflict(candidate, output[index + 1]);
+    });
+    if (replacement) {
+      fallbackIndex++;
+      output[index] = replacement;
+    }
+  }
+  return output;
+}
+
+function pickWordForRow(list, index, currentWords, budget, fallbackList = [], previousRowWord = "") {
   const candidates = [...new Set([...(list || []), ...(fallbackList || [])])].filter(Boolean);
   if (!candidates.length) return "practice";
   const used = currentWords.join(" ");
   const usedLength = used.length;
   const remaining = Math.max(1, budget - usedLength - (currentWords.length ? 1 : 0));
+  const previousWord = currentWords.length ? currentWords[currentWords.length - 1] : previousRowWord;
   const start = Math.max(0, index % candidates.length);
   for (let offset = 0; offset < candidates.length; offset++) {
     const word = candidates[(start + offset) % candidates.length];
-    if (word.length <= remaining) return word;
+    if (word.length <= remaining && !shortWordConflict(previousWord, word)) return word;
   }
-  const shortest = candidates.slice().sort((a, b) => a.length - b.length || a.localeCompare(b))[0];
+  const shortest = candidates
+    .filter(word => !shortWordConflict(previousWord, word))
+    .sort((a, b) => a.length - b.length || a.localeCompare(b))[0]
+    || candidates.slice().sort((a, b) => b.length - a.length || a.localeCompare(b))[0];
   return currentWords.length && shortest.length > remaining ? "" : shortest;
 }
 
@@ -1559,6 +1596,7 @@ function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
   const rareInterval = recoveryMode ? Number.MAX_SAFE_INTEGER : readiness > .88 ? 50 : 100;
   const explicitFocus = deck.focusLetters.length > 0;
   const workoutActive = activePresets.includes("workout");
+  let previousRowWord = "";
   for (let r = 0; r < rowCount; r++) {
     const words = [];
     const phase = adaptiveFlowPhase(state.rowIndex + r);
@@ -1586,10 +1624,11 @@ function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
       else if (pos % rareInterval === 0 && deck.rare.length) { list = deck.rare; index = ri++; }
       else if (pos % moderateInterval === 0 && deck.moderate.length) { list = deck.moderate; index = mi++; }
       if (!list.length) list = deck.common.length ? deck.common : deck.focus.length ? deck.focus : ["a", "an", "in", "is", "it"];
-      const word = pickWordForRow(list, index, words, rowBudget, deck.common);
+      const word = pickWordForRow(list, index, words, rowBudget, deck.common, previousRowWord);
       if (!word) break;
       words.push(word);
     }
+    previousRowWord = words[words.length - 1] || previousRowWord;
     rows.push(transformText(words.join(" ")));
   }
   return rows;
@@ -1597,10 +1636,10 @@ function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
 
 function makePlacementRows(rowCount = lessonLineLimit()) {
   const pool = shuffle([...new Set(commonWords.concat(expandedWords, moderateWords, dictionaryExtra))]);
-  const words = Array.from({ length: rowCount * visibleWordsPerRow() }, (_, index) => {
+  const words = repairShortWordAdjacency(Array.from({ length: rowCount * visibleWordsPerRow() }, (_, index) => {
     if ((index + 1) % 7 === 0 && rareLetterFocusPool.length) return rareLetterFocusPool[index % rareLetterFocusPool.length];
     return pool[index % Math.max(1, pool.length)] || "practice";
-  });
+  }), pool);
   const size = visibleWordsPerRow();
   const rows = [];
   for (let index = 0; index < words.length; index += size) rows.push(transformText(words.slice(index, index + size).join(" ")));
@@ -1644,7 +1683,7 @@ function makeTestWords(count) {
     if ((index + 1) % 5 === 0 && focus.length) return focus[focusIndex++ % focus.length];
     return pool[index % pool.length] || "practice";
   });
-  return decorateTestWords(words);
+  return decorateTestWords(repairShortWordAdjacency(words, pool.concat(focus)));
 }
 
 function makeWordSections(count = lessonWordTarget()) {
@@ -1703,10 +1742,10 @@ function makeWeakspotWords(count) {
   const allWords = [...new Set(testWordPool().concat(rareLetterFocusPool))];
   const focused = shuffle(allWords.filter(word => focusLetters.some(letter => word.includes(letter))));
   const general = shuffle(allWords);
-  return Array.from({ length: count }, (_, index) => {
+  return repairShortWordAdjacency(Array.from({ length: count }, (_, index) => {
     if (focused.length && index % 5 !== 4) return focused[index % focused.length];
     return general[index % general.length] || "practice";
-  });
+  }), general.concat(focused));
 }
 
 function randomPrintableAscii() {
@@ -1770,6 +1809,7 @@ function makeCreativeWords(count) {
     }
     return pool[index % pool.length] || "practice";
   });
+  words = repairShortWordAdjacency(words, pool);
   if (mode === "backwards") return words.map(word => [...word].reverse().join(""));
   if (mode === "ddoouubblleedd") return words.map(word => [...word].map(letter => letter + letter).join(""));
   if (mode === "rAnDoMcAsE") {
