@@ -2260,6 +2260,10 @@ function render() {
   const [eyebrow, title] = modeCopy();
   els.modeEyebrow.textContent = eyebrow;
   els.lessonTitle.textContent = title;
+  const headerHeight = Math.ceil(document.querySelector(".app-header")?.getBoundingClientRect().height || 74);
+  document.documentElement.style.setProperty("--app-header-height", `${headerHeight}px`);
+  document.body.classList.toggle("lesson-active", !state.testCompleted);
+  document.body.classList.toggle("lesson-recap", state.testCompleted);
   applyDisplayPreferences();
   renderText();
   renderKeyboard();

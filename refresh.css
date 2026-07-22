@@ -198,6 +198,16 @@ body {
   transition: background-color 160ms ease, color 160ms ease;
 }
 
+body.lesson-active {
+  height: 100svh;
+  overflow: hidden;
+}
+
+body.lesson-recap {
+  min-height: 100vh;
+  overflow-y: auto;
+}
+
 button, select, input, textarea { font-family: inherit; }
 
 .app-shell {
@@ -305,7 +315,7 @@ button, select, input, textarea { font-family: inherit; }
 
 .stage {
   width: min(100%, 1260px);
-  min-height: calc(100vh - 74px);
+  min-height: calc(100vh - var(--app-header-height, 74px));
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -313,8 +323,50 @@ button, select, input, textarea { font-family: inherit; }
   padding: clamp(22px, 4vh, 48px) clamp(22px, 4vw, 56px) 54px;
 }
 
+body.lesson-active .app-shell {
+  height: 100svh;
+  min-height: 100svh;
+  overflow: hidden;
+}
+
+body.lesson-active .stage {
+  height: calc(100svh - var(--app-header-height, 74px));
+  min-height: 0;
+  justify-content: space-between;
+  gap: clamp(8px, 1.35vh, 16px);
+  overflow: hidden;
+  padding-top: clamp(10px, 2vh, 26px);
+  padding-bottom: clamp(10px, 2vh, 26px);
+}
+
+body.lesson-active .devotion-line,
+body.lesson-active .live-metrics,
+body.lesson-active .row-status,
+body.lesson-active .dictation-controls,
+body.lesson-active .scripture-strip,
+body.lesson-active .keyboard-wrap {
+  flex-shrink: 0;
+}
+
+body.lesson-active .typing-card {
+  flex: 1 1 auto;
+  min-height: clamp(170px, 32svh, 302px);
+}
+
+body.lesson-active .typing-text {
+  min-height: min(218px, 30svh);
+}
+
+body.lesson-recap .stage {
+  min-height: calc(100vh - var(--app-header-height, 74px));
+  overflow: visible;
+}
+
 body.is-fullscreen {
   overflow: hidden;
+}
+body.lesson-recap.is-fullscreen {
+  overflow-y: auto;
 }
 body.is-fullscreen .app-shell {
   min-height: 100svh;
