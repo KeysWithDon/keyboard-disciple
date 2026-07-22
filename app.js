@@ -1382,7 +1382,7 @@ function handWeight(word, hand) {
 
 function fingerBand(letter) {
   const zone = fingerZone(String(letter || "").toLowerCase()).label.toLowerCase();
-  if (zone.includes("ring") || zone.includes("middle")) return "outer";
+  if (zone.includes("pinky") || zone.includes("ring") || zone.includes("middle")) return "outer";
   if (zone.includes("index")) return "inner";
   return "neutral";
 }
@@ -1393,7 +1393,7 @@ function keyMatchesWorkoutPhase(keyId, phase = zoneWorkoutPhase()) {
   if (phase.id === "left") return label.startsWith("left ");
   if (phase.id === "right") return label.startsWith("right ");
   if (phase.id === "inner") return label.includes("index");
-  if (phase.id === "outer") return label.includes("ring") || label.includes("middle");
+  if (phase.id === "outer") return label.includes("pinky") || label.includes("ring") || label.includes("middle");
   return false;
 }
 
@@ -1410,7 +1410,7 @@ function zoneWorkoutPhase(rowNumber = state.rowIndex) {
     { id: "left", label: "Left-hand heavy", description: "Five lines weighted heavily toward left-hand keys without banning natural crossing letters.", type: "hand", value: "left" },
     { id: "right", label: "Right-hand heavy", description: "Five lines weighted heavily toward right-hand keys without banning natural crossing letters.", type: "hand", value: "right" },
     { id: "inner", label: "Middle focus", description: "Five lines weighted heavily toward the blue and purple index zones.", type: "band", value: "inner" },
-    { id: "outer", label: "Outer focus", description: "Five lines weighted heavily toward the orange and yellow middle and ring zones.", type: "band", value: "outer" }
+    { id: "outer", label: "Outer focus", description: "Five lines weighted heavily toward the orange, yellow, and green middle, ring, and pinky zones.", type: "band", value: "outer" }
   ][block];
 }
 
