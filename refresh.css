@@ -1258,6 +1258,9 @@ body[data-mode="quote"] .typing-text {
 }
 .settings-grid select:focus,
 .settings-grid input:focus { border-color: color-mix(in srgb, var(--gold) 65%, var(--line)); }
+#fontFamily {
+  font-family: ui-sans-serif, system-ui, sans-serif;
+}
 .setting-help {
   grid-column: 1 / -1;
   color: var(--faint);

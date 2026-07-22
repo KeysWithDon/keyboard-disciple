@@ -413,6 +413,14 @@ function fontDisplayName(name) {
   return name.replaceAll("_", " ");
 }
 
+function fontCssStack(name) {
+  const cssName = name === "Comic_Sans_MS" ? "Helvetica Neue" : String(name || "").replaceAll("_", " ");
+  const generic = /Sans|Roboto$|Montserrat|Nunito|Oxygen|Lato|Ubuntu$|Geist$|Kanit|Sarabun|Parkinsans|Comfortaa|Itim|Coming Soon|Titillium/.test(cssName)
+    ? "ui-sans-serif, system-ui, sans-serif"
+    : "ui-monospace, SFMono-Regular, Menlo, monospace";
+  return `"${cssName}", ${generic}`;
+}
+
 function applyFont() {
   const family = fontCatalog.includes(prefs.fontFamily) ? prefs.fontFamily : defaultPrefs.fontFamily;
   prefs.fontFamily = family;
@@ -430,11 +438,7 @@ function applyFont() {
   } else if (link) {
     link.remove();
   }
-  const cssName = family === "Comic_Sans_MS" ? "Helvetica Neue" : family.replaceAll("_", " ");
-  const generic = /Sans|Roboto$|Montserrat|Nunito|Oxygen|Lato|Ubuntu$|Geist$|Kanit|Sarabun|Parkinsans|Comfortaa|Itim|Coming Soon|Titillium/.test(cssName)
-    ? "ui-sans-serif, system-ui, sans-serif"
-    : "ui-monospace, SFMono-Regular, Menlo, monospace";
-  document.documentElement.style.setProperty("--app-font", `"${cssName}", ${generic}`);
+  document.documentElement.style.setProperty("--app-font", fontCssStack(family));
 }
 
 applyTheme();
@@ -4356,6 +4360,7 @@ function setupSettings() {
     const option = document.createElement("option");
     option.value = font;
     option.textContent = fontDisplayName(font);
+    option.style.fontFamily = fontCssStack(font);
     fontFamily.appendChild(option);
   });
 
