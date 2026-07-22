@@ -1209,8 +1209,16 @@ body[data-mode="quote"] .typing-text {
 .funbox-earthquake .typing-text span.current { display: inline-block; animation: key-shake 100ms linear infinite; }
 .funbox-nausea .typing-text { animation: gentle-sway 1.8s ease-in-out infinite; }
 .funbox-round_round_baby .typing-text { animation: round-trip 4s linear infinite; }
-.funbox-memory.memory-hidden .typing-text .pending,
-.funbox-tts .typing-text .pending { color: transparent; }
+.funbox-memory.memory-hidden .typing-text .pending { color: transparent; }
+.funbox-tts .typing-text .pending,
+.funbox-tts .typing-text .current {
+  color: var(--bg) !important;
+  background: var(--bg) !important;
+  border-color: transparent !important;
+  outline-color: transparent !important;
+  text-decoration-color: transparent !important;
+  text-shadow: none !important;
+}
 .funbox-plus_zero .typing-word.future-word,
 .funbox-simon_says .typing-word.future-word,
 .funbox-plus_one .typing-word.future-word[data-distance]:not([data-distance="1"]),

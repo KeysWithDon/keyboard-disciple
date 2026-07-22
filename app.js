@@ -1915,13 +1915,17 @@ function currentReference() {
   return "";
 }
 
-function speakCurrentTarget() {
-  if (!("speechSynthesis" in window)) return;
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(currentTarget());
-  utterance.rate = .92;
-  utterance.pitch = 1;
-  window.speechSynthesis.speak(utterance);
+async function speakCurrentTarget() {
+  const text = currentTarget();
+  if (!text) return;
+  unlockAudio();
+  spokenReminderManager.stop();
+  window.speechSynthesis?.cancel();
+  try {
+    await spokenReminderManager.synthesizeAndPlay(text, { scope: "creative", rate: .9 });
+  } catch (error) {
+    if (error?.name !== "AbortError") console.warn("Creative listening prompt could not play.", error);
+  }
 }
 
 function prepareCreativeLine() {
