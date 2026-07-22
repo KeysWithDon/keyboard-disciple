@@ -1685,6 +1685,11 @@ function makeCreativeWords(count) {
 }
 
 function makeCreativeSections(count) {
+  if (prefs.creativeMode === "tts") {
+    const sentences = shuffle(dictationSentenceBank);
+    const sectionCount = Math.max(1, Math.ceil(Number(count) / Math.max(6, visibleWordsPerRow())));
+    return Array.from({ length: sectionCount }, (_, index) => transformText(sentences[index % sentences.length]));
+  }
   const words = makeCreativeWords(count);
   const sections = [];
   const size = visibleWordsPerRow();
