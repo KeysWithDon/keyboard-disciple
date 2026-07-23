@@ -840,8 +840,7 @@ input {
 .adaptive-recommendation,
 .adaptive-profile-card,
 .adaptive-chart-panel,
-.adaptive-missed-panel,
-.adaptive-technique-panel {
+.adaptive-missed-panel {
   min-width: 0;
 }
 
@@ -933,6 +932,7 @@ body[data-mode="quote"] .typing-text {
   background: transparent;
 }
 .result-panel.adaptive-results { width: min(1040px, 100%); }
+.result-panel.adaptive-results > .result-metrics { display: none; }
 .adaptive-result-details { display: grid; gap: 18px; margin-top: 26px; }
 .adaptive-result-heading {
   display: flex;
@@ -952,11 +952,55 @@ body[data-mode="quote"] .typing-text {
   text-align: right;
   text-transform: uppercase;
 }
+.adaptive-result-overview {
+  display: grid;
+  grid-template-columns: 150px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 26px;
+}
+.adaptive-primary-metrics {
+  display: grid;
+  align-content: center;
+  gap: 22px;
+  padding: 10px 0;
+}
+.adaptive-primary-metrics span {
+  display: grid;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 650;
+  text-transform: lowercase;
+}
+.adaptive-primary-metrics strong {
+  color: var(--lesson-color);
+  font-size: clamp(48px, 5.6vw, 72px);
+  font-weight: 500;
+  line-height: .95;
+  text-shadow: 0 0 12px color-mix(in srgb, var(--lesson-color) 30%, transparent);
+}
+.adaptive-summary-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1px;
+  border-block: 1px solid var(--line);
+}
+.adaptive-summary-strip span {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+  padding: 12px 14px;
+  color: var(--muted);
+  font-size: 9px;
+  text-transform: uppercase;
+}
+.adaptive-summary-strip span:first-child { padding-left: 0; }
+.adaptive-summary-strip strong { color: var(--text); font-size: 19px; font-weight: 550; }
 .adaptive-chart-panel {
-  padding: 16px 16px 10px;
-  border: 1px solid var(--line);
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--panel) 45%, transparent);
+  min-width: 0;
+  padding: 8px 0 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
 }
 .adaptive-chart-panel > header { display: flex; align-items: end; justify-content: space-between; gap: 14px; }
 .adaptive-chart-panel h3 { margin: 0; font-size: 13px; font-weight: 650; }
@@ -967,13 +1011,18 @@ body[data-mode="quote"] .typing-text {
 .adaptive-chart-legend i { width: 18px; height: 2px; display: inline-block; background: var(--lesson-color); }
 .adaptive-chart-legend .target-key { background: var(--faint); border-top: 1px dashed var(--faint); }
 .adaptive-chart-legend .speed-key { box-shadow: 0 0 7px color-mix(in srgb, var(--lesson-color) 48%, transparent); }
+.adaptive-chart-legend .raw-key { background: color-mix(in srgb, var(--lesson-color) 45%, var(--muted)); }
+.adaptive-chart-legend .error-key { width: 8px; height: 8px; background: var(--red); transform: rotate(45deg); }
 .adaptive-stats-chart svg { width: 100%; height: auto; display: block; overflow: visible; }
 .adaptive-chart-grid { stroke: color-mix(in srgb, var(--line) 80%, transparent); stroke-width: 1; }
 .adaptive-chart-axis { fill: var(--faint); font-family: var(--app-font); font-size: 10px; }
 .adaptive-chart-target { stroke: var(--faint); stroke-width: 1; stroke-dasharray: 5 5; }
 .adaptive-chart-area { fill: color-mix(in srgb, var(--lesson-color) 12%, transparent); }
 .adaptive-chart-line { fill: none; stroke: var(--lesson-color); stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 5px color-mix(in srgb, var(--lesson-color) 40%, transparent)); }
+.adaptive-chart-raw { fill: none; stroke: color-mix(in srgb, var(--lesson-color) 45%, var(--muted)); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .adaptive-chart-point { fill: var(--lesson-color); stroke: var(--bg); stroke-width: 2; }
+.adaptive-chart-error-mark { fill: none; stroke: var(--red); stroke-width: 2.5; stroke-linecap: round; }
+.adaptive-chart-axis-right { fill: var(--red); }
 .adaptive-chart-empty { min-height: 210px; display: grid; place-items: center; color: var(--muted); font-size: 11px; text-align: center; }
 .adaptive-profile-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .adaptive-profile-card {
@@ -999,18 +1048,15 @@ body[data-mode="quote"] .typing-text {
   border-radius: 6px;
   background: color-mix(in srgb, var(--panel) 38%, transparent);
 }
-.adaptive-missed-panel > header,
-.adaptive-technique-panel > header {
+.adaptive-missed-panel > header {
   display: flex;
   align-items: end;
   justify-content: space-between;
   gap: 14px;
   margin-bottom: 13px;
 }
-.adaptive-missed-panel h3,
-.adaptive-technique-panel h3 { margin: 0; font-size: 13px; font-weight: 650; }
-.adaptive-missed-panel header span,
-.adaptive-technique-panel header span { color: var(--muted); font-size: 10px; }
+.adaptive-missed-panel h3 { margin: 0; font-size: 13px; font-weight: 650; }
+.adaptive-missed-panel header span { color: var(--muted); font-size: 10px; }
 .adaptive-missed-panel header > strong { color: var(--red); font-size: 10px; font-weight: 700; text-transform: uppercase; }
 .adaptive-missed-list { display: grid; gap: 6px; }
 .adaptive-missed-row {
@@ -1035,13 +1081,6 @@ body[data-mode="quote"] .typing-text {
 .adaptive-missed-bar i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--red), var(--gold)); }
 .adaptive-missed-detail { min-width: 0; overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
 .adaptive-missed-empty { padding: 12px 0 4px; color: var(--muted); font-size: 11px; }
-.adaptive-technique-panel > header { margin-bottom: 7px; }
-.adaptive-technique-summary { margin: 0 0 13px; color: var(--muted); font-size: 11px; line-height: 1.45; }
-.adaptive-technique-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px; }
-.adaptive-technique-item { min-width: 0; padding-top: 10px; border-top: 1px solid var(--line); }
-.adaptive-technique-item strong { color: var(--lesson-color); font-size: 11px; font-weight: 650; }
-.adaptive-technique-item p { margin: 5px 0 0; color: var(--faint); font-size: 10px; line-height: 1.45; }
-.adaptive-repair-button { margin-top: 15px; }
 .settings-map-panel {
   margin-top: 28px;
   padding-top: 20px;
@@ -1091,30 +1130,6 @@ body[data-mode="quote"] .typing-text {
 .adaptive-recommendation > div > span { color: var(--gold); font-size: 9px; font-weight: 700; text-transform: uppercase; }
 .adaptive-recommendation h3 { margin: 4px 0; color: var(--lesson-color); font-size: 16px; font-weight: 650; }
 .adaptive-recommendation p { max-width: 70ch; margin: 0; color: var(--muted); font-size: 10px; line-height: 1.45; }
-.adaptive-mode-picker { grid-column: 1 / -1; min-width: 0; margin-top: 0; }
-.adaptive-mode-picker > p { max-width: none; margin-bottom: 8px; color: var(--faint); }
-.adaptive-mode-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
-.adaptive-mode-option {
-  min-width: 0;
-  display: grid;
-  grid-template-columns: auto minmax(0, 1fr);
-  align-items: start;
-  gap: 8px;
-  padding: 9px 10px;
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  color: var(--text);
-  background: color-mix(in srgb, var(--panel) 44%, transparent);
-  cursor: pointer;
-}
-.adaptive-mode-option:has(input:checked) {
-  border-color: color-mix(in srgb, var(--lesson-color) 62%, var(--line));
-  background: color-mix(in srgb, var(--lesson-color) 12%, transparent);
-}
-.adaptive-mode-option input { margin: 2px 0 0; accent-color: var(--lesson-color); }
-.adaptive-mode-option span { min-width: 0; display: grid; gap: 3px; }
-.adaptive-mode-option strong { color: var(--text); font-size: 11px; font-weight: 650; }
-.adaptive-mode-option small { color: var(--muted); font-size: 9px; line-height: 1.35; }
 .adaptive-focus-picker { grid-column: 1; min-width: 0; }
 .adaptive-focus-picker > p { margin-bottom: 8px; color: var(--faint); font-size: 10px; }
 .adaptive-focus-options { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
@@ -1604,13 +1619,14 @@ body[data-mode="zen"] .typing-word {
 .funbox-plus_two .typing-word.future-word[data-distance="3"],
 .funbox-plus_two .typing-word.future-word[data-distance="4"],
 .funbox-plus_three .typing-word.future-word[data-distance="4"] { visibility: hidden; }
-.funbox-read_ahead_easy .typing-word.future-word[data-distance="1"],
-.funbox-read_ahead .typing-word.future-word[data-distance="1"],
-.funbox-read_ahead .typing-word.future-word[data-distance="2"],
-.funbox-read_ahead_hard .typing-word.future-word[data-distance="1"],
-.funbox-read_ahead_hard .typing-word.future-word[data-distance="2"],
-.funbox-read_ahead_hard .typing-word.future-word[data-distance="3"] {
-  border-bottom: 2px solid color-mix(in srgb, var(--lesson-color) 64%, transparent);
+.typing-word.read-ahead-hidden .pending,
+.typing-word.read-ahead-hidden .current {
+  color: transparent !important;
+  background: transparent !important;
+  border-color: transparent !important;
+  outline-color: transparent !important;
+  text-decoration-color: transparent !important;
+  text-shadow: none !important;
 }
 
 @keyframes spin-letter { to { transform: rotate(360deg); } }
@@ -1669,16 +1685,17 @@ body[data-mode="zen"] .typing-word {
   .finger-legend { display: none; }
   .adaptive-result-heading { align-items: flex-start; flex-direction: column; gap: 8px; }
   .adaptive-result-heading > strong { text-align: left; }
+  .adaptive-result-overview { grid-template-columns: 1fr; gap: 8px; }
+  .adaptive-primary-metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+  .adaptive-primary-metrics strong { font-size: clamp(44px, 16vw, 64px); }
+  .adaptive-summary-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .adaptive-summary-strip span:nth-child(odd) { padding-left: 0; }
   .adaptive-profile-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .adaptive-missed-panel > header,
-  .adaptive-technique-panel > header,
   .settings-map-panel > header { align-items: flex-start; flex-direction: column; gap: 5px; }
   .adaptive-missed-row { grid-template-columns: 20px 24px minmax(70px, 1fr); gap: 7px; }
   .adaptive-missed-detail { grid-column: 3; }
-  .adaptive-technique-list { grid-template-columns: 1fr; gap: 12px; }
   .adaptive-recommendation { display: flex; align-items: stretch; flex-direction: column; }
-  .adaptive-mode-options { grid-template-columns: 1fr; }
-  .adaptive-mode-picker { min-width: 0; margin-top: 13px; }
   .adaptive-focus-picker { min-width: 0; margin-top: 13px; }
   .adaptive-focus-options { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .adaptive-focus-option small { white-space: normal; }

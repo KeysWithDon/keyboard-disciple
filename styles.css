@@ -710,19 +710,36 @@ select, input, textarea {
 .curve-section h3 { margin: 0; font-size: 14px; }
 .curve-section header span { color: var(--muted); font-size: 11px; }
 .letter-chart {
+  position: relative;
   min-height: 270px;
   display: grid;
   place-items: center;
+  padding-top: 24px;
   border: 1px solid var(--line);
   border-radius: 6px;
   background: rgba(0,0,0,.12);
   overflow: hidden;
 }
 .letter-chart svg { display: block; width: 100%; height: auto; min-height: 240px; }
+.curve-legend {
+  position: absolute;
+  top: 10px;
+  left: 16px;
+  display: flex;
+  gap: 14px;
+  color: var(--muted);
+  font-size: 9px;
+}
+.curve-legend span { display: inline-flex; align-items: center; gap: 5px; }
+.curve-legend i { width: 16px; height: 2px; display: inline-block; background: var(--cyan); }
+.curve-legend .curve-accuracy-key { background: var(--gold); }
+.curve-legend .curve-target-key { background: var(--muted); border-top: 1px dashed var(--muted); }
 .curve-grid-line { stroke: var(--line); stroke-width: 1; }
 .curve-axis-label { fill: var(--muted); font-size: 11px; font-weight: 700; }
 .curve-area { fill: color-mix(in srgb, var(--cyan) 17%, transparent); }
 .curve-line { fill: none; stroke: var(--cyan); stroke-width: 4; stroke-linecap: round; stroke-linejoin: round; }
+.curve-accuracy-line { fill: none; stroke: var(--gold); stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: .78; }
+.curve-accuracy-axis { fill: var(--gold); opacity: .78; }
 .curve-point { fill: var(--panel-strong); stroke: var(--green); stroke-width: 3; }
 .curve-point.current { fill: var(--gold); stroke: var(--gold); }
 .curve-empty { display: grid; gap: 6px; padding: 30px; text-align: center; }

@@ -13,8 +13,8 @@
   <link rel="canonical" href="https://keyswithdon.github.io/keyboard-disciple/">
   <link rel="sitemap" type="application/xml" href="https://keyswithdon.github.io/keyboard-disciple/sitemap.xml">
   <link rel="icon" href="assets/keyboard-disciple-mark.png">
-    <link rel="stylesheet" href="styles.css?v=20260723-adaptive-skill-forge">
-    <link rel="stylesheet" href="refresh.css?v=20260723-adaptive-skill-forge">
+    <link rel="stylesheet" href="styles.css?v=20260723-read-ahead-results">
+    <link rel="stylesheet" href="refresh.css?v=20260723-read-ahead-results">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Keyboard Disciple">
   <meta property="og:title" content="Keyboard Disciple | Free Typing Practice Game">
@@ -164,20 +164,32 @@
         <div class="adaptive-result-details hidden" id="adaptiveResultDetails">
           <header class="adaptive-result-heading">
             <div>
-              <p>Ten-line adaptive lesson</p>
+              <p>Adaptive lesson complete</p>
               <h3>Your strengths and weak spots</h3>
             </div>
             <strong id="adaptiveRank">Local rank 1 of 1 / top 100%</strong>
           </header>
-          <section class="adaptive-chart-panel" aria-labelledby="adaptiveChartTitle">
-            <header>
-              <div>
-                <h3 id="adaptiveChartTitle">Speed by line</h3>
-                <span>See whether your pace held, climbed, or dipped.</span>
-              </div>
-            </header>
-            <div class="adaptive-stats-chart" id="adaptiveStatsChart"></div>
-          </section>
+          <div class="adaptive-result-overview">
+            <div class="adaptive-primary-metrics" aria-label="Primary adaptive lesson results">
+              <span>WPM<strong id="adaptiveOverviewWpm">0</strong></span>
+              <span>Accuracy<strong id="adaptiveOverviewAccuracy">100%</strong></span>
+            </div>
+            <section class="adaptive-chart-panel" aria-labelledby="adaptiveChartTitle">
+              <header>
+                <div>
+                  <h3 id="adaptiveChartTitle">Performance by line</h3>
+                  <span>Corrected speed, raw pace, and blocked errors across the lesson.</span>
+                </div>
+              </header>
+              <div class="adaptive-stats-chart" id="adaptiveStatsChart"></div>
+            </section>
+          </div>
+          <div class="adaptive-summary-strip" aria-label="Adaptive lesson details">
+            <span>Raw<strong id="adaptiveOverviewRaw">0</strong></span>
+            <span>Characters<strong id="adaptiveOverviewCharacters">0</strong></span>
+            <span>Consistency<strong id="adaptiveOverviewConsistency">100%</strong></span>
+            <span>Time<strong id="adaptiveOverviewTime">0s</strong></span>
+          </div>
           <div class="adaptive-profile-grid">
             <article class="adaptive-profile-card weak-card">
               <span>Weakest letter</span>
@@ -192,12 +204,12 @@
             <article class="adaptive-profile-card">
               <span>Fastest WPM</span>
               <strong id="adaptiveFastestWpm">0 WPM</strong>
-              <small>Best page speed this lesson</small>
+              <small>Fastest completed line</small>
             </article>
             <article class="adaptive-profile-card">
               <span>Slowest WPM</span>
               <strong id="adaptiveSlowestWpm">0 WPM</strong>
-              <small>Page that needs the most patience</small>
+              <small>Line that needs the most patience</small>
             </article>
             <article class="adaptive-profile-card">
               <span>Blocked errors</span>
@@ -220,24 +232,12 @@
             </header>
             <div class="adaptive-missed-list" id="adaptiveMissedLetters"></div>
           </section>
-          <section class="adaptive-technique-panel" aria-labelledby="adaptiveTechniqueTitle">
-            <header>
-              <div>
-                <h3 id="adaptiveTechniqueTitle">Repair plan</h3>
-                <span>Small, focused adjustments for the next practice block.</span>
-              </div>
-            </header>
-            <p id="adaptiveTechniqueSummary">Your next practice block will stay balanced while more evidence builds.</p>
-            <div class="adaptive-technique-list" id="adaptiveTechniqueList"></div>
-            <button class="secondary-button adaptive-repair-button hidden" id="adaptiveRepairFocusButton" type="button">Focus repair letters</button>
-          </section>
           <section class="adaptive-recommendation" aria-labelledby="adaptiveRecommendationTitle">
             <div>
               <span>Next recommended focus</span>
               <h3 id="adaptiveRecommendationTitle"><span id="adaptiveRecommendationName">Balanced</span></h3>
               <p id="adaptiveRecommendationReason">Complete three adaptive lessons to unlock a more specific recommendation.</p>
             </div>
-            <div class="adaptive-mode-picker" id="adaptiveModePicker" aria-label="Suggested next-lesson modes"></div>
             <div class="adaptive-focus-picker" id="adaptiveFocusPicker" aria-label="Suggested letter focus"></div>
             <button class="primary-button" id="adaptiveRecommendationButton" type="button">Start selected lesson</button>
           </section>
@@ -484,6 +484,20 @@
                   <option value="8">8 words</option>
                   <option value="10" selected>10 words</option>
                   <option value="12">12 words</option>
+                </select>
+              </label>
+              <label>Adaptive punctuation
+                <select id="adaptivePunctuation">
+                  <option value="off">Off</option>
+                  <option value="low">Low</option>
+                  <option value="medium">Medium</option>
+                  <option value="high">High</option>
+                </select>
+              </label>
+              <label>Adaptive capitals
+                <select id="adaptiveCapitals">
+                  <option value="off">Off</option>
+                  <option value="on">Sentence starts</option>
                 </select>
               </label>
               <label>Daily goal
@@ -929,13 +943,14 @@
       <section class="curve-section" aria-labelledby="curveTitle">
         <header>
           <h3 id="curveTitle">Speed by lesson</h3>
-          <span id="letterCurveCaption">No completed pages</span>
+          <span id="letterCurveCaption">No completed lessons</span>
         </header>
         <div class="letter-chart" id="letterChart"></div>
       </section>
     </form>
   </dialog>
 
-    <script src="app.js?v=20260723-adaptive-skill-forge"></script>
+    <script src="assets/biblical-word-bank.js?v=20260723"></script>
+    <script src="app.js?v=20260723-read-ahead-results"></script>
 </body>
 </html>
