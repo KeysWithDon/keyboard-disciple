@@ -537,9 +537,9 @@ const creativeCatalog = [
   ["plus_one", "+1", "Shows one word ahead."],
   ["plus_two", "+2", "Shows two words ahead."],
   ["plus_three", "+3", "Shows three words ahead."],
-  ["read_ahead_easy", "Veiled Current", "Hides the current word."],
-  ["read_ahead", "Veiled Pair", "Hides the current word and the next word."],
-  ["read_ahead_hard", "Veiled Triple", "Hides the current word and the next two words."],
+  ["read_ahead_easy", "Look Ahead One", "Keeps every word readable and emphasizes the next word."],
+  ["read_ahead", "Look Ahead Two", "Keeps every word readable and emphasizes the next two words."],
+  ["read_ahead_hard", "Look Ahead Three", "Keeps every word readable and emphasizes the next three words."],
   ["memory", "Recall Line", "Shows each line briefly, then asks you to type it from memory."],
   ["nospace", "Seamless Text", "Removes every space from the test."],
   ["poetry", "Verse Practice", "Practices a locally included public-domain verse."],
@@ -936,17 +936,19 @@ function renderTechniqueCue(metrics) {
 function currentMetrics(now = performance.now()) {
   const elapsedMs = state.startedAt ? Math.max(1000, now - state.startedAt) : 1000;
   const elapsedMinutes = elapsedMs / 60000;
-  const attempts = state.rawTyped + state.errors;
-  const wpm = (state.charsTyped / 5) / elapsedMinutes;
+  const promptEvaluation = usesDictationTypingRules() ? dictationPromptEvaluation(false) : null;
+  const correctCharacters = promptEvaluation ? promptEvaluation.correctCharacters : state.charsTyped;
+  const attempts = promptEvaluation ? promptEvaluation.attempts : state.rawTyped + state.errors;
+  const wpm = (correctCharacters / 5) / elapsedMinutes;
   const raw = (attempts / 5) / elapsedMinutes;
-  const accuracy = attempts ? (state.charsTyped / attempts) * 100 : 100;
+  const accuracy = attempts ? (correctCharacters / attempts) * 100 : 100;
   let consistency = 100;
   if (state.keyIntervals.length > 2) {
     const mean = state.keyIntervals.reduce((sum, value) => sum + value, 0) / state.keyIntervals.length;
     const variance = state.keyIntervals.reduce((sum, value) => sum + (value - mean) ** 2, 0) / state.keyIntervals.length;
     consistency = Math.max(0, Math.min(100, 100 - (Math.sqrt(variance) / mean) * 100));
   }
-  return { elapsedMs, wpm, raw, accuracy, consistency, attempts };
+  return { elapsedMs, wpm, raw, accuracy, consistency, attempts, errors: promptEvaluation?.errors ?? state.errors };
 }
 
 function currentAdaptiveLineMetrics(now = performance.now()) {
@@ -1500,7 +1502,8 @@ function wordDeck() {
   const unlocked = allowedSet();
   const selectedFocusLetters = selectedAdaptiveFocusLetters().map(letter => letter.toLowerCase());
   const focusLetters = selectedFocusLetters.length ? selectedFocusLetters : [adaptiveFocusLetter().toLowerCase()];
-  const isAllowed = word => [...word.toLowerCase()].every(ch => !/[a-z]/.test(ch) || unlocked.has(ch));
+  const isAllowed = word => wordLetters(word).length > 1
+    && [...word.toLowerCase()].every(ch => !/[a-z]/.test(ch) || unlocked.has(ch));
   const allNatural = [...new Set(commonWords.concat(expandedWords, moderateWords, rareWords, dictionaryExtra, workoutWords, rareLetterFocusPool))].filter(isAllowed);
   const broadCommon = prefs.naturalWords
     ? commonWords.concat(expandedWords.filter(w => w.length <= 8), dictionaryExtra.filter(w => w.length <= 6))
@@ -1692,7 +1695,7 @@ function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
       else if (pos % 11 === 0 && deck.rareFocus.length) { list = deck.rareFocus; index = rfi++; }
       else if (pos % rareInterval === 0 && deck.rare.length) { list = deck.rare; index = ri++; }
       else if (pos % moderateInterval === 0 && deck.moderate.length) { list = deck.moderate; index = mi++; }
-      if (!list.length) list = deck.common.length ? deck.common : deck.focus.length ? deck.focus : ["a", "an", "in", "is", "it"];
+      if (!list.length) list = deck.common.length ? deck.common : deck.focus.length ? deck.focus : ["an", "in", "is", "it", "line"];
       const fallbackList = workoutActive && workoutPool.length ? workoutPool : deck.common;
       const word = pickWordForRow(list, index, words, rowBudget, fallbackList, previousRowWord);
       if (!word) break;
@@ -2688,8 +2691,9 @@ function renderInteractiveTarget(target) {
     const wordInProgress = !isSpace && state.input.length > groupStart && state.input.length < groupEnd;
     const characters = groupCharacters.map(ch => {
       const index = characterIndex++;
+      const typedIncorrectly = index < state.input.length && state.input[index] !== ch;
       const cls = index < state.input.length
-        ? `done${prefs.blindMode ? " blind" : ""}${wordInProgress ? " word-in-progress" : ""}`
+        ? `done${typedIncorrectly ? " incorrect" : ""}${prefs.blindMode ? " blind" : ""}${wordInProgress ? " word-in-progress" : ""}`
         : index === state.input.length ? `current ${prefs.currentCue}` : "pending";
       const shownCharacter = prefs.typedEffect === "dots" && index < state.input.length && !/\s/.test(ch) ? "•" : ch;
       return `<span class="${cls}">${escapeHtml(shownCharacter)}</span>`;
@@ -2707,12 +2711,6 @@ function renderPlainLine(line) {
   return (line.match(/\S+|\s+/g) || []).map(group => /^\s+$/.test(group)
     ? `<span class="typing-space">${escapeHtml(group)}</span>`
     : `<span class="typing-word">${escapeHtml(group)}</span>`).join("");
-}
-
-function renderLineEndSpaceCue(line) {
-  if (!shouldRequireLineEndSpace()) return "";
-  const isCurrent = state.input.length >= String(line || "").length;
-  return `<span class="line-end-space${isCurrent ? " current" : ""}" aria-label="space required">space</span>`;
 }
 
 function fitPracticeLines(lines) {
@@ -2863,7 +2861,7 @@ function renderText() {
     while (state.mode === "adaptive" && lines.length < 2) lines.push("");
     els.typingText.innerHTML = lines.map((line, index) => {
       const renderedLine = index === 0
-        ? `${renderInteractiveTarget(line)}${renderLineEndSpaceCue(line)}`
+        ? renderInteractiveTarget(line)
         : renderPlainLine(line);
       return `<span class="practice-line${index === 0 ? " active" : ""}" data-line-offset="${index}">${renderedLine}</span>`;
     }).join("");
@@ -3188,7 +3186,7 @@ function handleKey(event) {
     recordLetterAttempt(expected, true, recordedAt);
   }
   if (isCorrect) state.characterErrors = 0;
-  state.input += enteredKey;
+  state.input += key;
   state.charsTyped++;
   state.rawTyped++;
   if (state.mode === "zen") ensureZenTargetBuffer();
@@ -3438,10 +3436,10 @@ function finishWordSection() {
   }, 70);
 }
 
-function dictationPromptEvaluation() {
-  const target = currentTypingTarget();
+function dictationPromptEvaluation(includeMissingCharacters = true) {
+  const target = currentInputTarget();
   const typed = state.input;
-  const comparedLength = Math.max(target.length, typed.length);
+  const comparedLength = includeMissingCharacters ? Math.max(target.length, typed.length) : typed.length;
   let correctCharacters = 0;
   for (let index = 0; index < Math.min(target.length, typed.length); index++) {
     if (target[index] === typed[index]) correctCharacters++;
@@ -3590,15 +3588,16 @@ function finishTest() {
     spokenReminderManager.stop();
   }
   let metrics = currentMetrics();
-  const dictationEvaluation = state.mode === "dictation" ? dictationPromptEvaluation() : null;
-  if (dictationEvaluation) {
+  const promptEvaluation = usesDictationTypingRules() ? dictationPromptEvaluation() : null;
+  if (promptEvaluation) {
     const elapsedMinutes = Math.max(1 / 60, metrics.elapsedMs / 60000);
     metrics = {
       ...metrics,
-      raw: (dictationEvaluation.attempts / 5) / elapsedMinutes,
-      accuracy: dictationEvaluation.accuracy,
-      attempts: dictationEvaluation.attempts,
-      errors: dictationEvaluation.errors
+      wpm: (promptEvaluation.correctCharacters / 5) / elapsedMinutes,
+      raw: (promptEvaluation.attempts / 5) / elapsedMinutes,
+      accuracy: promptEvaluation.accuracy,
+      attempts: promptEvaluation.attempts,
+      errors: promptEvaluation.errors
     };
   }
   const previousBest = progress.lessonHistory
@@ -3609,11 +3608,11 @@ function finishTest() {
     raw: Number(metrics.raw.toFixed(1)),
     consistency: Number(metrics.consistency.toFixed(1)),
     elapsedMs: Math.round(metrics.elapsedMs),
-    ...(dictationEvaluation ? {
-      dictationCorrectCharacters: dictationEvaluation.correctCharacters,
-      dictationErrors: dictationEvaluation.errors,
-      dictationTargetCharacters: dictationEvaluation.targetCharacters,
-      dictationSubmittedCharacters: dictationEvaluation.typedCharacters
+    ...(promptEvaluation ? {
+      dictationCorrectCharacters: promptEvaluation.correctCharacters,
+      dictationErrors: promptEvaluation.errors,
+      dictationTargetCharacters: promptEvaluation.targetCharacters,
+      dictationSubmittedCharacters: promptEvaluation.typedCharacters
     } : {}),
     ...dictationFollow
   });
@@ -3705,12 +3704,14 @@ async function ensureReminderSoundStyle(style) {
 }
 
 function playReminderSound(style = prefs.reminderSound) {
+  if (!prefs.spokenRemindersEnabled || !reminderSoundStyles.has(style) || Number(prefs.soundVolume) <= 0) return;
   unlockAudio();
-  if (!reminderSoundStyles.has(style) || Number(prefs.soundVolume) <= 0) return;
   const buffer = reminderSoundBuffers[style];
   if (!buffer) {
     ensureReminderSoundStyle(style).then(() => {
-      if (prefs.reminderSound === style && reminderSoundBuffers[style]) playDecodedBuffer(reminderSoundBuffers[style], 1.1);
+      if (prefs.spokenRemindersEnabled && prefs.reminderSound === style && reminderSoundBuffers[style]) {
+        playDecodedBuffer(reminderSoundBuffers[style], 1.1);
+      }
     });
     return;
   }

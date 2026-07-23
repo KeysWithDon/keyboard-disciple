@@ -788,28 +788,12 @@ body[data-mode="adaptive"] .practice-line:not(.active) {
 
 .typing-word { display: inline-flex; white-space: nowrap; }
 .typing-space { display: inline; white-space: pre; }
-.line-end-space {
-  display: inline-grid;
-  place-items: center;
-  min-width: 3.9em;
-  height: 1.45em;
-  margin-left: .38em;
-  border: 1px solid color-mix(in srgb, var(--lesson-color) 34%, transparent);
-  border-radius: 4px;
-  color: color-mix(in srgb, var(--lesson-color) 64%, var(--faint));
-  font-size: .38em;
-  font-weight: 650;
-  line-height: 1;
-  text-transform: uppercase;
-  vertical-align: .2em;
-}
-.line-end-space.current {
-  color: var(--bg);
-  background: var(--lesson-color);
-  box-shadow: 0 0 16px color-mix(in srgb, var(--lesson-color) 32%, transparent);
-}
 .typing-text .pending { color: color-mix(in srgb, var(--lesson-color) 30%, var(--faint)); }
 .typing-text .done { color: color-mix(in srgb, var(--lesson-color) 82%, var(--text)); }
+.typing-text .done.incorrect {
+  color: var(--red);
+  text-shadow: 0 0 10px color-mix(in srgb, var(--red) 38%, transparent);
+}
 .colorful-test .typing-text .done { color: var(--lesson-color); }
 .flip-test-colors .typing-text .pending { color: var(--text); }
 .flip-test-colors .typing-text .done { color: var(--faint); }
@@ -1374,6 +1358,8 @@ body[data-mode="quote"] .typing-text {
 .settings-grid input:focus { border-color: color-mix(in srgb, var(--gold) 65%, var(--line)); }
 .theme-setting {
   position: relative;
+  z-index: 6;
+  overflow: visible !important;
 }
 .theme-native-select {
   position: absolute;
@@ -1387,6 +1373,7 @@ body[data-mode="quote"] .typing-text {
 }
 .theme-picker {
   position: relative;
+  z-index: 1;
   min-width: 0;
 }
 .theme-picker-trigger,
@@ -1617,12 +1604,14 @@ body[data-mode="zen"] .typing-word {
 .funbox-plus_two .typing-word.future-word[data-distance="3"],
 .funbox-plus_two .typing-word.future-word[data-distance="4"],
 .funbox-plus_three .typing-word.future-word[data-distance="4"] { visibility: hidden; }
-.funbox-read_ahead_easy .typing-word.active-word,
-.funbox-read_ahead .typing-word.active-word,
+.funbox-read_ahead_easy .typing-word.future-word[data-distance="1"],
 .funbox-read_ahead .typing-word.future-word[data-distance="1"],
-.funbox-read_ahead_hard .typing-word.active-word,
+.funbox-read_ahead .typing-word.future-word[data-distance="2"],
 .funbox-read_ahead_hard .typing-word.future-word[data-distance="1"],
-.funbox-read_ahead_hard .typing-word.future-word[data-distance="2"] { visibility: hidden; }
+.funbox-read_ahead_hard .typing-word.future-word[data-distance="2"],
+.funbox-read_ahead_hard .typing-word.future-word[data-distance="3"] {
+  border-bottom: 2px solid color-mix(in srgb, var(--lesson-color) 64%, transparent);
+}
 
 @keyframes spin-letter { to { transform: rotate(360deg); } }
 @keyframes key-shake { 0%, 100% { transform: translate(0); } 25% { transform: translate(1px, -1px); } 75% { transform: translate(-1px, 1px); } }
