@@ -503,8 +503,10 @@ const moderateWords = `abide accent active admire adore advice alert anchor answ
 const expandedWords = `abandon ability abroad absence absolute absorb abstract academic accent access accident accompany accomplish accurate achieve acquire across adapt addition adequate adjacent adjust admire admission adopt affordable agenda aggressive agriculture aircraft album alert allocate alter alternative ambition ambitious analysis annual anxious apparent appreciate approach appropriate approval architect architecture argument arise arrangement arrival article assemble assess assign assist assume atmosphere attach attempt attitude audience authorize autumn available average avoid awake awareness awkward balance ballot bamboo barrier basic battery battle bedroom behavior beneath biological boundary breakfast brilliant broad budget bulletin burden cabinet calculate calendar capable capital capture career careful cargo category ceiling ceremony chamber champion channel charity chemical chemistry childhood circular circumstance clarify classic climate clinical closet cluster coach coastal collaborate colleague collect collision column combine comfort commercial commission commit communicate community companion comparison compete complete complex component compose compound concentrate concept conclude condition conference confidence confirm connect consequence consider constant construct consult contact contain contemporary context continue contract contrast contribution convert coordinate curiosity curious currency cycle database decade declare decline decrease defeat defend definition deliver demonstrate departure describe design desire despite develop device diagram difference difficult digital dignity discover discuss distance distinct distribute district diverse divide document domestic dominate dramatic durable dynamic eager ecology edition educate effective elaborate election element eliminate embrace emerge emotion emphasis employ enable encounter encourage endure engage enhance enormous ensure entrance equal equipment essential establish estimate evaluate eventual evidence examine example exchange excite exclude executive exhibit expand expectation experience experiment expert explain explore express extension external facility familiar feature festival flexible flourish forecast foreign forgive foundation fragment frequent function generous genuine geography graceful graduate grateful guarantee guidance habit habitat harmony healthy hesitate highlight historic identity illustrate imagine immediate impact implement impressive improve include increase independent influence inform ingredient initial insight inspire install instance instruct instrument insurance intelligent intend intense interact internal interpret interval introduce invent invest invite involve isolate jacket journal journey justice keyboard language launch layer lecture legend leisure liberal license lifetime likely limit literature locate logical maintain major manual margin material mature measure mechanism medical mention method migrate minimum ministry minor miracle mixture mobile modify monitor motivate multiple museum mutual mystery narrow native natural navigate nearby negotiate neither neutral nevertheless normal observe obtain obvious occasion occupy official operate option ordinary organize outcome outline overcome ownership parallel passage perceive perfect perform persist persuade physical pioneer pleasant plenty pocket portion practical precious prefer prepare presence preserve primary principle priority procedure process produce profession progress promise promote proportion protect protocol provide publish purpose qualify quantity quarter rapid rare reaction realize receive recent recognize recommend recover reduce reference reflect regular reject relate release relevant reliable remain remove repair replace request require research reserve respect respond restore reveal revenue review revise routine sacred safety salary satisfy schedule secure segment select senior separate sequence session settle shadow shelter shift signal similar sincere society source specific stable standard strategy strengthen structure submit succeed sufficient suggest suitable summary survive symbol target technique temporary tendency theory therefore threshold translate treasure typical unique universal update urgent useful vacuum valuable variety vehicle version victory video visible volunteer weather wherever whether whole willing withdraw witness wonderful workshop widespread yearn youth zero`.split(" ");
 const rareWords = `abeyance acumen adroit aegis alacrity amity apprise ardor askance behoove benison bereft blithe boon celerity comely cordial doughty dulcet efface emprise erstwhile fallow fervor forbear forthright gallant halcyon inure lissome morrow obeisance pensive prudent quaint quell redolent resolute sagacity sallow sojourn stately succor sundry verdant winsome`.split(" ");
 const dictionaryExtra = `ability absence account address advance advice affair agency agreement animal answer appeal arrival article artist aspect attempt balance beauty benefit brother budget camera career ceiling channel chapter charity choice church citizen comfort command company concern conduct courage cousin culture damage danger dealer debate degree demand desire detail device dinner doctor effort energy engine estate evening event family father figure flower garden glory habit harbor heaven history honor income island journey kingdom ladder leader lesson letter liberty member memory mercy minute modern moment morning motion mother nation notice number office option palace parent pastor patient pattern period person phrase planet player plenty prayer promise public purpose reason record refuge return rhythm river safety season second secret servant service signal sister spirit station story student summer supply teacher temple tender theory thread travel valley virtue vision window wisdom wonder worker worship writer`.split(" ");
+const artificialBiblicalCompound = /^(most|ever|living|holy|new|true|everlasting|blessed|royal|heavenly|faithful|chosen|beloved|glorious|sacred|covenant|kingdom|spirit|grace|mercy|promise|redeemed)[a-z]+(heart|hope|light|life|truth|joy|peace|power|glory|strength|victory|promise|harvest|seed|temple|watch|voice|breath|path|name|presence|river|rock|shield|song|fire|faith|way|crown)$/;
+const biblicalPhraseEntries = new Set(["fearofthelord", "greatcommission", "livingwater", "mustardseed", "newcreation", "treeoflife"]);
 const biblicalWordBank = Array.isArray(window.BIBLICAL_WORD_BANK)
-  ? [...new Set(window.BIBLICAL_WORD_BANK.map(word => String(word).toLowerCase()).filter(word => /^[a-z]+$/.test(word)))]
+  ? [...new Set(window.BIBLICAL_WORD_BANK.map(word => String(word).toLowerCase()).filter(word => /^[a-z]+$/.test(word) && !artificialBiblicalCompound.test(word) && !biblicalPhraseEntries.has(word)))]
   : [];
 const workoutWords = `against already apartment appeared approach awkward beautiful because beneath breathing brother building business capable chapter clothing company confusion continued daughter darkness decided different downstairs emotions enormous everyone exactly expected expression followed footsteps forward friends getting glanced glasses grabbed happened happiness herself honestly hospital however ignoring including information instead journey kitchen laughing lightning location managed military mission mountain mountains muttered noticed obvious opposite opportunity original outside painful perfect physical plastic pleasure position possible powerful problems process professor purpose quickly reached realized remember returned running seconds shadows shooting shrugged silently situation slipped smiling soldiers somewhere sounding special standing started straight strength suddenly surprise surprised swallowed themselves thinking thoughts tomorrow touched touching towards understanding vampire watched watching weapons whatever whispered worried wrapped yourself alongside breakthrough comfortable complicated concentrate considerable construction conversation discovery encourage faithfully foundation important instruction meaningful messenger ministered mysterious particular practical promising questions recovery religious remarkable returning reverence sanctified scripture shoulder sunlight thanksgiving therefore together training troublesome victorious whispers worshipful yesterday`.split(" ");
 const workoutZoneWords = {
@@ -685,6 +687,27 @@ let restartRequestId = 0;
 
 function save() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ prefs, progress }));
+}
+
+function resetLocalProgress() {
+  if (!window.confirm("Reset all locally saved typing progress? Your settings will remain unchanged.")) return;
+  Object.keys(progress).forEach(key => delete progress[key]);
+  Object.assign(progress, {
+    rowsCleared: 0,
+    avgWpm: 0,
+    avgAccuracy: 100,
+    letterStats: {},
+    characterStats: {},
+    lessonHistory: [],
+    adaptiveLessonHistory: [],
+    letterHistory: {},
+    dailyActivity: {},
+    errorReview: [],
+    cleanLines: 0,
+    placement: null
+  });
+  save();
+  restart();
 }
 
 function scheduleSave() {
@@ -1460,8 +1483,7 @@ function wordDeck() {
   const focusLetters = selectedFocusLetters.length ? selectedFocusLetters : [adaptiveFocusLetter().toLowerCase()];
   const isAllowed = word => wordLetters(word).length > 1
     && [...word.toLowerCase()].every(ch => !/[a-z]/.test(ch) || unlocked.has(ch));
-  const supplementalBiblicalWords = prefs.naturalWords ? [] : biblicalWordBank;
-  const allNatural = [...new Set(commonWords.concat(expandedWords, moderateWords, rareWords, dictionaryExtra, workoutWords, rareLetterFocusPool, supplementalBiblicalWords))].filter(isAllowed);
+  const allNatural = [...new Set(commonWords.concat(expandedWords, moderateWords, rareWords, dictionaryExtra, workoutWords, rareLetterFocusPool, biblicalWordBank))].filter(isAllowed);
   const broadCommon = prefs.naturalWords
     ? commonWords.concat(expandedWords.filter(w => w.length <= 8), dictionaryExtra.filter(w => w.length <= 6))
     : commonWords.concat(expandedWords, moderateWords, dictionaryExtra, biblicalWordBank);
@@ -1483,6 +1505,7 @@ function wordDeck() {
   const rightHand = shuffle(allNatural.filter(word => handWeight(word, "right") >= .64));
   const outerFinger = shuffle(allNatural.filter(word => fingerBandWeight(word, "outer") >= .42));
   const innerFinger = shuffle(allNatural.filter(word => fingerBandWeight(word, "inner") >= .58));
+  const christian = shuffle([...new Set(biblicalWordBank.filter(isAllowed))]);
   const workoutNatural = [...new Set(Object.values(workoutZoneWords).flat().concat(workoutWords, expandedWords, moderateWords, rareWords, dictionaryExtra))]
     .filter(isAllowed)
     .filter(word => word.length >= 7);
@@ -1497,7 +1520,7 @@ function wordDeck() {
   }));
   return {
     common, moderate, rare, rareFocus, focus, weak, finger, alternating,
-    leftHand, rightHand, outerFinger, innerFinger, workout,
+    leftHand, rightHand, outerFinger, innerFinger, christian, workout,
     focusLetter: focusLetters[0], focusLetters: selectedFocusLetters
   };
 }
@@ -1639,7 +1662,7 @@ function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
   const rows = [];
   const wordsPerRow = visibleWordsPerRow();
   const rowBudget = adaptiveRowCharacterBudget();
-  let ci = 0, mi = 0, ri = 0, fi = 0, rfi = 0;
+  let ci = 0, mi = 0, ri = 0, fi = 0, rfi = 0, bi = 0;
   let wi = 0;
   const recoveryMode = adaptiveRecoveryActive();
   const selectedPresets = selectedAdaptivePracticePresets();
@@ -1684,6 +1707,7 @@ function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
       let index = ci++;
       if (workoutActive && workoutPool.length) { list = workoutPool; index = wi++; }
       else if (explicitFocus && deck.focus.length && pos % 5 !== 0) { list = deck.focus; index = fi++; }
+      else if (pos % 7 === 0 && deck.christian.length) { list = deck.christian; index = bi++; }
       else if (phasePool.length && pos % 4 !== 1) { list = phasePool; index = wi++; }
       else if (presetPool.length && pos % 2 === 0) { list = presetPool; index = wi++; }
       else if (pos % 3 === 0 && deck.focus.length) { list = deck.focus; index = fi++; }
@@ -4736,6 +4760,7 @@ function setupSettings() {
     els.settingsDialog.showModal();
     spokenReminderManager.loadCatalog();
   });
+  document.getElementById("resetProgressButton")?.addEventListener("click", resetLocalProgress);
   els.settingsDialog.querySelectorAll("[data-settings-jump]").forEach(button => {
     button.addEventListener("click", () => {
       const target = els.settingsDialog.querySelector(`[data-settings-panel="${button.dataset.settingsJump}"]`);
