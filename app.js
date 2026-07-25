@@ -2903,6 +2903,7 @@ function renderText() {
     ensureZenTargetBuffer();
     const typed = escapeHtml(state.input).replace(/\n/g, "<br>");
     els.typingText.innerHTML = `<span class="practice-line zen-freewrite-line active"><span class="zen-freewrite-content">${typed}</span><span class="zen-freewrite-caret" aria-hidden="true"></span></span>`;
+    els.typingText.scrollTop = els.typingText.scrollHeight;
     els.typingText.style.fontSize = "";
     state.practiceFontSize = null;
     state.practiceFitSignature = "";
