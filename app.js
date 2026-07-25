@@ -1606,10 +1606,22 @@ function formatAdaptiveRow(words, rowNumber) {
       if (commaIndex < output.length - 1) output[commaIndex] += ",";
     }
     if (density === "high" && output.length >= 6) {
-      const pauseIndex = Math.max(1, Math.min(output.length - 2, Math.floor(output.length * .72)));
-      if (!/[.,;:!?]$/.test(output[pauseIndex])) output[pauseIndex] += ";";
+      const addSuffix = (index, mark) => {
+        if (index >= 0 && index < output.length && !/[.,;:!?;]$/.test(output[index])) output[index] += mark;
+      };
+      const addPrefix = (index, mark) => {
+        if (index >= 0 && index < output.length) output[index] = `${mark}${output[index]}`;
+      };
+      addSuffix(1, ":");
+      addSuffix(2, ";");
+      addPrefix(3, "(");
+      addSuffix(4, ")");
+      addSuffix(5, "—");
+      addSuffix(6, "/");
+      addPrefix(7, "\"");
+      addSuffix(8, "\"");
     }
-    output[output.length - 1] += ending;
+    output[output.length - 1] += density === "high" ? [".", "?", "!", "…"][Math.max(0, rowNumber) % 4] : ending;
   }
   if (prefs.adaptiveCapitals === "on" && output.length) {
     output[0] = output[0][0].toUpperCase() + output[0].slice(1);
@@ -4518,7 +4530,7 @@ const settingDescriptions = {
   recoverKeys: "Requires every earned letter to be currently above target before the next one unlocks.",
   naturalWords: "Keeps adaptive lessons inside the curated natural vocabulary; off broadens that vocabulary without using nonsense strings.",
   wordsPerRow: "Sets the maximum word count per row. Larger text sizes automatically use fewer words so each row stays on one line.",
-  adaptivePunctuation: "Adds punctuation to adaptive rows at an off, low, medium, or high density.",
+  adaptivePunctuation: "Adds punctuation to adaptive rows. High includes commas, colons, semicolons, parentheses, dashes, slashes, quotation marks, and ellipses.",
   adaptiveCapitals: "Capitalizes the first word of each adaptive row so sentence-start Shift practice appears in regular lessons.",
   dailyGoalMinutes: "Sets the amount of active typing time needed to complete the daily goal."
 };
