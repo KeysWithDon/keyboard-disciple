@@ -505,7 +505,7 @@ const rareWords = `abeyance acumen adroit aegis alacrity amity apprise ardor ask
 const dictionaryExtra = `ability absence account address advance advice affair agency agreement animal answer appeal arrival article artist aspect attempt balance beauty benefit brother budget camera career ceiling channel chapter charity choice church citizen comfort command company concern conduct courage cousin culture damage danger dealer debate degree demand desire detail device dinner doctor effort energy engine estate evening event family father figure flower garden glory habit harbor heaven history honor income island journey kingdom ladder leader lesson letter liberty member memory mercy minute modern moment morning motion mother nation notice number office option palace parent pastor patient pattern period person phrase planet player plenty prayer promise public purpose reason record refuge return rhythm river safety season second secret servant service signal sister spirit station story student summer supply teacher temple tender theory thread travel valley virtue vision window wisdom wonder worker worship writer`.split(" ");
 const artificialBiblicalCompound = /^(most|ever|living|holy|new|true|everlasting|blessed|royal|heavenly|faithful|chosen|beloved|glorious|sacred|covenant|kingdom|spirit|grace|mercy|promise|redeemed)[a-z]+(heart|hope|light|life|truth|joy|peace|power|glory|strength|victory|promise|harvest|seed|temple|watch|voice|breath|path|name|presence|river|rock|shield|song|fire|faith|way|crown)$/;
 const biblicalPhraseEntries = new Set(["fearofthelord", "greatcommission", "livingwater", "mustardseed", "newcreation", "treeoflife"]);
-const additionalChristianWords = `adoration anointing apostolic atonement baptism beatitude benevolence blamelessness blessing brotherhood calling catechism charity chastening communion consecration conviction conversion corinthian disciple discipleship divine divinity doxology edification election evangelical evangelism evangelize exhortation exodus exorcism faithfulness fellowship forgiveness foreknowledge gentleness godliness gospel grace gratitude holiness incarnation intercession jubilee justification lamentation liturgy martyr martyrdom meekness mercy minister ministry missionary monastic obedience omnipotence omniscience omnipresence ordination ordinance orthodox parable pastor pastoral penance pentecost petition praise predestination precept priesthood promise purification redemption reconciliation repentance repentant resurrection revelation revival righteousness sabbath sacrifice sanctification sanctify salvation savior sermon shepherd stewardship supplication testimony tithing transfiguration tribulation trinity truthfulness unbelief vocation worship worshiper altar angelic anointed anointing apostle apostolate ark covenantal crucifixion deacon deaconess deliverance devotional evangelist exegesis exorcist glorification hallelujah heresy heretic immanuel incarnation infallible inspired inspiration messianic messiahship miracle miraculous parousia pentecostal priestly prophetic prophet prophesy prophesied prophesying psalmist psalmody reformation regenerate regeneration redeemed redeemer reverence sacred sacrament sacramental sanctified scripture scriptural steadfastness spiritual spirituality theologian theology throne transgress transgression trespass veneration virtuous witness`.split(" ");
+const additionalChristianWords = `adoration anointing apostolic atonement baptism beatitude benevolence blamelessness blessing brotherhood calling catechism charity chastening communion consecration conviction conversion corinthian disciple discipleship divine divinity doxology edification election evangelical evangelism evangelize exhortation exodus exorcism faithfulness fellowship forgiveness foreknowledge gentleness godliness gospel grace gratitude holiness incarnation intercession jubilee justification lamentation liturgy martyr martyrdom meekness mercy minister ministry missionary monastic obedience omnipotence omniscience omnipresence ordination ordinance orthodox parable pastor pastoral penance pentecost petition praise precept priesthood promise purification redemption reconciliation repentance repentant resurrection revelation revival righteousness sabbath sacrifice sanctification sanctify salvation savior sermon shepherd stewardship supplication testimony tithing transfiguration tribulation trinity truthfulness unbelief vocation worship worshiper altar angelic anointed anointing apostle apostolate ark covenantal crucifixion deacon deaconess deliverance devotional evangelist exegesis exorcist glorification hallelujah heresy heretic immanuel incarnation infallible inspired inspiration messianic messiahship miracle miraculous parousia pentecostal priestly prophetic prophet prophesy prophesied prophesying psalmist psalmody reformation regenerate regeneration redeemed redeemer reverence sacred sacrament sacramental sanctified scripture scriptural steadfastness spiritual spirituality theologian theology throne transgress transgression trespass veneration virtuous witness`.split(" ");
 const biblicalWordBank = Array.isArray(window.BIBLICAL_WORD_BANK)
   ? [...new Set(window.BIBLICAL_WORD_BANK.map(word => String(word).toLowerCase()).filter(word => /^[a-z]+$/.test(word) && !artificialBiblicalCompound.test(word) && !biblicalPhraseEntries.has(word)).concat(additionalChristianWords))]
   : [...new Set(additionalChristianWords)];
@@ -1484,7 +1484,7 @@ function wordDeck() {
   const focusLetters = selectedFocusLetters.length ? selectedFocusLetters : [adaptiveFocusLetter().toLowerCase()];
   const isAllowed = word => wordLetters(word).length > 1
     && [...word.toLowerCase()].every(ch => !/[a-z]/.test(ch) || unlocked.has(ch));
-  const allNatural = [...new Set(commonWords.concat(expandedWords, moderateWords, rareWords, dictionaryExtra, workoutWords, rareLetterFocusPool, biblicalWordBank))].filter(isAllowed);
+  const allNatural = [...new Set(commonWords.concat(expandedWords, moderateWords, rareWords, dictionaryExtra, workoutWords, rareLetterFocusPool))].filter(isAllowed);
   const broadCommon = prefs.naturalWords
     ? commonWords.concat(expandedWords.filter(w => w.length <= 8), dictionaryExtra.filter(w => w.length <= 6))
     : commonWords.concat(expandedWords, moderateWords, dictionaryExtra, biblicalWordBank);
@@ -1604,7 +1604,7 @@ function repairShortWordAdjacency(words, fallbackList = []) {
 
 function pickWordForRow(list, index, currentWords, budget, fallbackList = [], previousRowWord = "", recentWords = []) {
   const allCandidates = [...new Set([...(list || []), ...(fallbackList || [])])].filter(Boolean);
-  const blockedWords = new Set(recentWords.slice(-5));
+  const blockedWords = new Set(recentWords.slice(-8));
   const candidates = allCandidates.filter(word => !blockedWords.has(word));
   if (!candidates.length) return "";
   const used = currentWords.join(" ");
@@ -1686,7 +1686,7 @@ function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
   const explicitFocus = deck.focusLetters.length > 0;
   const workoutActive = activePresets.includes("workout");
   let previousRowWord = "";
-  const recentWords = state.adaptiveRecentWords.slice(-5);
+  const recentWords = state.adaptiveRecentWords.slice(-8);
   for (let r = 0; r < rowCount; r++) {
     const words = [];
     const phase = adaptiveFlowPhase(state.rowIndex + r);
@@ -1721,12 +1721,12 @@ function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
       if (!word) break;
       words.push(word);
       recentWords.push(word);
-      if (recentWords.length > 5) recentWords.shift();
+      if (recentWords.length > 8) recentWords.shift();
     }
     previousRowWord = words[words.length - 1] || previousRowWord;
     rows.push(formatAdaptiveRow(words, state.rowIndex + r));
   }
-  state.adaptiveRecentWords = recentWords.slice(-5);
+  state.adaptiveRecentWords = recentWords.slice(-8);
   return rows;
 }
 
