@@ -216,6 +216,7 @@ const state = {
   pageIndex: 0,
   input: "",
   targetRows: [],
+  zenTotalWords: 0,
   scripturePages: [],
   startedAt: null,
   rowsCleared: 0,
@@ -998,7 +999,7 @@ function currentProgress() {
   if (state.mode === "time") return Math.max(0, Math.min(1, 1 - state.timeRemaining / Number(prefs.testDuration)));
   if (state.mode === "adaptive") return Math.max(0, Math.min(1, (state.rowIndex + (target.length ? state.input.length / target.length : 0)) / lessonLineLimit()));
   if (["words", "creative", "placement"].includes(state.mode)) return Math.max(0, Math.min(1, (state.rowIndex + (target.length ? state.input.length / target.length : 0)) / Math.max(1, state.targetRows.length)));
-  if (state.mode === "zen") return target.length ? Math.max(0, Math.min(1, state.input.length / target.length)) : 0;
+  if (state.mode === "zen") return 0;
   if (["quote", "bible", "bibleQuotes"].includes(state.mode)) {
     return Math.max(0, Math.min(1, (state.pageIndex + (target.length ? state.input.length / target.length : 0)) / Math.max(1, state.scripturePages.length)));
   }
@@ -1008,7 +1009,7 @@ function currentProgress() {
 function renderLiveMetrics() {
   const metrics = currentMetrics();
   const progressRatio = currentProgress();
-  const visible = state.mode !== "zen" && !state.testCompleted;
+  const visible = !state.testCompleted;
   els.liveMetrics.classList.toggle("hidden", !visible);
   if (!visible) {
     els.techniqueCue.classList.add("hidden");
@@ -1018,7 +1019,9 @@ function renderLiveMetrics() {
   els.liveAcc.textContent = `${Math.round(metrics.accuracy)}%`;
   els.liveRaw.textContent = formattedSpeed(metrics.raw);
   els.liveConsistency.textContent = `${Math.round(metrics.consistency)}%`;
-  els.liveProgress.textContent = state.mode === "time" && ["text", "both"].includes(prefs.timerStyle)
+  els.liveProgress.textContent = state.mode === "zen"
+    ? String(state.zenTotalWords + countZenWords(state.input)) + " words"
+    : state.mode === "time" && ["text", "both"].includes(prefs.timerStyle)
     ? `${Math.max(0, Math.ceil(state.timeRemaining))}s`
     : `${Math.round(progressRatio * 100)}%`;
   els.liveWpmWrap.classList.toggle("hidden", !prefs.showLiveWpm);
@@ -1779,12 +1782,30 @@ function makeZenParagraph(wordCount = lessonWordTarget()) {
   return transformText(sentences.join(" "));
 }
 
+function countZenWords(text = state.input) {
+  return String(text || "").trim() ? String(text || "").trim().split(/\s+/).length : 0;
+}
+
+function clearZenPageIfNeeded() {
+  if (state.mode !== "zen") return false;
+  const pageWords = countZenWords(state.input);
+  if (pageWords < 50) return false;
+  state.zenTotalWords += pageWords;
+  state.input = "";
+  state.targetRows = [""];
+  els.completionBanner.textContent = String(state.zenTotalWords) + " words written";
+  els.completionBanner.classList.remove("hidden");
+  window.clearTimeout(clearZenPageIfNeeded.bannerTimer);
+  clearZenPageIfNeeded.bannerTimer = window.setTimeout(() => {
+    if (state.mode === "zen" && !state.testCompleted) els.completionBanner.classList.add("hidden");
+  }, 1100);
+  scheduleSave();
+  return true;
+}
+
 function ensureZenTargetBuffer() {
   if (state.mode !== "zen") return;
-  const current = state.targetRows[0] || "";
-  if (!current) {
-    state.targetRows = [makeZenParagraph()];
-  }
+  if (!Array.isArray(state.targetRows) || !state.targetRows.length) state.targetRows = [""];
 }
 
 function weakestPracticeLetters() {
@@ -2144,7 +2165,8 @@ async function restart() {
     state.scripturePages = pages.slice(0, lessonPageCount());
     state.targetRows = [];
   } else if (state.mode === "zen") {
-    state.targetRows = [makeZenParagraph(lessonWordTarget())];
+    state.targetRows = [""];
+    state.zenTotalWords = 0;
     state.scripturePages = [];
   } else {
     state.targetRows = [""];
@@ -2307,7 +2329,7 @@ function modeCopy() {
     words: ["Word Test", `${lessonPageCount()} page challenge`],
     placement: ["Placement Check", "Find your starting point"],
     quote: ["Quote Test", "Complete the quote"],
-    zen: ["Flow Writing", `${lessonPageCount()} page freewrite`],
+    zen: ["Flow Writing", "Blank workspace / 50-word pages"],
     creative: ["Skill Forge", creativeModeLabels[prefs.creativeMode]],
     dictation: ["Dictation", "Listen, then type"],
     bible: ["Scripture Reading", "Bible Reading"],
@@ -2844,13 +2866,13 @@ function renderText() {
     placement: `Placement line ${state.rowIndex + 1} of ${state.targetRows.length}`,
     dictation: `Prompt ${state.rowIndex + 1} of ${state.targetRows.length}`,
     quote: "Complete quote",
-    zen: `Freewrite ${state.input.length} / ${target.length}`,
+    zen: `Flow ${state.zenTotalWords + countZenWords(state.input)} words`,
     bible: `Scripture ${state.pageIndex + 1} of ${state.scripturePages.length}`,
     bibleQuotes: `Quote ${state.pageIndex + 1} of ${state.scripturePages.length}`
   };
   els.rowLabel.textContent = rowLabels[state.mode] || "Practice";
   els.charLabel.textContent = state.mode === "zen"
-    ? `${state.input.length} / ${target.length}`
+    ? `${countZenWords(state.input)} / 50 this page`
     : state.mode === "dictation"
       ? `${state.input.length} typed`
       : `${state.input.length} / ${inputTarget.length}`;
@@ -2879,7 +2901,8 @@ function renderText() {
   }
   if (state.mode === "zen") {
     ensureZenTargetBuffer();
-    els.typingText.innerHTML = `<span class="practice-line zen-paragraph active">${renderInteractiveTarget(currentTarget())}</span>`;
+    const typed = escapeHtml(state.input).replace(/\n/g, "<br>");
+    els.typingText.innerHTML = `<span class="practice-line zen-freewrite-line active"><span class="zen-freewrite-content">${typed}</span><span class="zen-freewrite-caret" aria-hidden="true"></span></span>`;
     els.typingText.style.fontSize = "";
     state.practiceFontSize = null;
     state.practiceFitSignature = "";
@@ -3190,6 +3213,20 @@ function handleKey(event) {
   const key = usesDictationTypingRules() && prefs.dictationCapitalization === "ignore"
     ? enteredKey.toLowerCase()
     : enteredKey;
+  if (state.mode === "zen") {
+    state.input += key;
+    state.charsTyped++;
+    state.rawTyped++;
+    if (prefs.typingSounds) playKey(event.code, event.shiftKey || state.capsLock);
+    clearZenPageIfNeeded();
+    maybeShowPostureReminder();
+    renderText();
+    renderLiveMetrics();
+    renderPerformance();
+    applyDisplayPreferences();
+    if (prefs.keymapMode === "next") renderKeyboard();
+    return;
+  }
   const expected = target[state.input.length];
   const expectedLower = String(expected || "").toLowerCase();
   const expectedZone = /^[a-z]$/.test(expectedLower) ? fingerZone(expectedLower).label : "";

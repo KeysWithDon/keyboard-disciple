@@ -484,6 +484,24 @@ select, input, textarea {
 .typing-text .current.highlight { background: var(--lesson-color); color: #12110b; border-radius: 5px; }
 .typing-text .current.underline { color: var(--cyan); text-decoration: underline; text-decoration-thickness: 4px; text-underline-offset: 8px; }
 .typing-text .current.color { color: var(--lesson-color); text-shadow: 0 0 18px color-mix(in srgb, var(--lesson-color) 45%, transparent); }
+.zen-freewrite-line {
+  display: block;
+  min-height: 1.65em;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.zen-freewrite-content { white-space: pre-wrap; }
+.zen-freewrite-caret {
+  display: inline-block;
+  width: .08em;
+  height: 1em;
+  margin-left: .08em;
+  vertical-align: -.08em;
+  background: var(--lesson-color);
+  box-shadow: 0 0 14px color-mix(in srgb, var(--lesson-color) 65%, transparent);
+  animation: zen-caret-blink 1s steps(1, end) infinite;
+}
+@keyframes zen-caret-blink { 50% { opacity: 0; } }
 .typing-text[data-typed="fade"] .done { opacity: .35; }
 .typing-text[data-typed="hide"] .done { color: transparent; text-shadow: none; }
 .typing-text[data-typed="hide"] .done.word-in-progress { color: var(--green); }
