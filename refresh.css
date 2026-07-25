@@ -259,8 +259,8 @@ button, select, input, textarea { font-family: inherit; }
 }
 .brand-caret { width: 2px; height: 22px; margin-left: -5px; background: var(--text); animation: brand-caret 1.05s step-end infinite; }
 .fullscreen-mark {
-  width: 1.15em;
-  height: 1.15em;
+  width: 16px;
+  height: 16px;
   object-fit: contain;
   filter: invert(1) grayscale(1) brightness(1.35);
   opacity: .88;
