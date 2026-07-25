@@ -1025,7 +1025,7 @@ function renderLiveMetrics() {
     ? `${Math.max(0, Math.ceil(state.timeRemaining))}s`
     : `${Math.round(progressRatio * 100)}%`;
   els.liveWpmWrap.classList.toggle("hidden", !prefs.showLiveWpm);
-  els.liveAccWrap.classList.toggle("hidden", !prefs.showLiveAccuracy);
+  els.liveAccWrap.classList.toggle("hidden", state.mode === "zen" || !prefs.showLiveAccuracy);
   els.liveRawWrap.classList.toggle("hidden", !prefs.showLiveRaw);
   els.liveConsistencyWrap.classList.toggle("hidden", !prefs.showLiveConsistency);
   els.liveProgressWrap.classList.toggle("hidden", !prefs.showProgress || prefs.timerStyle === "off");
