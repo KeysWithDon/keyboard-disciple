@@ -1600,28 +1600,28 @@ function formatAdaptiveRow(words, rowNumber) {
   const output = words.slice();
   const density = prefs.adaptivePunctuation;
   if (output.length && density !== "off") {
-    const ending = [".", ".", "?", "!"][Math.max(0, rowNumber) % 4];
-    if (density === "medium" || density === "high") {
-      const commaIndex = Math.max(0, Math.min(output.length - 2, Math.floor(output.length / 2) - 1));
-      if (commaIndex < output.length - 1) output[commaIndex] += ",";
+    const punctuationTokens = [",", ".", "?", "!", ":", ";", "—", "/", "…", ["(", ")"], ["\"", "\""], ["'", "'"]];
+    const marksPerRow = { low: 1, medium: 3, high: 6 }[density] || 1;
+    const addSuffix = (index, mark) => {
+      if (index >= 0 && index < output.length && !/[.,!?;:)'\"…—/]$/.test(output[index])) output[index] += mark;
+    };
+    const addPrefix = (index, mark) => {
+      if (index >= 0 && index < output.length) output[index] = `${mark}${output[index]}`;
+    };
+    let tokenIndex = (Math.max(0, rowNumber) * 3) % punctuationTokens.length;
+    let wordIndex = 0;
+    for (let markIndex = 0; markIndex < marksPerRow && wordIndex < output.length; markIndex++) {
+      const token = punctuationTokens[tokenIndex % punctuationTokens.length];
+      tokenIndex++;
+      if (Array.isArray(token) && wordIndex + 1 < output.length) {
+        addPrefix(wordIndex, token[0]);
+        addSuffix(wordIndex + 1, token[1]);
+        wordIndex += 2;
+      } else {
+        addSuffix(wordIndex, token);
+        wordIndex++;
+      }
     }
-    if (density === "high" && output.length >= 6) {
-      const addSuffix = (index, mark) => {
-        if (index >= 0 && index < output.length && !/[.,;:!?;]$/.test(output[index])) output[index] += mark;
-      };
-      const addPrefix = (index, mark) => {
-        if (index >= 0 && index < output.length) output[index] = `${mark}${output[index]}`;
-      };
-      addSuffix(1, ":");
-      addSuffix(2, ";");
-      addPrefix(3, "(");
-      addSuffix(4, ")");
-      addSuffix(5, "—");
-      addSuffix(6, "/");
-      addPrefix(7, "\"");
-      addSuffix(8, "\"");
-    }
-    output[output.length - 1] += density === "high" ? [".", "?", "!", "…"][Math.max(0, rowNumber) % 4] : ending;
   }
   if (prefs.adaptiveCapitals === "on" && output.length) {
     output[0] = output[0][0].toUpperCase() + output[0].slice(1);
