@@ -112,7 +112,8 @@ const creativeModeStyles = new Set([
 const displayModeStyles = new Set(["auto", "standard", "ultrawide"]);
 const themeStyles = new Set([
   "disciple", "morning-light", "sanctuary", "living-water", "midnight-prayer", "mustard-seed", "eden",
-  "royal-priesthood", "grace", "armor-of-light", "revelation", "clarity"
+  "royal-priesthood", "grace", "armor-of-light", "revelation", "clarity", "neon-covenant",
+  "stained-glass", "joyful-noise", "burning-bush", "electric-grace", "new-creation"
 ]);
 const themePalettes = {
   disciple: ["#10110f", "#181b16", "#f3c844", "#67d9ff"],
@@ -126,7 +127,13 @@ const themePalettes = {
   grace: ["#f1efed", "#e8e4e2", "#8f7546", "#a36167"],
   "armor-of-light": ["#eef1f0", "#e4e9e7", "#507761", "#4b747e"],
   revelation: ["#151313", "#201b1a", "#bc9b55", "#bb6c61"],
-  clarity: ["#090a09", "#121412", "#ffffff", "#d5b95f"]
+  clarity: ["#090a09", "#121412", "#ffffff", "#d5b95f"],
+  "neon-covenant": ["#070a18", "#101630", "#55dfff", "#ff5b8d"],
+  "stained-glass": ["#0d1024", "#22295a", "#ffc857", "#9b7bff"],
+  "joyful-noise": ["#1a0726", "#3c1450", "#fff05a", "#ff70d4"],
+  "burning-bush": ["#1b0a07", "#3d1b12", "#ff5a36", "#ffd166"],
+  "electric-grace": ["#0a1028", "#1b2454", "#52d9ff", "#da73ff"],
+  "new-creation": ["#f5fbff", "#d8efff", "#00689f", "#b51f4d"]
 };
 const lessonColorStyles = new Set(["theme", "cyan", "green", "purple", "white"]);
 const lessonColorValues = {
