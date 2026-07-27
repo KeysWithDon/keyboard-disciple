@@ -1,10 +1,10 @@
-const CACHE_NAME = "keyboard-disciple-progress-memory-v1";
+const CACHE_NAME = "keyboard-disciple-verse-memory-visibility-v1";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./styles.css?v=20260727-clean-spacebar",
-  "./refresh.css?v=20260727-progress-memory",
-  "./app.js?v=20260727-progress-memory",
+  "./refresh.css?v=20260727-verse-memory-visibility",
+  "./app.js?v=20260727-verse-memory-visibility",
   "./manifest.webmanifest",
   "./assets/biblical-word-bank.js?v=20260723",
   "./assets/kjv-verses-1769.json",
