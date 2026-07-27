@@ -423,8 +423,56 @@ body.stats-page-open > .spoken-reminder-toast { display: none; }
 .journey-chart circle { fill: var(--panel-strong); stroke: var(--gold); stroke-width: 2; }
 .journey-chart-empty { min-height: 145px; display: grid; place-items: center; color: var(--faint); font-size: 9px; text-align: center; }
 .trend-card > p { margin: 8px 0 0; color: var(--muted); font-size: 8px; }
+.mastery-journey {
+  --mastery-accuracy-low: #ff5c6c;
+  --mastery-accuracy-building: #ff9f43;
+  --mastery-accuracy-steady: #ffd84d;
+  --mastery-accuracy-precise: #42d98b;
+}
+.mastery-legend {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px 18px;
+  margin: -5px 0 13px;
+  color: var(--muted);
+  font-size: 8px;
+}
+.mastery-legend > span { display: inline-flex; align-items: center; gap: 6px; }
+.mastery-legend strong { color: var(--text); font-size: 8px; font-weight: 700; }
+.mastery-confidence-key > i {
+  width: 13px;
+  height: 17px;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 2px;
+  background: var(--panel);
+}
+.mastery-confidence-key > i::after {
+  content: "";
+  height: 64%;
+  position: absolute;
+  inset: auto 0 0;
+  background: var(--lesson-color);
+  border-top: 1px solid color-mix(in srgb, var(--lesson-color) 50%, #fff);
+}
+.mastery-accuracy-key i {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 9px;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px color-mix(in srgb, currentColor 28%, transparent);
+}
+.mastery-accuracy-key small { margin-left: -3px; color: var(--faint); font-size: 7px; }
+.mastery-accuracy-key i.low { background: var(--mastery-accuracy-low); }
+.mastery-accuracy-key i.building { background: var(--mastery-accuracy-building); }
+.mastery-accuracy-key i.steady { background: var(--mastery-accuracy-steady); }
+.mastery-accuracy-key i.precise { background: var(--mastery-accuracy-precise); }
 .mastery-path { display: grid; grid-template-columns: repeat(13, minmax(0, 1fr)); gap: 7px; }
 .mastery-path button {
+  --mastery-color: var(--panel-strong);
   min-width: 0;
   position: relative;
   display: grid;
@@ -439,8 +487,40 @@ body.stats-page-open > .spoken-reminder-toast { display: none; }
   cursor: pointer;
 }
 .mastery-path button span { position: relative; z-index: 2; font-size: 14px; font-weight: 750; }
-.mastery-path button small { position: relative; z-index: 2; font-size: 7px; }
-.mastery-path button i { height: var(--mastery); position: absolute; left: 0; right: 0; bottom: 0; background: color-mix(in srgb, var(--lesson-color) 22%, transparent); }
+.mastery-path button small {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  font-size: 7px;
+}
+.mastery-path button small strong { font-size: 7px; font-weight: 750; }
+.mastery-path button small em { font-size: 6px; font-style: normal; font-weight: 650; text-transform: uppercase; opacity: .72; }
+.mastery-path button i {
+  height: var(--mastery);
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(0deg,
+    color-mix(in srgb, var(--mastery-color) 70%, var(--panel-strong)),
+    color-mix(in srgb, var(--mastery-color) 92%, var(--panel)));
+  transition: height 220ms ease;
+}
+.mastery-path button i::after {
+  content: "";
+  height: 2px;
+  position: absolute;
+  inset: 0 0 auto;
+  background: color-mix(in srgb, var(--mastery-color) 56%, #fff);
+  box-shadow: 0 0 7px color-mix(in srgb, var(--mastery-color) 50%, transparent);
+}
+.mastery-path button.accuracy-low { --mastery-color: var(--mastery-accuracy-low); }
+.mastery-path button.accuracy-building { --mastery-color: var(--mastery-accuracy-building); }
+.mastery-path button.accuracy-steady { --mastery-color: var(--mastery-accuracy-steady); }
+.mastery-path button.accuracy-precise { --mastery-color: var(--mastery-accuracy-precise); }
+.mastery-path button:not(.accuracy-unmeasured) { color: var(--text); text-shadow: 0 1px 2px rgb(0 0 0 / 42%); }
 .mastery-path button.mastered { color: var(--text); border-color: color-mix(in srgb, var(--gold) 38%, var(--line)); }
 .mastery-path button.locked { cursor: default; opacity: .4; }
 .mastery-journey > .secondary-button { margin-top: 14px; }
@@ -531,6 +611,7 @@ body.stats-page-open > .spoken-reminder-toast { display: none; }
   .week-calendar article { gap: 5px; padding: 8px 1px; }
   .week-calendar article i { width: 27px; height: 27px; }
   .week-calendar article small { display: none; }
+  .mastery-legend { align-items: flex-start; flex-direction: column; }
   .mastery-path { grid-template-columns: repeat(7, minmax(0, 1fr)); }
   .milestone-list { grid-template-columns: 1fr; }
   .milestone-list article { grid-template-columns: 38px minmax(0, 1fr); }
