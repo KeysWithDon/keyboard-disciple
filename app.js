@@ -3112,6 +3112,7 @@ function renderSettingsKeyboardMap() {
       const classes = [
         "key", "settings-map-key", zone.className,
         isLetter ? "map-letter" : "modifier",
+        ["f", "j"].includes(key.id) ? "home-key" : "",
         isLetter && isEarned ? "earned" : "",
         isLetter && !isEarned ? "map-locked" : "",
         isFocus ? "map-focus" : "",
@@ -3160,7 +3161,7 @@ function renderKeyboardKey(key, unlocked) {
   const expectedKey = nextCharacter?.toLowerCase() === " " ? "space" : nextCharacter?.toLowerCase();
   const isNext = prefs.keymapMode === "next" && expectedKey === key.id;
   const isWorkoutZone = keyMatchesWorkoutPhase(key.id);
-  const classes = ["key", zone.className, isLockedLetter ? "locked" : "", isModifier ? "modifier" : "", key.id === "space" ? "spacebar" : "", isNext ? "next-key" : "", isWorkoutZone ? "workout-zone" : "", keyboardStateClasses(key.id)].join(" ");
+  const classes = ["key", zone.className, isLockedLetter ? "locked" : "", isModifier ? "modifier" : "", key.id === "space" ? "spacebar" : "", ["f", "j"].includes(key.id) ? "home-key" : "", isNext ? "next-key" : "", isWorkoutZone ? "workout-zone" : "", keyboardStateClasses(key.id)].join(" ");
   let displayLabel = key.label;
   const blankLegend = prefs.keymapLegend === "blank";
   if (blankLegend) displayLabel = "";
