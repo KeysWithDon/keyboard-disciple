@@ -145,6 +145,38 @@ const lessonColorValues = {
 };
 const testModes = new Set(["time", "words", "quote", "creative", "placement", "dictation"]);
 const scoredModes = new Set(["adaptive", "time", "words", "quote", "creative", "placement", "dictation", "bible", "bibleQuotes"]);
+const dailyDisciplineStages = [
+  {
+    id: "warmup",
+    label: "Warm-up",
+    mode: "adaptive",
+    lineLimit: 1,
+    preset: "balanced",
+    description: "Settle into the home row with one calm line."
+  },
+  {
+    id: "focus",
+    label: "Weak-key focus",
+    mode: "adaptive",
+    lineLimit: 3,
+    preset: "weak",
+    description: "Strengthen the letters that need the most attention."
+  },
+  {
+    id: "scripture",
+    label: "Scripture",
+    mode: "quote",
+    pageLimit: 1,
+    description: "Slow down and complete a concise passage of Scripture."
+  },
+  {
+    id: "sprint",
+    label: "Finish strong",
+    mode: "time",
+    duration: 20,
+    description: "Close with a short natural-word sprint."
+  }
+];
 const keyboardKey = (id, label = id, units = 4, shift = "") => ({ id, label, units, shift });
 const macKeyboardLayout = [
   [
@@ -285,7 +317,15 @@ const state = {
   dictationTypedDuringPrompt: 0,
   dictationCorrectDuringPrompt: 0,
   dictationPromptRecorded: false,
-  dictationFollowSamples: []
+  dictationFollowSamples: [],
+  dailyDiscipline: {
+    active: false,
+    completed: false,
+    stageIndex: 0,
+    results: [],
+    startedAt: null,
+    previousMode: "adaptive"
+  }
 };
 
 let storedData = {};
@@ -510,6 +550,7 @@ const progress = Object.assign({
   adaptiveLessonHistory: [],
   letterHistory: {},
   dailyActivity: {},
+  dailyDisciplineHistory: [],
   errorReview: [],
   cleanLines: 0,
   placement: null
@@ -520,6 +561,7 @@ if (!Array.isArray(progress.lessonHistory)) progress.lessonHistory = [];
 if (!Array.isArray(progress.adaptiveLessonHistory)) progress.adaptiveLessonHistory = [];
 if (!progress.letterHistory || typeof progress.letterHistory !== "object" || Array.isArray(progress.letterHistory)) progress.letterHistory = {};
 if (!progress.dailyActivity || typeof progress.dailyActivity !== "object" || Array.isArray(progress.dailyActivity)) progress.dailyActivity = {};
+if (!Array.isArray(progress.dailyDisciplineHistory)) progress.dailyDisciplineHistory = [];
 if (!Array.isArray(progress.errorReview)) progress.errorReview = [];
 if (!Number.isFinite(Number(progress.cleanLines))) progress.cleanLines = 0;
 
@@ -690,6 +732,8 @@ const els = Object.fromEntries([
   "keyboard", "keyboardWrap", "lessonScore", "lastWpm", "lastAccuracy", "topWpm", "learningRate", "dailyGoalText",
   "dailyGoalFill", "cleanLines", "reviewErrorsBtn", "techniqueCue", "resultPanel", "resultEyebrow", "resultTitle", "resultScore", "resultWpm", "resultRaw",
   "resultAccuracy", "resultConsistency", "resultCharacters", "resultTime", "resultRestartBtn", "settingsDialog", "settingsBtn",
+  "dailyDisciplineBtn", "dailyDisciplineStatus", "dailyDisciplineBar", "dailyStageName", "dailyStageDescription", "dailyDisciplineSteps",
+  "dailyResultDetails", "dailyExitBtn",
   "resultDictationErrorsWrap", "resultDictationErrors", "resultFollowRateWrap", "resultFollowRate",
   "statsDialog", "statsBtn", "fullscreenBtn", "restartBtn", "letterHud", "unlockNext", "unlockCount",
   "letterHeatmap", "letterHeatRow", "heatmapSummary", "specialHeatmap", "letterDialog", "letterDetailBadge", "letterDetailTitle",
@@ -728,6 +772,7 @@ function resetLocalProgress() {
     adaptiveLessonHistory: [],
     letterHistory: {},
     dailyActivity: {},
+    dailyDisciplineHistory: [],
     errorReview: [],
     cleanLines: 0,
     placement: null
@@ -746,6 +791,186 @@ function localDateKey(date = new Date()) {
   const month = String(date.getMonth() + 1).padStart(2, "0");
   const day = String(date.getDate()).padStart(2, "0");
   return `${year}-${month}-${day}`;
+}
+
+function currentDailyDisciplineStage() {
+  if (!state.dailyDiscipline.active) return null;
+  return dailyDisciplineStages[state.dailyDiscipline.stageIndex] || null;
+}
+
+function dailyDisciplineCompletedDates() {
+  return new Set(progress.dailyDisciplineHistory.map(item => {
+    if (item?.date) return item.date;
+    return Number(item?.at) ? localDateKey(new Date(Number(item.at))) : "";
+  }).filter(Boolean));
+}
+
+function offsetLocalDate(date, days) {
+  const copy = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12);
+  copy.setDate(copy.getDate() + days);
+  return copy;
+}
+
+function dailyDisciplineStreak() {
+  const completedDates = dailyDisciplineCompletedDates();
+  const today = new Date();
+  let cursor = completedDates.has(localDateKey(today)) ? today : offsetLocalDate(today, -1);
+  let streak = 0;
+  while (completedDates.has(localDateKey(cursor))) {
+    streak++;
+    cursor = offsetLocalDate(cursor, -1);
+  }
+  return streak;
+}
+
+function dailyDisciplineCompleteToday() {
+  return dailyDisciplineCompletedDates().has(localDateKey());
+}
+
+function resetDailyDisciplineState() {
+  Object.assign(state.dailyDiscipline, {
+    active: false,
+    completed: false,
+    stageIndex: 0,
+    results: [],
+    startedAt: null,
+    previousMode: prefs.mode
+  });
+}
+
+async function startDailyDiscipline() {
+  const previousMode = state.dailyDiscipline.active
+    ? state.dailyDiscipline.previousMode
+    : state.mode;
+  Object.assign(state.dailyDiscipline, {
+    active: true,
+    completed: false,
+    stageIndex: 0,
+    results: [],
+    startedAt: Date.now(),
+    previousMode: scoredModes.has(previousMode) || previousMode === "zen" ? previousMode : prefs.mode
+  });
+  await startCurrentDailyDisciplineStage();
+}
+
+async function startCurrentDailyDisciplineStage() {
+  const stage = currentDailyDisciplineStage();
+  if (!stage) return;
+  state.mode = stage.mode;
+  await restart({ freshLesson: true });
+}
+
+async function advanceDailyDiscipline() {
+  if (!state.dailyDiscipline.active) return;
+  if (state.dailyDiscipline.completed) {
+    await startDailyDiscipline();
+    return;
+  }
+  state.dailyDiscipline.stageIndex = Math.min(
+    dailyDisciplineStages.length - 1,
+    state.dailyDiscipline.stageIndex + 1
+  );
+  await startCurrentDailyDisciplineStage();
+}
+
+async function exitDailyDiscipline() {
+  const nextMode = state.dailyDiscipline.previousMode || prefs.mode;
+  resetDailyDisciplineState();
+  state.mode = nextMode;
+  await restart({ freshLesson: true });
+}
+
+function dailyStageResultSnapshot(result) {
+  const stage = currentDailyDisciplineStage();
+  const characters = Math.max(0, Number(result?.characters) || Number(state.charsTyped) || 0);
+  const errors = Math.max(0, Number(result?.errors) || Number(state.errors) || 0);
+  const attempts = Math.max(characters + errors, Number(result?.attempts) || Number(state.rawTyped) + errors || 0);
+  return {
+    id: stage?.id || "practice",
+    label: stage?.label || "Practice",
+    mode: state.mode,
+    wpm: Number(Number(result?.wpm || 0).toFixed(1)),
+    raw: Number(Number(result?.raw || result?.wpm || 0).toFixed(1)),
+    accuracy: Number(Number(result?.accuracy ?? 100).toFixed(1)),
+    consistency: Number(Number(result?.consistency ?? 100).toFixed(1)),
+    score: Number(result?.score) || 0,
+    elapsedMs: Math.max(0, Number(result?.elapsedMs) || 0),
+    characters,
+    attempts,
+    errors,
+    weakestLetter: result?.weakestLetter || "",
+    mostMissedLetters: Array.isArray(result?.mostMissedLetters) ? result.mostMissedLetters : [],
+    scriptureRef: stage?.id === "scripture" ? state.scripturePages[0]?.[0] || "" : ""
+  };
+}
+
+function buildDailyDisciplineSummary(stageResults) {
+  const totalElapsedMs = stageResults.reduce((sum, item) => sum + item.elapsedMs, 0);
+  const totalCharacters = stageResults.reduce((sum, item) => sum + item.characters, 0);
+  const totalAttempts = stageResults.reduce((sum, item) => sum + item.attempts, 0);
+  const totalErrors = stageResults.reduce((sum, item) => sum + item.errors, 0);
+  const elapsedMinutes = Math.max(1 / 60, totalElapsedMs / 60000);
+  const wpm = (totalCharacters / 5) / elapsedMinutes;
+  const raw = (totalAttempts / 5) / elapsedMinutes;
+  const accuracy = totalAttempts ? (totalCharacters / totalAttempts) * 100 : 100;
+  const consistency = stageResults.length
+    ? stageResults.reduce((sum, item) => sum + item.consistency, 0) / stageResults.length
+    : 100;
+  const missed = new Map();
+  stageResults.forEach(item => {
+    item.mostMissedLetters.forEach(letter => {
+      const key = String(letter.letter || "").toUpperCase();
+      if (!key) return;
+      missed.set(key, (missed.get(key) || 0) + (Number(letter.errors) || 0));
+    });
+  });
+  const hardestLetter = [...missed.entries()].sort((a, b) => b[1] - a[1])[0]?.[0]
+    || stageResults.find(item => item.weakestLetter && item.weakestLetter !== "--")?.weakestLetter
+    || "--";
+  return {
+    at: Date.now(),
+    date: localDateKey(),
+    mode: "daily",
+    dailyDiscipline: true,
+    dailyComplete: true,
+    stageResults,
+    wpm: Number(wpm.toFixed(1)),
+    raw: Number(raw.toFixed(1)),
+    accuracy: Number(accuracy.toFixed(1)),
+    consistency: Number(consistency.toFixed(1)),
+    score: stageResults.reduce((sum, item) => sum + item.score, 0),
+    elapsedMs: totalElapsedMs,
+    characters: totalCharacters,
+    attempts: totalAttempts,
+    errors: totalErrors,
+    hardestLetter,
+    scriptureRef: stageResults.find(item => item.scriptureRef)?.scriptureRef || ""
+  };
+}
+
+function completeDailyDisciplineStage(result) {
+  if (!state.dailyDiscipline.active || state.dailyDiscipline.completed) return result;
+  const stageIndex = state.dailyDiscipline.stageIndex;
+  const stageResult = dailyStageResultSnapshot(result);
+  state.dailyDiscipline.results[stageIndex] = stageResult;
+  const finalStage = stageIndex >= dailyDisciplineStages.length - 1;
+  if (!finalStage) {
+    return {
+      ...result,
+      dailyDiscipline: true,
+      dailyComplete: false,
+      dailyStageIndex: stageIndex,
+      dailyStage: stageResult
+    };
+  }
+  const summary = buildDailyDisciplineSummary(state.dailyDiscipline.results.filter(Boolean));
+  state.dailyDiscipline.completed = true;
+  progress.dailyDisciplineHistory.push(summary);
+  if (progress.dailyDisciplineHistory.length > 90) {
+    progress.dailyDisciplineHistory = progress.dailyDisciplineHistory.slice(-90);
+  }
+  summary.streak = dailyDisciplineStreak();
+  return summary;
 }
 
 function learningRate(history) {
@@ -972,6 +1197,40 @@ function renderPerformance() {
   els.dailyGoalFill.parentElement.classList.toggle("complete", goalRatio >= 1);
 }
 
+function renderDailyDiscipline() {
+  const daily = state.dailyDiscipline;
+  const stage = currentDailyDisciplineStage();
+  const streak = dailyDisciplineStreak();
+  const completedToday = dailyDisciplineCompleteToday();
+  document.body.classList.toggle("daily-discipline-active", daily.active);
+  els.dailyDisciplineBtn.setAttribute("aria-pressed", String(daily.active));
+  els.dailyDisciplineBtn.title = daily.active && !daily.completed
+    ? `Daily Discipline: ${stage?.label || "in progress"}`
+    : completedToday
+      ? "Daily Discipline complete for today"
+      : "Start Daily Discipline";
+  els.dailyDisciplineBtn.setAttribute("aria-label", els.dailyDisciplineBtn.title);
+  els.dailyDisciplineStatus.textContent = daily.active && !daily.completed
+    ? `Stage ${daily.stageIndex + 1} of ${dailyDisciplineStages.length}`
+    : completedToday
+      ? `${streak} day${streak === 1 ? "" : "s"} streak`
+      : streak
+        ? `Start · ${streak} day${streak === 1 ? "" : "s"} streak`
+        : "Start today";
+  els.dailyDisciplineBar.classList.toggle("hidden", !daily.active);
+  if (!daily.active) return;
+  els.dailyStageName.textContent = daily.completed ? "Completed for today" : stage?.label || "Daily Discipline";
+  els.dailyStageDescription.textContent = daily.completed
+    ? "Your guided practice is complete. Return tomorrow to continue the streak."
+    : stage?.description || "";
+  els.dailyDisciplineSteps.innerHTML = dailyDisciplineStages.map((item, index) => {
+    const complete = daily.completed || index < daily.stageIndex;
+    const active = !daily.completed && index === daily.stageIndex;
+    const className = complete ? "complete" : active ? "active" : "";
+    return `<li class="${className}"${active ? ' aria-current="step"' : ""}><i>${complete ? "✓" : index + 1}</i><span>${escapeHtml(item.label)}</span></li>`;
+  }).join("");
+}
+
 function renderTechniqueCue(metrics) {
   if (!prefs.techniqueTips || ["bible", "bibleQuotes", "zen"].includes(state.mode) || state.testCompleted) {
     els.techniqueCue.classList.add("hidden");
@@ -1045,7 +1304,7 @@ function formattedSpeed(wpm) {
 
 function currentProgress() {
   const target = currentTarget();
-  if (state.mode === "time") return Math.max(0, Math.min(1, 1 - state.timeRemaining / Number(prefs.testDuration)));
+  if (state.mode === "time") return Math.max(0, Math.min(1, 1 - state.timeRemaining / activeTestDuration()));
   if (state.mode === "adaptive") return Math.max(0, Math.min(1, (state.rowIndex + (target.length ? state.input.length / target.length : 0)) / lessonLineLimit()));
   if (["words", "creative", "placement"].includes(state.mode)) return Math.max(0, Math.min(1, (state.rowIndex + (target.length ? state.input.length / target.length : 0)) / Math.max(1, state.targetRows.length)));
   if (state.mode === "zen") return 0;
@@ -1271,12 +1530,83 @@ function renderAdaptiveLessonResult(result) {
   renderAdaptiveStatsChart(result);
 }
 
+function renderDailyDisciplineResult(result) {
+  const completed = Boolean(result.dailyComplete);
+  const stage = result.dailyStage || state.dailyDiscipline.results[state.dailyDiscipline.stageIndex];
+  const nextStage = dailyDisciplineStages[state.dailyDiscipline.stageIndex + 1];
+  els.resultPanel.classList.add("daily-results");
+  els.resultPanel.classList.remove("adaptive-results");
+  els.adaptiveResultDetails.classList.add("hidden");
+  els.dailyResultDetails.classList.remove("hidden");
+  els.dailyExitBtn.classList.remove("hidden");
+  els.resultEyebrow.textContent = completed ? "Daily Discipline complete" : `${stage?.label || "Stage"} complete`;
+  els.resultTitle.textContent = completed
+    ? "Today's practice is complete"
+    : `Stage ${state.dailyDiscipline.stageIndex + 1} of ${dailyDisciplineStages.length} complete`;
+  els.resultScore.textContent = Number(result.score || 0).toLocaleString();
+  els.resultWpm.textContent = Math.round(result.wpm || 0);
+  els.resultRaw.textContent = Math.round(result.raw || result.wpm || 0);
+  els.resultAccuracy.textContent = `${Math.round(result.accuracy ?? 100)}%`;
+  els.resultConsistency.textContent = `${Math.round(result.consistency ?? 100)}%`;
+  els.resultCharacters.textContent = String(Math.round(result.characters ?? stage?.characters ?? 0));
+  els.resultTime.textContent = `${(Number(result.elapsedMs || 0) / 1000).toFixed(1)}s`;
+  els.resultDictationErrorsWrap.classList.add("hidden");
+  els.resultFollowRateWrap.classList.add("hidden");
+  if (completed) {
+    const stageCards = result.stageResults.map((item, index) => `
+      <article class="daily-stage-result">
+        <small>${String(index + 1).padStart(2, "0")} · ${escapeHtml(item.label)}</small>
+        <strong>${Math.round(item.wpm)} WPM</strong>
+        <span>${Math.round(item.accuracy)}% accuracy · ${(item.elapsedMs / 1000).toFixed(0)}s</span>
+      </article>`).join("");
+    const focusCopy = result.hardestLetter && result.hardestLetter !== "--"
+      ? `${escapeHtml(result.hardestLetter)} was today's clearest focus for tomorrow.`
+      : "A clean session gave the adaptive coach a stronger baseline.";
+    const scriptureCopy = result.scriptureRef
+      ? ` Scripture completed: ${escapeHtml(result.scriptureRef)}.`
+      : "";
+    els.dailyResultDetails.innerHTML = `
+      <div class="daily-result-intro">
+        <div>
+          <small>Guided practice complete</small>
+          <h3>Four focused stages, one steady habit</h3>
+          <p>${focusCopy}${scriptureCopy}</p>
+        </div>
+        <strong>${Number(result.streak) || 1}<span>day streak</span></strong>
+      </div>
+      <div class="daily-stage-results">${stageCards}</div>`;
+    els.resultRestartBtn.textContent = "Practice again";
+    els.dailyExitBtn.textContent = "Return to practice";
+    return;
+  }
+  els.dailyResultDetails.innerHTML = `
+    <div class="daily-result-intro">
+      <div>
+        <small>${escapeHtml(stage?.label || "Daily stage")} complete</small>
+        <h3>${Math.round(stage?.wpm || result.wpm || 0)} WPM at ${Math.round(stage?.accuracy ?? result.accuracy ?? 100)}% accuracy</h3>
+        <p>${nextStage ? `Next: ${escapeHtml(nextStage.description)}` : "One final step remains."}</p>
+      </div>
+      <strong>${state.dailyDiscipline.stageIndex + 1}<span>of ${dailyDisciplineStages.length}</span></strong>
+    </div>
+    ${nextStage ? `<div class="daily-next-stage"><i>${state.dailyDiscipline.stageIndex + 2}</i><div><strong>${escapeHtml(nextStage.label)}</strong>${escapeHtml(nextStage.description)}</div></div>` : ""}`;
+  els.resultRestartBtn.textContent = nextStage ? `Continue to ${nextStage.label}` : "Continue";
+  els.dailyExitBtn.textContent = "Leave daily practice";
+}
+
 function renderResult() {
   const result = state.result;
-  const isAdaptiveLesson = Boolean(result?.adaptiveLesson);
+  const isDailyDiscipline = Boolean(result?.dailyDiscipline);
+  const isAdaptiveLesson = Boolean(result?.adaptiveLesson) && !isDailyDiscipline;
   els.adaptiveResultDetails.classList.toggle("hidden", !isAdaptiveLesson);
   els.resultPanel.classList.toggle("adaptive-results", isAdaptiveLesson);
+  els.resultPanel.classList.toggle("daily-results", isDailyDiscipline);
+  els.dailyResultDetails.classList.toggle("hidden", !isDailyDiscipline);
+  els.dailyExitBtn.classList.toggle("hidden", !isDailyDiscipline);
   if (!result) return;
+  if (isDailyDiscipline) {
+    renderDailyDisciplineResult(result);
+    return;
+  }
   els.resultEyebrow.textContent = `${modeCopy()[0]} complete`;
   els.resultTitle.textContent = result.adaptiveLesson
     ? "Adaptive lesson profile"
@@ -1367,6 +1697,8 @@ function selectedAdaptiveFocusLetters() {
 }
 
 function selectedAdaptivePracticePresets() {
+  const dailyPreset = currentDailyDisciplineStage()?.preset;
+  if (dailyPreset && practicePresetStyles.has(dailyPreset)) return [dailyPreset];
   const selected = Array.isArray(prefs.practicePresets) ? prefs.practicePresets : [prefs.practicePreset];
   const valid = [...new Set(selected.filter(preset => practicePresetStyles.has(preset)))].slice(0, 1);
   return valid.length ? valid : [defaultPrefs.practicePreset];
@@ -1576,11 +1908,18 @@ function visibleWordsPerRow(minimum = 2) {
 }
 
 function lessonPageCount() {
+  if (state.dailyDiscipline.active) return currentDailyDisciplineStage()?.pageLimit || 1;
   return Math.max(1, Math.min(100, Math.round(Number(prefs.lessonLengthPages) || 1)));
 }
 
 function lessonLineLimit() {
+  const dailyLineLimit = currentDailyDisciplineStage()?.lineLimit;
+  if (dailyLineLimit) return dailyLineLimit;
   return lessonPageCount() * rowsPerPage;
+}
+
+function activeTestDuration() {
+  return currentDailyDisciplineStage()?.duration || Number(prefs.testDuration);
 }
 
 function lessonWordTarget() {
@@ -2043,7 +2382,9 @@ async function makeBibleQuoteLessonPages() {
     long: [21, 32],
     epic: [33, Infinity]
   };
-  const [min, max] = ranges[prefs.quoteLength] || ranges.medium;
+  const [min, max] = currentDailyDisciplineStage()?.id === "scripture"
+    ? [0, 18]
+    : ranges[prefs.quoteLength] || ranges.medium;
   const matches = pages.filter(([, text]) => {
     const count = text.split(/\s+/).length;
     return count >= min && count <= max;
@@ -2215,7 +2556,7 @@ async function restart({ freshLesson = false } = {}) {
   state.lastActivityAt = null;
   state.lastKeyAt = null;
   state.keyIntervals = [];
-  state.timeRemaining = Number(prefs.testDuration);
+  state.timeRemaining = activeTestDuration();
   state.warningPlayed = false;
   state.testCompleted = false;
   state.result = null;
@@ -2263,7 +2604,7 @@ async function restart({ freshLesson = false } = {}) {
     const startingWordChanged = !previousStartingWord || lessonStartingWord() !== previousStartingWord;
     if (lessonChanged && firstTargetChanged && startingWordChanged) break;
   }
-  prefs.mode = state.mode;
+  if (!state.dailyDiscipline.active) prefs.mode = state.mode;
   scheduleSave();
   render();
   prepareCreativeLine();
@@ -2298,6 +2639,7 @@ function currentTypingTarget() {
 
 function shouldRequireLineEndSpace() {
   if (["zen", "dictation", "bible", "bibleQuotes", "quote"].includes(state.mode)) return false;
+  if (state.mode === "adaptive") return state.rowIndex < lessonLineLimit() - 1;
   return state.rowIndex < state.targetRows.length - 1;
 }
 
@@ -2414,9 +2756,11 @@ function speakBrowserDictationPrompt(text) {
 }
 
 function modeCopy() {
+  const dailyStage = currentDailyDisciplineStage();
+  if (dailyStage) return [`Daily Discipline · ${dailyStage.label}`, dailyStage.description];
   const copy = {
     adaptive: ["Adaptive letters", `${lessonPageCount()} page lesson / ${prefs.targetSpeed} WPM target`],
-    time: ["Timed Test", `${prefs.testDuration} second sprint`],
+    time: ["Timed Test", `${activeTestDuration()} second sprint`],
     words: ["Word Test", `${lessonPageCount()} page challenge`],
     placement: ["Placement Check", "Find your starting point"],
     quote: ["Quote Test", "Complete the quote"],
@@ -2459,6 +2803,7 @@ function render() {
   document.body.classList.toggle("lesson-active", !state.testCompleted);
   document.body.classList.toggle("lesson-recap", state.testCompleted);
   applyDisplayPreferences();
+  renderDailyDiscipline();
   renderText();
   renderKeyboard();
   renderSettingsKeyboardMap();
@@ -3362,7 +3707,7 @@ function handleKey(event) {
 
 function startTimedTest() {
   clearTestTimer();
-  state.timeRemaining = Number(prefs.testDuration);
+  state.timeRemaining = activeTestDuration();
   state.deadline = performance.now() + state.timeRemaining * 1000;
   state.timerId = setInterval(() => {
     state.timeRemaining = Math.max(0, (state.deadline - performance.now()) / 1000);
@@ -3471,6 +3816,7 @@ function finishAdaptiveLine() {
     saveAdaptiveLessonSummary(savedResult);
     state.result = { ...savedResult, ...rankAdaptiveLesson(savedResult) };
     state.testCompleted = true;
+    state.result = completeDailyDisciplineStage(state.result);
     if (canUnlockNextLetter()) {
       newlyUnlocked = letterOrder[Number(prefs.practiceLetters)] || "";
       prefs.practiceLetters = Math.min(letterOrder.length, Number(prefs.practiceLetters) + 1);
@@ -3698,6 +4044,7 @@ function finishScripture() {
     if (finalPage) {
       state.result = { ...savedResult, ...metrics };
       state.testCompleted = true;
+      state.result = completeDailyDisciplineStage(state.result);
       save();
       render();
       return;
@@ -3760,6 +4107,7 @@ function finishTest() {
   updateLifetimeAverages(metrics);
   state.result = { ...savedResult, ...metrics, failedReason, placement: state.mode === "placement", personalBest: !failedReason && metrics.wpm > previousBest };
   state.testCompleted = true;
+  state.result = completeDailyDisciplineStage(state.result);
   save();
   playReward(rowsPerPage);
   render();
@@ -4965,7 +5313,10 @@ function setupSettings() {
         prefs.bibleEnd = prefs.bibleStart;
         document.getElementById("bibleEnd").value = String(prefs.bibleEnd);
       }
-      if (id === "practiceMode") state.mode = prefs.mode;
+      if (id === "practiceMode") {
+        if (state.dailyDiscipline.active) resetDailyDisciplineState();
+        state.mode = prefs.mode;
+      }
       if (id === "practicePreset") prefs.practicePresets = [prefs.practicePreset];
       save();
       if (id === "theme") applyTheme();
@@ -5253,6 +5604,7 @@ function hideProgressPeek(event) {
 
 function startErrorReview() {
   if (!progress.errorReview.length) return;
+  if (state.dailyDiscipline.active) resetDailyDisciplineState();
   prefs.mode = "adaptive";
   prefs.practicePreset = "accuracy";
   state.mode = "adaptive";
@@ -5262,6 +5614,7 @@ function startErrorReview() {
 }
 
 function startRecommendedAdaptiveFocus() {
+  if (state.dailyDiscipline.active) resetDailyDisciplineState();
   const fallback = els.adaptiveRecommendationButton.dataset.preset;
   const preset = practicePresetStyles.has(fallback) ? fallback : defaultPrefs.practicePreset;
   const focus = adaptiveFocusSelection();
@@ -5309,9 +5662,22 @@ els.restartBtn.addEventListener("click", () => {
   restart({ freshLesson: true });
 });
 els.resultRestartBtn.addEventListener("click", () => {
+  if (state.dailyDiscipline.active) {
+    advanceDailyDiscipline();
+    return;
+  }
   if (state.mode === "dictation") nextDictationPrompt();
   else restart({ freshLesson: true });
 });
+els.dailyDisciplineBtn.addEventListener("click", () => {
+  if (state.dailyDiscipline.active && !state.testCompleted) {
+    els.dailyDisciplineBar.scrollIntoView({ behavior: "smooth", block: "start" });
+    return;
+  }
+  if (state.dailyDiscipline.active) advanceDailyDiscipline();
+  else startDailyDiscipline();
+});
+els.dailyExitBtn.addEventListener("click", exitDailyDiscipline);
 els.adaptiveRecommendationButton.addEventListener("click", startRecommendedAdaptiveFocus);
 els.statsBtn.addEventListener("pointerdown", showProgressPeek);
 els.statsBtn.addEventListener("pointerup", hideProgressPeek);
