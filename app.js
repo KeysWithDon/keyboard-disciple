@@ -2110,9 +2110,74 @@ function clearTestTimer() {
   state.deadline = null;
 }
 
-async function restart() {
+function lessonContentSignature() {
+  return JSON.stringify([
+    state.mode,
+    state.targetRows,
+    state.scripturePages
+  ]);
+}
+
+function firstLessonTarget() {
+  if (["bible", "bibleQuotes", "quote"].includes(state.mode)) return state.scripturePages[0]?.[1] || "";
+  return state.targetRows[0] || "";
+}
+
+async function generateLessonTargets({ requestId, wasTyping, forceFreshQuote = false }) {
+  if (state.mode === "adaptive") {
+    state.targetRows = makeAdaptiveRows(rowsPerPage * 2);
+    state.scripturePages = [];
+  } else if (state.mode === "time") {
+    state.targetRows = makeTimedRows(lessonLineLimit());
+    state.scripturePages = [];
+  } else if (state.mode === "words") {
+    state.targetRows = makeWordSections(lessonWordTarget());
+    state.scripturePages = [];
+  } else if (state.mode === "creative") {
+    state.targetRows = makeCreativeSections(lessonWordTarget());
+    state.scripturePages = [];
+  } else if (state.mode === "placement") {
+    state.targetRows = makePlacementRows(lessonLineLimit());
+    state.scripturePages = [];
+  } else if (state.mode === "dictation") {
+    state.targetRows = await makeDictationRows(lessonLineLimit());
+    if (requestId !== restartRequestId) return false;
+    state.scripturePages = [];
+  } else if (state.mode === "quote") {
+    const shouldRepeat = !forceFreshQuote && (prefs.repeatQuotes === "always" || (prefs.repeatQuotes === "typing" && wasTyping));
+    const quotePages = shouldRepeat && state.lastQuote
+      ? [state.lastQuote]
+      : await makeBibleQuoteLessonPages();
+    if (requestId !== restartRequestId) return false;
+    state.lastQuote = quotePages[0] || null;
+    state.scripturePages = quotePages.map(([ref, text]) => [ref, transformText(text)]);
+    state.targetRows = [];
+  } else if (state.mode === "bibleQuotes") {
+    const pages = await makeBibleQuoteLessonPages();
+    if (requestId !== restartRequestId) return false;
+    state.scripturePages = pages;
+    state.targetRows = [];
+  } else if (state.mode === "bible") {
+    const pages = await makeBiblePages();
+    if (requestId !== restartRequestId) return false;
+    state.scripturePages = pages.slice(0, lessonPageCount());
+    state.targetRows = [];
+  } else if (state.mode === "zen") {
+    state.targetRows = [""];
+    state.zenTotalWords = 0;
+    state.scripturePages = [];
+  } else {
+    state.targetRows = [""];
+    state.scripturePages = [];
+  }
+  return true;
+}
+
+async function restart({ freshLesson = false } = {}) {
   const requestId = ++restartRequestId;
   const wasTyping = !!state.startedAt && !state.testCompleted;
+  const previousLessonSignature = freshLesson ? lessonContentSignature() : "";
+  const previousFirstTarget = freshLesson ? firstLessonTarget() : "";
   clearTestTimer();
   clearTimeout(memoryTimer);
   window.speechSynthesis?.cancel();
@@ -2176,51 +2241,19 @@ async function restart() {
   state.dictationFollowSamples = [];
   stopReminderSound();
   els.completionBanner.classList.add("hidden");
-  if (state.mode === "adaptive") {
-    state.targetRows = makeAdaptiveRows(rowsPerPage * 2);
-    state.scripturePages = [];
-  } else if (state.mode === "time") {
-    state.targetRows = makeTimedRows(lessonLineLimit());
-    state.scripturePages = [];
-  } else if (state.mode === "words") {
-    state.targetRows = makeWordSections(lessonWordTarget());
-    state.scripturePages = [];
-  } else if (state.mode === "creative") {
-    state.targetRows = makeCreativeSections(lessonWordTarget());
-    state.scripturePages = [];
-  } else if (state.mode === "placement") {
-    state.targetRows = makePlacementRows(lessonLineLimit());
-    state.scripturePages = [];
-  } else if (state.mode === "dictation") {
-    state.targetRows = await makeDictationRows(lessonLineLimit());
-    if (requestId !== restartRequestId) return;
-    state.scripturePages = [];
-  } else if (state.mode === "quote") {
-    const shouldRepeat = prefs.repeatQuotes === "always" || (prefs.repeatQuotes === "typing" && wasTyping);
-    const quotePages = shouldRepeat && state.lastQuote
-      ? [state.lastQuote]
-      : await makeBibleQuoteLessonPages();
-    if (requestId !== restartRequestId) return;
-    state.lastQuote = quotePages[0] || null;
-    state.scripturePages = quotePages.map(([ref, text]) => [ref, transformText(text)]);
-    state.targetRows = [];
-  } else if (state.mode === "bibleQuotes") {
-    const pages = await makeBibleQuoteLessonPages();
-    if (requestId !== restartRequestId) return;
-    state.scripturePages = pages;
-    state.targetRows = [];
-  } else if (state.mode === "bible") {
-    const pages = await makeBiblePages();
-    if (requestId !== restartRequestId) return;
-    state.scripturePages = pages.slice(0, lessonPageCount());
-    state.targetRows = [];
-  } else if (state.mode === "zen") {
-    state.targetRows = [""];
-    state.zenTotalWords = 0;
-    state.scripturePages = [];
-  } else {
-    state.targetRows = [""];
-    state.scripturePages = [];
+  const canGenerateFreshContent = !["bible", "zen"].includes(state.mode);
+  const generationAttempts = freshLesson && canGenerateFreshContent && previousLessonSignature ? 5 : 1;
+  for (let attempt = 0; attempt < generationAttempts; attempt++) {
+    const generated = await generateLessonTargets({
+      requestId,
+      wasTyping,
+      forceFreshQuote: freshLesson
+    });
+    if (!generated || requestId !== restartRequestId) return;
+    if (!freshLesson || !previousLessonSignature) break;
+    const lessonChanged = lessonContentSignature() !== previousLessonSignature;
+    const firstTargetChanged = !previousFirstTarget || firstLessonTarget() !== previousFirstTarget;
+    if (lessonChanged && firstTargetChanged) break;
   }
   prefs.mode = state.mode;
   scheduleSave();
@@ -3185,7 +3218,7 @@ function handleKey(event) {
   if (restartKey && event.key === restartKey) {
     event.preventDefault();
     if (state.mode === "creative" && prefs.creativeMode === "no_quit" && state.startedAt && !state.testCompleted) return;
-    restart();
+    restart({ freshLesson: true });
     return;
   }
   if (state.testCompleted) return;
@@ -5285,11 +5318,11 @@ els.adaptiveMissedLetters.addEventListener("click", event => {
 
 els.restartBtn.addEventListener("click", () => {
   if (state.mode === "creative" && prefs.creativeMode === "no_quit" && state.startedAt && !state.testCompleted) return;
-  restart();
+  restart({ freshLesson: true });
 });
 els.resultRestartBtn.addEventListener("click", () => {
   if (state.mode === "dictation") nextDictationPrompt();
-  else restart();
+  else restart({ freshLesson: true });
 });
 els.adaptiveRecommendationButton.addEventListener("click", startRecommendedAdaptiveFocus);
 els.statsBtn.addEventListener("pointerdown", showProgressPeek);
