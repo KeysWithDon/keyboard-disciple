@@ -595,7 +595,6 @@ select, input, textarea {
 .key.zone-neutral { background: rgba(255,255,255,.13); border-color: rgba(255,255,255,.2); }
 .key.locked { opacity: .48; filter: saturate(.55); }
 .key.modifier { padding: 0 5px; font-size: 9px; font-weight: 800; text-transform: lowercase; }
-.key.spacebar::after { content: ""; width: 42%; height: 2px; border-radius: 2px; background: rgba(26,14,17,.38); }
 .key-symbols { display: grid; gap: 2px; place-items: center; line-height: 1; }
 .key-symbols small { font-size: 9px; font-weight: 850; }
 .keyboard-spacer { min-width: 0; }
