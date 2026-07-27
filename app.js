@@ -692,7 +692,7 @@ const els = Object.fromEntries([
   "resultAccuracy", "resultConsistency", "resultCharacters", "resultTime", "resultRestartBtn", "settingsDialog", "settingsBtn",
   "resultDictationErrorsWrap", "resultDictationErrors", "resultFollowRateWrap", "resultFollowRate",
   "statsDialog", "statsBtn", "fullscreenBtn", "restartBtn", "letterHud", "unlockNext", "unlockCount",
-  "practiceFocusIndicator", "practiceFocusName", "practiceFocusDescription", "practiceFocusState", "letterHeatmap", "letterHeatRow", "heatmapSummary", "specialHeatmap", "letterDialog", "letterDetailBadge", "letterDetailTitle",
+  "letterHeatmap", "letterHeatRow", "heatmapSummary", "specialHeatmap", "letterDialog", "letterDetailBadge", "letterDetailTitle",
   "letterMastery", "letterLastSpeed", "letterTopSpeed", "letterAccuracy", "letterLearningRate", "letterLessons",
   "letterCurveCaption", "letterChart", "adaptiveResultDetails", "adaptiveStatsChart", "adaptiveRank", "adaptiveWeakestLetter", "adaptiveWeakestDetail",
   "adaptiveOverviewWpm", "adaptiveOverviewAccuracy", "adaptiveOverviewRaw", "adaptiveOverviewCharacters", "adaptiveOverviewConsistency", "adaptiveOverviewTime",
@@ -2552,29 +2552,8 @@ function renderLetterProgress() {
   const unlockedCount = Number(prefs.practiceLetters);
   const earnedLetters = new Set(letterOrder.slice(0, unlockedCount));
   const nextLetter = letterOrder[unlockedCount];
-  const focusLetter = adaptiveFocusLetter();
-  const selectedFocusLetters = selectedAdaptiveFocusLetters();
-  const recoveryMode = adaptiveRecoveryActive();
-  const selectedPresets = selectedAdaptivePracticePresets();
-  const activePresets = recoveryMode && !selectedPresets.includes("workout") ? ["accuracy"] : selectedPresets;
-  const activePreset = activePresets[0];
-  const workoutActive = activePresets.includes("workout");
-  const workoutPhase = zoneWorkoutPhase();
-  els.practiceFocusIndicator.dataset.focus = activePreset;
-  els.practiceFocusName.textContent = workoutActive
-    ? `Zone workout · ${workoutPhase.label}`
-    : selectedFocusLetters.length
-    ? `Letters ${selectedFocusLetters.join(" / ")}`
-    : activePresets.map(preset => practicePresetLabels[preset] || practicePresetLabels.balanced).join(" + ");
-  els.practiceFocusDescription.textContent = workoutActive
-    ? `${workoutPhase.description} The keyboard highlights the zone in focus.`
-    : selectedFocusLetters.length
-    ? `Upcoming words prioritize ${selectedFocusLetters.join(", ")} while staying inside the earned alphabet.`
-    : activePresets.map(preset => practicePresetDescriptions[preset] || practicePresetDescriptions.balanced).join(" ");
-  els.practiceFocusState.textContent = recoveryMode ? "Recovery" : "Active";
   els.unlockCount.textContent = `${unlockedCount} / ${letterOrder.length}`;
-  const focusLabel = selectedFocusLetters.length ? selectedFocusLetters.join(" / ") : focusLetter;
-  els.unlockNext.textContent = nextLetter ? `Focus ${focusLabel} / next ${nextLetter}` : `Focus ${focusLabel} / alphabet complete`;
+  els.unlockNext.textContent = nextLetter ? `Next ${nextLetter}` : "Alphabet complete";
 
   let totalAttempts = 0;
   let totalCorrect = 0;
@@ -2614,7 +2593,7 @@ function renderLetterProgress() {
   renderSpecialProgress();
   els.heatmapSummary.textContent = totalAttempts
     ? `${Math.round((totalMastery / Math.max(1, sampledLetters)) * 100)}% confidence / ${Math.round((totalCorrect / totalAttempts) * 100)}% accuracy`
-    : `Build ${focusLetter} toward ${prefs.targetSpeed} WPM`;
+    : `Build ${nextLetter || "your letters"} toward ${prefs.targetSpeed} WPM`;
 }
 
 function recordCharacterAttempt(expected, isCorrect) {
