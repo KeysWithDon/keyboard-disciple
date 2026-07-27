@@ -2897,6 +2897,7 @@ function renderLetterProgress() {
   const unlockedCount = Number(prefs.practiceLetters);
   const earnedLetters = new Set(letterOrder.slice(0, unlockedCount));
   const nextLetter = letterOrder[unlockedCount];
+  const focusLetter = adaptiveFocusLetter();
   els.unlockCount.textContent = `${unlockedCount} / ${letterOrder.length}`;
   els.unlockNext.textContent = nextLetter ? `Next ${nextLetter}` : "Alphabet complete";
 
