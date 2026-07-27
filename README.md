@@ -2,6 +2,8 @@
 
 Keyboard Disciple is a fast, minimal typing practice app with adaptive letter progression, creative tests, live keyboard feedback, saved progress, Bible reading, and Bible quote practice.
 
+Daily Discipline turns the core practice experience into one compact guided session: a home-row warm-up, personalized weak-key focus, a concise Scripture passage, and a short finishing sprint. A unified recap records each stage and keeps a local daily completion streak.
+
 ## Play
 
 [Play Keyboard Disciple](https://keyswithdon.github.io/keyboard-disciple/) in a modern desktop or mobile browser. Progress and preferences are saved on the current device.

@@ -14,7 +14,7 @@
   <link rel="sitemap" type="application/xml" href="https://keyswithdon.github.io/keyboard-disciple/sitemap.xml">
   <link rel="icon" href="assets/keyboard-disciple-mark.png">
     <link rel="stylesheet" href="styles.css?v=20260727-clean-spacebar">
-    <link rel="stylesheet" href="refresh.css?v=20260727-home-key-marks">
+    <link rel="stylesheet" href="refresh.css?v=20260727-daily-discipline">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Keyboard Disciple">
   <meta property="og:title" content="Keyboard Disciple | Free Typing Practice Game">
@@ -71,6 +71,15 @@
       </div>
 
       <div class="app-actions">
+        <button class="daily-discipline-button" id="dailyDisciplineBtn" type="button" title="Start Daily Discipline" aria-label="Start Daily Discipline" aria-pressed="false">
+          <svg class="daily-discipline-icon" viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M10 2.5v2M10 15.5v2M2.5 10h2M15.5 10h2M4.7 4.7l1.4 1.4M13.9 13.9l1.4 1.4M15.3 4.7l-1.4 1.4M6.1 13.9l-1.4 1.4M13.4 10a3.4 3.4 0 1 1-6.8 0 3.4 3.4 0 0 1 6.8 0Z" />
+          </svg>
+          <span>
+            <strong>Daily Discipline</strong>
+            <small id="dailyDisciplineStatus">Start today</small>
+          </span>
+        </button>
         <button class="utility-button" id="statsBtn" type="button" title="Hold for progress" aria-label="Hold to peek at progress"><svg class="utility-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.5 2.5h11v11h-11zM5 10.5V8m3 2.5V5.5m3 5V7" /></svg></button>
         <button class="utility-button" id="restartBtn" type="button" title="Restart lesson" aria-label="Restart lesson"><svg class="utility-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M13 6a5 5 0 1 0 .2 4.6M13 2.8v3.7H9.3" /></svg></button>
         <button class="utility-button" id="fullscreenBtn" type="button" title="Enter fullscreen" aria-label="Enter fullscreen"><svg class="utility-icon" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 2.5H2.5V6M10 2.5h3.5V6M2.5 10v3.5H6M13.5 10v3.5H10" /></svg></button>
@@ -84,6 +93,15 @@
         <span aria-hidden="true">†</span>
         <p id="faithPromptText">Whatsoever ye do, do it heartily, as to the Lord.</p>
         <strong id="faithPromptRef">Colossians 3:23</strong>
+      </section>
+
+      <section class="daily-discipline-bar hidden" id="dailyDisciplineBar" aria-label="Daily Discipline progress" aria-live="polite">
+        <div class="daily-discipline-copy">
+          <small>Daily Discipline</small>
+          <strong id="dailyStageName">Warm-up</strong>
+          <span id="dailyStageDescription">Settle into the home row with one calm line.</span>
+        </div>
+        <ol class="daily-discipline-steps" id="dailyDisciplineSteps"></ol>
       </section>
 
       <section class="live-metrics" id="liveMetrics" aria-label="Live typing statistics">
@@ -152,6 +170,7 @@
           <span class="hidden" id="resultDictationErrorsWrap">Errors <strong id="resultDictationErrors">0</strong></span>
           <span class="hidden" id="resultFollowRateWrap" title="Correct characters typed while the prompt was playing">Follow rate <strong id="resultFollowRate">--</strong></span>
         </div>
+        <section class="daily-result-details hidden" id="dailyResultDetails" aria-live="polite"></section>
         <div class="adaptive-result-details hidden" id="adaptiveResultDetails">
           <header class="adaptive-result-heading">
             <div>
@@ -233,7 +252,10 @@
             <button class="primary-button" id="adaptiveRecommendationButton" type="button">Start selected lesson</button>
           </section>
         </div>
-        <button class="primary-button" id="resultRestartBtn" type="button">Restart</button>
+        <div class="result-actions">
+          <button class="secondary-button hidden" id="dailyExitBtn" type="button">Return to practice</button>
+          <button class="primary-button" id="resultRestartBtn" type="button">Restart</button>
+        </div>
       </section>
 
       <section class="keyboard-wrap" id="keyboardWrap">
@@ -961,6 +983,6 @@
   </dialog>
 
     <script src="assets/biblical-word-bank.js?v=20260723"></script>
-    <script src="app.js?v=20260727-home-key-marks"></script>
+    <script src="app.js?v=20260727-daily-discipline"></script>
 </body>
 </html>
