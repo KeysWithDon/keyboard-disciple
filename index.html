@@ -19,7 +19,7 @@
   <link rel="apple-touch-icon" href="assets/app-icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
     <link rel="stylesheet" href="styles.css?v=20260727-clean-spacebar">
-    <link rel="stylesheet" href="refresh.css?v=20260727-verse-memory-visibility">
+    <link rel="stylesheet" href="refresh.css?v=20260727-mastery-adaptive">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Keyboard Disciple">
   <meta property="og:title" content="Keyboard Disciple | Free Typing Practice Game">
@@ -379,6 +379,16 @@
             <div><small>Letter mastery</small><h3 id="masteryJourneyTitle">Your path across the keyboard</h3></div>
             <strong id="masteryJourneySummary">Building a baseline</strong>
           </header>
+          <div class="mastery-legend" aria-label="Letter cards use bar height for confidence and bar color for accuracy">
+            <span class="mastery-confidence-key"><i aria-hidden="true"></i><strong>Bar height</strong> Confidence</span>
+            <span class="mastery-accuracy-key">
+              <strong>Fill color</strong> Accuracy
+              <i class="low" title="Under 85% accuracy" aria-label="Under 85 percent"></i><small>&lt;85</small>
+              <i class="building" title="85–92% accuracy" aria-label="85 to 92 percent"></i><small>85–92</small>
+              <i class="steady" title="93–97% accuracy" aria-label="93 to 97 percent"></i><small>93–97</small>
+              <i class="precise" title="98% accuracy or higher" aria-label="98 percent or higher"></i><small>98+</small>
+            </span>
+          </div>
           <div class="mastery-path" id="masteryPath"></div>
           <button class="secondary-button hidden" id="reviewErrorsBtn" type="button">Practice missed keys</button>
         </section>
@@ -1094,6 +1104,6 @@
   </dialog>
 
     <script src="assets/biblical-word-bank.js?v=20260723"></script>
-    <script src="app.js?v=20260727-verse-memory-visibility"></script>
+    <script src="app.js?v=20260727-mastery-adaptive"></script>
 </body>
 </html>

@@ -1325,6 +1325,15 @@ function evaluateMilestones() {
   return newlyEarned;
 }
 
+function letterAccuracyBand(mastery) {
+  if (!mastery.attempts) return { key: "unmeasured", label: "accuracy not measured", percent: null };
+  const percent = Math.round(Math.max(0, Math.min(1, mastery.accuracy)) * 100);
+  if (percent < 85) return { key: "low", label: `${percent}% accuracy`, percent };
+  if (percent < 93) return { key: "building", label: `${percent}% accuracy`, percent };
+  if (percent < 98) return { key: "steady", label: `${percent}% accuracy`, percent };
+  return { key: "precise", label: `${percent}% accuracy`, percent };
+}
+
 function renderProgressJourney() {
   const history = progress.lessonHistory
     .filter(item => item && Number.isFinite(Number(item.wpm)) && Number.isFinite(Number(item.accuracy)));
@@ -1379,8 +1388,10 @@ function renderProgressJourney() {
     const unlocked = earned.has(letter);
     const mastery = letterMastery(letter);
     const percent = unlocked ? mastery.visualPercent : 0;
-    return `<button type="button" data-letter="${letter.toLowerCase()}" class="${unlocked ? "unlocked" : "locked"}${percent >= 80 ? " mastered" : ""}" ${unlocked ? "" : "disabled"} aria-label="${letter}: ${unlocked ? `${percent}% confidence` : "locked"}">
-      <span>${letter}</span><i style="--mastery:${percent}%"></i><small>${unlocked ? `${percent}%` : "—"}</small>
+    const accuracyBand = unlocked ? letterAccuracyBand(mastery) : { key: "unmeasured", label: "accuracy not measured" };
+    const detail = unlocked ? `${percent}% confidence, ${accuracyBand.label}` : "locked";
+    return `<button type="button" data-letter="${letter.toLowerCase()}" class="${unlocked ? "unlocked" : "locked"} accuracy-${accuracyBand.key}${percent >= 80 ? " mastered" : ""}" ${unlocked ? "" : "disabled"} title="${letter}: ${detail}" aria-label="${letter}: ${detail}">
+      <span>${letter}</span><i style="--mastery:${percent}%" aria-hidden="true"></i><small>${unlocked ? `<strong>${percent}%</strong><em>conf</em>` : "—"}</small>
     </button>`;
   }).join("");
 
@@ -2266,6 +2277,29 @@ function adaptiveRecoveryActive() {
   return progress.lessonHistory.length > 0 && Number(progress.avgAccuracy) < 88;
 }
 
+function adaptiveLetterProfiles() {
+  return letterOrder.slice(0, Number(prefs.practiceLetters)).map(letter => {
+    const key = letter.toLowerCase();
+    const mastery = letterMastery(key);
+    const accuracy = mastery.attempts ? mastery.accuracy : 0;
+    const evidence = Math.min(1, mastery.attempts / masteryRequiredAttempts, mastery.pages / masteryRequiredPages);
+    const confidenceNeed = 1 - mastery.visualScore;
+    const accuracyNeed = mastery.attempts ? 1 - accuracy : 1;
+    const evidenceNeed = 1 - evidence;
+    const need = confidenceNeed * .55 + accuracyNeed * .35 + evidenceNeed * .1;
+    const strength = mastery.visualScore * .62 + accuracy * .3 + evidence * .08;
+    return { key, need, strength, accuracy, confidence: mastery.visualScore, attempts: mastery.attempts };
+  });
+}
+
+function adaptiveWordProfileScore(word, profileMap, field) {
+  const letters = [...wordLetters(word).toLowerCase()];
+  const values = letters.map(letter => Number(profileMap.get(letter)?.[field]) || 0);
+  if (!values.length) return 0;
+  const average = values.reduce((sum, value) => sum + value, 0) / values.length;
+  return average * .7 + Math.max(...values) * .3;
+}
+
 function wordDeck() {
   const unlocked = allowedSet();
   const selectedFocusLetters = selectedAdaptiveFocusLetters().map(letter => letter.toLowerCase());
@@ -2280,6 +2314,22 @@ function wordDeck() {
   const moderate = shuffle([...new Set(moderateWords.concat(expandedWords.filter(w => w.length >= 6 && w.length <= 11), dictionaryExtra.filter(w => w.length >= 6 && w.length <= 9)).filter(isAllowed))]);
   const rare = shuffle([...new Set(rareWords.concat(expandedWords.filter(w => w.length >= 12), dictionaryExtra.filter(w => w.length >= 9)).filter(isAllowed))]);
   const rareFocus = shuffle([...new Set(rareLetterFocusPool.filter(isAllowed))]);
+  const letterProfiles = adaptiveLetterProfiles();
+  const profileMap = new Map(letterProfiles.map(profile => [profile.key, profile]));
+  const priorityLetters = new Set(letterProfiles
+    .slice()
+    .sort((a, b) => b.need - a.need || a.attempts - b.attempts)
+    .slice(0, Math.min(5, letterProfiles.length))
+    .map(profile => profile.key));
+  const confidentLetters = new Set(letterProfiles
+    .filter(profile => profile.attempts > 0)
+    .sort((a, b) => b.strength - a.strength || b.attempts - a.attempts)
+    .slice(0, Math.min(5, letterProfiles.length))
+    .map(profile => profile.key));
+  const priority = shuffle(allNatural.filter(word => [...wordLetters(word).toLowerCase()].some(letter => priorityLetters.has(letter))))
+    .sort((a, b) => adaptiveWordProfileScore(b, profileMap, "need") - adaptiveWordProfileScore(a, profileMap, "need"));
+  const confidentReview = shuffle(allNatural.filter(word => [...wordLetters(word).toLowerCase()].some(letter => confidentLetters.has(letter))))
+    .sort((a, b) => adaptiveWordProfileScore(b, profileMap, "strength") - adaptiveWordProfileScore(a, profileMap, "strength"));
   const focusScore = word => focusLetters.reduce((score, letter) => score + [...word].filter(character => character === letter).length, 0);
   const focus = shuffle(allNatural.filter(word => focusScore(word) > 0))
     .sort((a, b) => focusScore(b) - focusScore(a));
@@ -2308,7 +2358,7 @@ function wordDeck() {
     return [zone.id, rankWorkout(zoneBank, word => workoutZoneWeight(word, zone.id))];
   }));
   return {
-    common, moderate, rare, rareFocus, focus, weak, finger, alternating,
+    common, moderate, rare, rareFocus, priority, confidentReview, focus, weak, finger, alternating,
     leftHand, rightHand, outerFinger, innerFinger, christian, workout,
     focusLetter: focusLetters[0], focusLetters: selectedFocusLetters
   };
@@ -2458,7 +2508,7 @@ function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
   const rows = [];
   const wordsPerRow = visibleWordsPerRow();
   const rowBudget = adaptiveRowCharacterBudget();
-  let ci = 0, mi = 0, ri = 0, fi = 0, rfi = 0, bi = 0;
+  let ci = 0, mi = 0, ri = 0, fi = 0, rfi = 0, bi = 0, pi = 0, reviewIndex = 0;
   let wi = 0;
   const recoveryMode = adaptiveRecoveryActive();
   const selectedPresets = selectedAdaptivePracticePresets();
@@ -2502,7 +2552,9 @@ function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
       let list = deck.common;
       let index = ci++;
       if (workoutActive && workoutPool.length) { list = workoutPool; index = wi++; }
+      else if (pos % 6 === 0 && deck.confidentReview.length) { list = deck.confidentReview; index = reviewIndex++; }
       else if (explicitFocus && deck.focus.length && pos % 5 !== 0) { list = deck.focus; index = fi++; }
+      else if (deck.priority.length && pos % 5 !== 0) { list = deck.priority; index = pi++; }
       else if (pos % 7 === 0 && deck.christian.length) { list = deck.christian; index = bi++; }
       else if (phasePool.length && pos % 4 !== 1) { list = phasePool; index = wi++; }
       else if (presetPool.length && pos % 2 === 0) { list = presetPool; index = wi++; }
@@ -2511,7 +2563,11 @@ function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
       else if (pos % rareInterval === 0 && deck.rare.length) { list = deck.rare; index = ri++; }
       else if (pos % moderateInterval === 0 && deck.moderate.length) { list = deck.moderate; index = mi++; }
       if (!list.length) list = deck.common.length ? deck.common : deck.focus.length ? deck.focus : ["an", "in", "is", "it", "line"];
-      const fallbackList = workoutActive && workoutPool.length ? workoutPool : deck.common;
+      const fallbackList = workoutActive && workoutPool.length
+        ? workoutPool
+        : pos % 6 === 0 && deck.confidentReview.length
+          ? deck.confidentReview.concat(deck.common)
+          : deck.priority.length ? deck.priority.concat(deck.common) : deck.common;
       const word = pickWordForRow(list, index, words, rowBudget, fallbackList, previousRowWord, recentWords);
       if (!word) break;
       words.push(word);
