@@ -74,8 +74,35 @@ body[data-mode="verseMemory"] .typing-card {
   justify-content: flex-start;
 }
 body[data-mode="verseMemory"] .typing-text {
-  min-height: clamp(210px, 30vh, 330px);
+  min-height: 0;
+  display: block;
   font-size: clamp(24px, 2.3vw, 38px);
+  align-content: start;
+  overflow: visible;
+  text-wrap: pretty;
+}
+body.lesson-active[data-mode="verseMemory"] {
+  height: auto;
+  min-height: 100svh;
+  overflow-y: auto;
+}
+body.lesson-active[data-mode="verseMemory"] .app-shell {
+  height: auto;
+  min-height: 100svh;
+  overflow: visible;
+}
+body.lesson-active[data-mode="verseMemory"] .stage {
+  height: auto;
+  min-height: calc(100svh - var(--app-header-height, 74px));
+  justify-content: flex-start;
+  overflow: visible;
+}
+body.lesson-active[data-mode="verseMemory"] .typing-card {
+  flex: 0 0 auto;
+  min-height: 0;
+}
+body.lesson-active[data-mode="verseMemory"] .typing-text {
+  min-height: 0;
 }
 .verse-memory-path {
   display: grid;
@@ -480,7 +507,7 @@ body.stats-page-open > .spoken-reminder-toast { display: none; }
   max-width: min(74vw, 1500px);
 }
 :root[data-display-mode="ultrawide"] body[data-mode="verseMemory"] .typing-text {
-  min-height: clamp(260px, 34svh, 430px);
+  min-height: 0;
   font-size: clamp(34px, 1.9vw, 52px);
 }
 :root[data-display-mode="ultrawide"] .ghost-race { width: min(62vw, 1200px); }

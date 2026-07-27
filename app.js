@@ -3741,6 +3741,82 @@ function schedulePracticeRefit(lines) {
   });
 }
 
+function verseMemoryFitSignature(target) {
+  const viewportHeight = Math.floor(window.visualViewport?.height || document.documentElement.clientHeight || window.innerHeight || 0);
+  const availableWidth = Math.floor(els.typingText.getBoundingClientRect().width || els.typingText.clientWidth || 0);
+  return [
+    "verseMemory",
+    target,
+    state.verseMemoryStage,
+    prefs.fontSize,
+    prefs.fontFamily,
+    prefs.lineWidth,
+    prefs.keyboardSize,
+    prefs.keymapMode,
+    document.documentElement.dataset.displayMode,
+    availableWidth,
+    viewportHeight
+  ].join("\u001f");
+}
+
+function fitVerseMemoryText(target) {
+  if (state.mode !== "verseMemory" || state.testCompleted) return;
+  const signature = verseMemoryFitSignature(target);
+  if (state.practiceFontSize && state.practiceFitSignature === signature) {
+    els.typingText.style.fontSize = `${state.practiceFontSize}px`;
+    return;
+  }
+
+  els.typingText.style.fontSize = "";
+  const baseSize = Number.parseFloat(getComputedStyle(els.typingText).fontSize) || 24;
+  const minimumSize = window.innerWidth <= 620 ? 16 : 18;
+  const viewportHeight = Math.floor(window.visualViewport?.height || document.documentElement.clientHeight || window.innerHeight || 0);
+  const availableWidth = Math.floor(els.typingText.getBoundingClientRect().width || els.typingText.clientWidth || 0);
+  const maximumTextHeight = Math.max(
+    window.innerWidth <= 620 ? 300 : 240,
+    Math.floor(viewportHeight * (window.innerWidth <= 620 ? .58 : .52))
+  );
+  const fits = size => {
+    els.typingText.style.fontSize = `${size}px`;
+    return (!viewportHeight || els.typingText.scrollHeight <= maximumTextHeight + 1)
+      && (!availableWidth || els.typingText.scrollWidth <= availableWidth + 1);
+  };
+
+  let fittedSize = baseSize;
+  if (!fits(baseSize)) {
+    fittedSize = minimumSize;
+    if (fits(minimumSize)) {
+      let lower = minimumSize;
+      let upper = baseSize;
+      for (let attempt = 0; attempt < 8; attempt++) {
+        const candidate = (lower + upper) / 2;
+        if (fits(candidate)) lower = candidate;
+        else upper = candidate;
+      }
+      fittedSize = lower;
+    }
+  }
+
+  state.practiceFontSize = Number(fittedSize.toFixed(2));
+  state.practiceFitSignature = signature;
+  els.typingText.style.fontSize = `${state.practiceFontSize}px`;
+}
+
+function scheduleVerseMemoryRefit(target) {
+  if (state.mode !== "verseMemory" || state.testCompleted) return;
+  const signature = verseMemoryFitSignature(target);
+  if (state.practiceFontSize && state.practiceFitSignature === signature) {
+    els.typingText.style.fontSize = `${state.practiceFontSize}px`;
+    return;
+  }
+  els.typingText.style.fontSize = "";
+  if (state.practiceFitRaf) cancelAnimationFrame(state.practiceFitRaf);
+  state.practiceFitRaf = requestAnimationFrame(() => {
+    state.practiceFitRaf = 0;
+    fitVerseMemoryText(target);
+  });
+}
+
 function positionAdaptiveLineMask() {
   if (state.mode !== "adaptive") return;
   const activeLine = els.typingText.querySelector(".practice-line.active");
@@ -3856,6 +3932,10 @@ function renderText() {
   }
 
   els.typingText.innerHTML = renderInteractiveTarget(typingTarget, verseMemoryHiddenWords());
+  if (isVerseMemory) {
+    scheduleVerseMemoryRefit(typingTarget);
+    return;
+  }
   els.typingText.style.fontSize = "";
   state.practiceFontSize = null;
   state.practiceFitSignature = "";
@@ -6393,8 +6473,9 @@ window.addEventListener("resize", () => {
       state.practiceFontSize = null;
       state.practiceFitSignature = "";
     }
-    if (["adaptive", "time", "words", "creative", "placement"].includes(state.mode) && !state.testCompleted) {
+    if (["adaptive", "time", "words", "creative", "placement", "verseMemory"].includes(state.mode) && !state.testCompleted) {
       state.practiceFontSize = null;
+      state.practiceFitSignature = "";
       renderText();
     }
     renderWorkoutZoneOutline();
