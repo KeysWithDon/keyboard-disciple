@@ -3795,6 +3795,7 @@ function schedulePracticeRefit(lines) {
     state.practiceFontSize = null;
     state.practiceFitSignature = "";
     fitPracticeLines(visibleLines);
+    positionLessonTextViewport();
   });
 }
 
@@ -3829,7 +3830,8 @@ function fitVerseMemoryText(target) {
   const minimumSize = window.innerWidth <= 620 ? 16 : 18;
   const viewportHeight = Math.floor(window.visualViewport?.height || document.documentElement.clientHeight || window.innerHeight || 0);
   const availableWidth = Math.floor(els.typingText.getBoundingClientRect().width || els.typingText.clientWidth || 0);
-  const maximumTextHeight = Math.max(
+  const boundedTextHeight = Math.floor(els.typingText.clientHeight || 0);
+  const maximumTextHeight = boundedTextHeight || Math.max(
     window.innerWidth <= 620 ? 300 : 240,
     Math.floor(viewportHeight * (window.innerWidth <= 620 ? .58 : .52))
   );
@@ -3871,6 +3873,7 @@ function scheduleVerseMemoryRefit(target) {
   state.practiceFitRaf = requestAnimationFrame(() => {
     state.practiceFitRaf = 0;
     fitVerseMemoryText(target);
+    positionLessonTextViewport();
   });
 }
 
@@ -3885,6 +3888,37 @@ function positionAdaptiveLineMask() {
   }
   const targetLeft = current.offsetLeft - Math.round(activeLine.clientWidth * .18);
   activeLine.scrollLeft = Math.max(0, targetLeft);
+}
+
+function positionLessonTextViewport() {
+  if (state.testCompleted || !document.body.classList.contains("lesson-active") || state.mode === "zen") return;
+  const viewport = els.typingText;
+  if (!viewport || viewport.clientHeight <= 0) return;
+  if (state.mode === "dictation") {
+    viewport.scrollTop = viewport.scrollHeight;
+    return;
+  }
+  const focus = viewport.querySelector(".current")
+    || viewport.querySelector(".word-in-progress")
+    || viewport.querySelector(".done:last-child");
+  if (!focus) {
+    viewport.scrollTop = 0;
+    return;
+  }
+  if (viewport.scrollHeight <= viewport.clientHeight + 1) {
+    viewport.scrollTop = 0;
+    return;
+  }
+  const viewportBox = viewport.getBoundingClientRect();
+  const focusBox = focus.getBoundingClientRect();
+  const guard = Math.min(32, Math.max(12, viewportBox.height * .18));
+  const topEdge = viewportBox.top + guard;
+  const bottomEdge = viewportBox.bottom - guard;
+  if (focusBox.bottom > bottomEdge) {
+    viewport.scrollTop += focusBox.bottom - bottomEdge;
+  } else if (focusBox.top < topEdge) {
+    viewport.scrollTop -= topEdge - focusBox.top;
+  }
 }
 
 function renderText() {
@@ -3967,6 +4001,7 @@ function renderText() {
     els.typingText.style.fontSize = "";
     state.practiceFontSize = null;
     state.practiceFitSignature = "";
+    positionLessonTextViewport();
     return;
   }
 
@@ -3985,17 +4020,20 @@ function renderText() {
     if (state.mode === "adaptive") positionAdaptiveLineMask();
     fitPracticeLines(lines);
     schedulePracticeRefit(lines);
+    positionLessonTextViewport();
     return;
   }
 
   els.typingText.innerHTML = renderInteractiveTarget(typingTarget, verseMemoryHiddenWords());
   if (isVerseMemory) {
     scheduleVerseMemoryRefit(typingTarget);
+    positionLessonTextViewport();
     return;
   }
   els.typingText.style.fontSize = "";
   state.practiceFontSize = null;
   state.practiceFitSignature = "";
+  positionLessonTextViewport();
 }
 
 let keyboardElements = new Map();
@@ -6393,7 +6431,12 @@ function syncFullscreenButton() {
   els.fullscreenBtn.setAttribute("aria-pressed", String(active));
   els.fullscreenBtn.classList.toggle("active", active);
   document.body.classList.toggle("is-fullscreen", active);
-  requestAnimationFrame(renderWorkoutZoneOutline);
+  state.practiceFontSize = null;
+  state.practiceFitSignature = "";
+  requestAnimationFrame(() => {
+    if (!state.testCompleted) renderText();
+    renderWorkoutZoneOutline();
+  });
 }
 
 async function toggleFullscreen() {
@@ -6530,7 +6573,7 @@ window.addEventListener("resize", () => {
       state.practiceFontSize = null;
       state.practiceFitSignature = "";
     }
-    if (["adaptive", "time", "words", "creative", "placement", "verseMemory"].includes(state.mode) && !state.testCompleted) {
+    if (!state.testCompleted) {
       state.practiceFontSize = null;
       state.practiceFitSignature = "";
       renderText();

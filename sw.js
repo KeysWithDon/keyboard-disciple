@@ -1,10 +1,10 @@
-const CACHE_NAME = "keyboard-disciple-safe-layout-v3";
+const CACHE_NAME = "keyboard-disciple-static-lesson-viewport-v1";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./styles.css?v=20260727-clean-spacebar",
-  "./refresh.css?v=20260727-safe-layout-3",
-  "./app.js?v=20260727-scripture-case",
+  "./refresh.css?v=20260727-static-lesson-viewport",
+  "./app.js?v=20260727-static-lesson-viewport",
   "./manifest.webmanifest",
   "./assets/biblical-word-bank.js?v=20260723",
   "./assets/kjv-verses-1769.json",
