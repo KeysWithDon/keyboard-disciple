@@ -2123,6 +2123,12 @@ function firstLessonTarget() {
   return state.targetRows[0] || "";
 }
 
+function lessonStartingWord() {
+  const target = firstLessonTarget().trim();
+  const firstToken = target.split(/\s+/)[0] || "";
+  return firstToken.replace(/^[^a-z0-9]+|[^a-z0-9]+$/gi, "").toLowerCase() || firstToken.toLowerCase();
+}
+
 async function generateLessonTargets({ requestId, wasTyping, forceFreshQuote = false }) {
   if (state.mode === "adaptive") {
     state.targetRows = makeAdaptiveRows(rowsPerPage * 2);
@@ -2178,6 +2184,7 @@ async function restart({ freshLesson = false } = {}) {
   const wasTyping = !!state.startedAt && !state.testCompleted;
   const previousLessonSignature = freshLesson ? lessonContentSignature() : "";
   const previousFirstTarget = freshLesson ? firstLessonTarget() : "";
+  const previousStartingWord = freshLesson ? lessonStartingWord() : "";
   clearTestTimer();
   clearTimeout(memoryTimer);
   window.speechSynthesis?.cancel();
@@ -2242,7 +2249,7 @@ async function restart({ freshLesson = false } = {}) {
   stopReminderSound();
   els.completionBanner.classList.add("hidden");
   const canGenerateFreshContent = !["bible", "zen"].includes(state.mode);
-  const generationAttempts = freshLesson && canGenerateFreshContent && previousLessonSignature ? 5 : 1;
+  const generationAttempts = freshLesson && canGenerateFreshContent && previousLessonSignature ? 12 : 1;
   for (let attempt = 0; attempt < generationAttempts; attempt++) {
     const generated = await generateLessonTargets({
       requestId,
@@ -2253,7 +2260,8 @@ async function restart({ freshLesson = false } = {}) {
     if (!freshLesson || !previousLessonSignature) break;
     const lessonChanged = lessonContentSignature() !== previousLessonSignature;
     const firstTargetChanged = !previousFirstTarget || firstLessonTarget() !== previousFirstTarget;
-    if (lessonChanged && firstTargetChanged) break;
+    const startingWordChanged = !previousStartingWord || lessonStartingWord() !== previousStartingWord;
+    if (lessonChanged && firstTargetChanged && startingWordChanged) break;
   }
   prefs.mode = state.mode;
   scheduleSave();
