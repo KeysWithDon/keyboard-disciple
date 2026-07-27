@@ -14,7 +14,7 @@
   <link rel="sitemap" type="application/xml" href="https://keyswithdon.github.io/keyboard-disciple/sitemap.xml">
   <link rel="icon" href="assets/keyboard-disciple-mark.png">
     <link rel="stylesheet" href="styles.css?v=20260727-display-mode">
-    <link rel="stylesheet" href="refresh.css?v=20260727-display-mode">
+    <link rel="stylesheet" href="refresh.css?v=20260727-settings-accordion">
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="Keyboard Disciple">
   <meta property="og:title" content="Keyboard Disciple | Free Typing Practice Game">
@@ -302,19 +302,21 @@
         <div>
           <span>Keyboard Disciple</span>
           <h2>Settings</h2>
+          <p>Find a setting quickly, then open only what you need.</p>
         </div>
         <button value="close" class="icon-button" aria-label="Close settings">×</button>
       </header>
-      <nav class="settings-nav" aria-label="Settings sections">
-        <button type="button" data-settings-jump="test">Lesson</button>
-        <button type="button" data-settings-jump="progress">Adaptive</button>
-        <button type="button" data-settings-jump="input">Behavior</button>
-        <button type="button" data-settings-jump="display">Appearance</button>
-        <button type="button" data-settings-jump="keyboard">Keyboard</button>
-        <button type="button" data-settings-jump="audio">Audio</button>
-      </nav>
+      <div class="settings-tools">
+        <label class="settings-search">
+          <span aria-hidden="true">⌕</span>
+          <input id="settingsSearch" type="search" placeholder="Search settings" aria-label="Search settings" autocomplete="off">
+        </label>
+        <button type="button" class="settings-collapse-button" id="settingsCollapseAll" aria-controls="settingsAccordionList">Collapse all</button>
+        <span class="settings-search-status" id="settingsSearchStatus" role="status" aria-live="polite">All settings</span>
+      </div>
       <div class="settings-layout settings-page">
-        <div class="settings-panes">
+        <div class="settings-panes" id="settingsAccordionList">
+          <p class="settings-no-results" id="settingsNoResults" hidden>No settings match that search.</p>
           <section class="settings-pane active" data-settings-panel="test">
             <div class="settings-section-heading">
               <span>01</span>
@@ -962,6 +964,6 @@
   </dialog>
 
     <script src="assets/biblical-word-bank.js?v=20260723"></script>
-    <script src="app.js?v=20260727-display-mode"></script>
+    <script src="app.js?v=20260727-settings-accordion"></script>
 </body>
 </html>

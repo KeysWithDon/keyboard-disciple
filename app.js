@@ -4633,6 +4633,217 @@ function installSettingDescriptions() {
   });
 }
 
+const settingsAccordionCopy = {
+  test: {
+    kicker: "Practice",
+    title: "Lesson Format",
+    description: "Mode, length, challenge rules, dictation, and Scripture passage."
+  },
+  progress: {
+    kicker: "Learning",
+    title: "Adaptive Training",
+    description: "Unlock pace, lesson mix, focus rules, daily goals, and saved progress."
+  },
+  input: {
+    kicker: "Technique",
+    title: "Typing Rules & Scoring",
+    description: "Backspace behavior, typo feedback, completion thresholds, and assistance."
+  },
+  display: {
+    kicker: "Visuals",
+    title: "Text, Theme & Display",
+    description: "Screen scale, typography, caret behavior, color, and live lesson information."
+  },
+  keyboard: {
+    kicker: "Guidance",
+    title: "On-screen Keyboard",
+    description: "Layout, scale, legends, and reactive key guidance."
+  },
+  audio: {
+    kicker: "Feedback",
+    title: "Sound & Spoken Cues",
+    description: "Keystrokes, mistakes, rewards, warnings, and optional spoken reminders."
+  }
+};
+
+const settingsSubgroupDefinitions = [
+  { id: "practiceMode", title: "Challenge format", description: "Choose the lesson structure and its size." },
+  { id: "capitalization", title: "Language & shortcuts", description: "Shape generated text and quick lesson controls." },
+  { id: "dictationPromptCount", title: "Dictation rules", description: "Control what must be reproduced from a spoken prompt." },
+  { selector: "#bibleSettings", title: "Scripture passage", description: "Choose the KJV passage used for Bible reading." },
+  { id: "practiceLetters", title: "Progression", description: "Set the earned alphabet and confidence target." },
+  { id: "practicePreset", title: "Lesson recipe", description: "Tune how adaptive practice chooses and formats words." },
+  { id: "dailyGoalMinutes", title: "Goals & local data", description: "Set a daily target and manage saved learning evidence." },
+  { id: "confidenceMode", title: "Typing rules", description: "Decide how strict correction and spacing should feel." },
+  { id: "minWpm", title: "Completion thresholds", description: "Define the minimum result that counts as a pass." },
+  { id: "indicateTypos", title: "Feedback & focus", description: "Choose which assistance stays visible while typing." },
+  { id: "theme", title: "Theme & screen", description: "Set the palette and the amount of display space in use." },
+  { id: "fontFamily", title: "Typing text", description: "Tune typeface, size, width, and lesson color." },
+  { id: "currentCue", title: "Caret & flow", description: "Control the active character, completed text, and line movement." },
+  { id: "timerStyle", title: "Live information", description: "Choose which lesson metrics and visual effects remain on screen." },
+  { id: "keymapMode", title: "Keyboard presentation", description: "Choose how the on-screen keyboard looks and responds." },
+  { id: "soundVolume", title: "Sound effects", description: "Balance accepted keys, blocked mistakes, rewards, and warnings." },
+  { selector: ".spoken-reminder-settings", title: "Spoken reminders", description: "Configure optional posture and breathing voice prompts." }
+];
+
+function enhanceSettingsLabels() {
+  els.settingsDialog.querySelectorAll(".settings-grid > label, .toggle-list > label").forEach(label => {
+    if (label.querySelector(":scope > .setting-label")) return;
+    const textNodes = [...label.childNodes].filter(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
+    if (!textNodes.length) return;
+    const labelText = document.createElement("span");
+    labelText.className = "setting-label";
+    labelText.textContent = textNodes.map(node => node.textContent.trim()).join(" ");
+    label.insertBefore(labelText, label.firstChild);
+    textNodes.forEach(node => node.remove());
+  });
+  els.settingsDialog.querySelector(".theme-setting-control > span")?.classList.add("setting-label");
+}
+
+function makeSettingsSubgroupHeading(title, description) {
+  const heading = document.createElement("div");
+  heading.className = "settings-subgroup-heading";
+  const name = document.createElement("h4");
+  const detail = document.createElement("p");
+  name.textContent = title;
+  detail.textContent = description;
+  heading.append(name, detail);
+  return heading;
+}
+
+function refreshSettingsSubgroupVisibility(panel, searching) {
+  panel.querySelectorAll(".settings-subgroup-heading").forEach(heading => {
+    let sibling = heading.nextElementSibling;
+    let hasVisibleContent = false;
+    while (sibling && !sibling.classList.contains("settings-subgroup-heading")) {
+      if (!sibling.hidden) hasVisibleContent = true;
+      sibling = sibling.nextElementSibling;
+    }
+    heading.hidden = searching && !hasVisibleContent;
+  });
+}
+
+function setupSettingsAccordion() {
+  const accordionList = document.getElementById("settingsAccordionList");
+  const search = document.getElementById("settingsSearch");
+  const searchStatus = document.getElementById("settingsSearchStatus");
+  const noResults = document.getElementById("settingsNoResults");
+  const collapseButton = document.getElementById("settingsCollapseAll");
+  if (!accordionList || !search || !searchStatus || !noResults || !collapseButton) return;
+
+  [...accordionList.querySelectorAll(":scope > .settings-pane")].forEach((section, index) => {
+    const key = section.dataset.settingsPanel;
+    const copy = settingsAccordionCopy[key] || {
+      kicker: "Settings",
+      title: section.querySelector("h3")?.textContent || "Settings",
+      description: section.querySelector("p")?.textContent || ""
+    };
+    const oldHeading = section.querySelector(":scope > .settings-section-heading");
+    const number = oldHeading?.querySelector(":scope > span")?.textContent || String(index + 1).padStart(2, "0");
+    const details = document.createElement("details");
+    details.className = section.className;
+    details.dataset.settingsPanel = key;
+    details.dataset.settingsTitle = `${copy.kicker} ${copy.title} ${copy.description}`;
+    details.open = index === 0;
+
+    const summary = document.createElement("summary");
+    summary.className = "settings-section-heading";
+    const badge = document.createElement("span");
+    badge.textContent = number;
+    const copyWrap = document.createElement("div");
+    const kicker = document.createElement("small");
+    const title = document.createElement("h3");
+    const description = document.createElement("p");
+    kicker.className = "settings-heading-kicker";
+    kicker.textContent = copy.kicker;
+    title.textContent = copy.title;
+    description.textContent = copy.description;
+    copyWrap.append(kicker, title, description);
+    summary.append(badge, copyWrap);
+
+    const content = document.createElement("div");
+    content.className = "settings-accordion-content";
+    [...section.children].filter(child => child !== oldHeading).forEach(child => content.appendChild(child));
+    details.append(summary, content);
+    section.replaceWith(details);
+  });
+
+  settingsSubgroupDefinitions.forEach(definition => {
+    const target = definition.selector
+      ? els.settingsDialog.querySelector(definition.selector)
+      : document.getElementById(definition.id)?.closest("label, .theme-setting-control");
+    if (!target) return;
+    target.before(makeSettingsSubgroupHeading(definition.title, definition.description));
+  });
+
+  enhanceSettingsLabels();
+  const panels = [...accordionList.querySelectorAll(":scope > details.settings-pane")];
+  let openBeforeSearch = new Map();
+  let wasSearching = false;
+
+  function updateCollapseButton() {
+    const visiblePanels = panels.filter(panel => !panel.hidden);
+    const anyOpen = visiblePanels.some(panel => panel.open);
+    collapseButton.textContent = anyOpen ? "Collapse all" : "Expand all";
+    collapseButton.setAttribute("aria-expanded", String(anyOpen));
+  }
+
+  function filterSettings() {
+    const query = search.value.trim().toLowerCase();
+    const searching = Boolean(query);
+    if (searching && !wasSearching) {
+      openBeforeSearch = new Map(panels.map(panel => [panel, panel.open]));
+    }
+
+    let matchingOptions = 0;
+    let visiblePanels = 0;
+    panels.forEach(panel => {
+      const headerMatch = panel.dataset.settingsTitle.toLowerCase().includes(query);
+      const rows = [...panel.querySelectorAll(
+        ".settings-grid > label, .settings-grid > .theme-setting-control, .toggle-list > label, .subsettings, .settings-danger-zone, .spoken-reminder-settings"
+      )];
+      rows.forEach(row => {
+        const matches = !searching || headerMatch || row.textContent.toLowerCase().includes(query);
+        row.hidden = !matches;
+        if (searching && matches) matchingOptions++;
+      });
+      refreshSettingsSubgroupVisibility(panel, searching);
+      const hasVisibleRow = rows.some(row => !row.hidden);
+      panel.hidden = searching && !headerMatch && !hasVisibleRow;
+      if (!panel.hidden) {
+        visiblePanels++;
+        if (searching) panel.open = true;
+        else if (wasSearching) panel.open = openBeforeSearch.get(panel) ?? panel.open;
+      }
+    });
+
+    noResults.hidden = visiblePanels > 0;
+    searchStatus.textContent = searching
+      ? `${matchingOptions} matching ${matchingOptions === 1 ? "setting" : "settings"}`
+      : "All settings";
+    wasSearching = searching;
+    updateCollapseButton();
+  }
+
+  panels.forEach(panel => panel.addEventListener("toggle", updateCollapseButton));
+  search.addEventListener("input", filterSettings);
+  search.addEventListener("keydown", event => {
+    if (event.key !== "Escape" || !search.value) return;
+    event.preventDefault();
+    search.value = "";
+    filterSettings();
+  });
+  collapseButton.addEventListener("click", () => {
+    const visiblePanels = panels.filter(panel => !panel.hidden);
+    const shouldCollapse = visiblePanels.some(panel => panel.open);
+    visiblePanels.forEach(panel => {
+      panel.open = !shouldCollapse;
+    });
+    updateCollapseButton();
+  });
+  updateCollapseButton();
+}
+
 function setupSettings() {
   const practiceLetters = document.getElementById("practiceLetters");
   for (let i = startLetters; i <= 26; i++) {
@@ -4779,24 +4990,28 @@ function setupSettings() {
 
   els.settingsBtn.addEventListener("click", () => {
     hideProgressPeek();
-    els.settingsDialog.showModal();
+    document.body.classList.add("settings-page-open");
+    els.settingsDialog.show();
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
     spokenReminderManager.loadCatalog();
   });
-  document.getElementById("resetProgressButton")?.addEventListener("click", resetLocalProgress);
-  els.settingsDialog.querySelectorAll("[data-settings-jump]").forEach(button => {
-    button.addEventListener("click", () => {
-      const target = els.settingsDialog.querySelector(`[data-settings-panel="${button.dataset.settingsJump}"]`);
-      if (!target) return;
-      target.scrollIntoView({ behavior: "smooth", block: "start" });
-      els.settingsDialog.querySelectorAll("[data-settings-jump]").forEach(item => {
-        item.classList.toggle("active", item === button);
-      });
-    });
+  els.settingsDialog.addEventListener("close", () => {
+    document.body.classList.remove("settings-page-open");
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   });
+  els.settingsDialog.addEventListener("keydown", event => {
+    if (event.key !== "Escape" || event.defaultPrevented) return;
+    const search = document.getElementById("settingsSearch");
+    if (search?.value) return;
+    event.preventDefault();
+    els.settingsDialog.close();
+  });
+  document.getElementById("resetProgressButton")?.addEventListener("click", resetLocalProgress);
 
   updateCreativeDescription();
   updatePracticePresetDescription();
   installSettingDescriptions();
+  setupSettingsAccordion();
   setupThemePicker();
 }
 
