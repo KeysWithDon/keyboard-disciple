@@ -2929,7 +2929,8 @@ async function makeBiblePages() {
 }
 
 function cleanVerse(text) {
-  return text.replace(/[#\[\]]/g, "").replace(/\s+/g, " ").trim();
+  const cleaned = text.replace(/[#\[\]]/g, "").replace(/\s+/g, " ").trim();
+  return cleaned.replace(/\b[A-Z]{2,}(?:['’][A-Z]+)*\b/g, word => word[0] + word.slice(1).toLowerCase());
 }
 
 function clearTestTimer() {
