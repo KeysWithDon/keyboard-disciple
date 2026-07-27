@@ -109,6 +109,7 @@ const creativeModeStyles = new Set([
   "backwards", "ddoouubblleedd", "instant_messaging", "underscore_spaces", "ALL_CAPS", "polyglot", "asl",
   "rot13", "no_quit"
 ]);
+const displayModeStyles = new Set(["auto", "standard", "ultrawide"]);
 const themeStyles = new Set([
   "disciple", "morning-light", "sanctuary", "living-water", "midnight-prayer", "mustard-seed", "eden",
   "royal-priesthood", "grace", "armor-of-light", "revelation", "clarity"
@@ -325,6 +326,7 @@ const defaultPrefs = {
   fontSize: "medium",
   fontFamily: "Roboto_Mono",
   lineWidth: "comfortable",
+  displayMode: "auto",
   tapeMode: "off",
   smoothLineScroll: true,
   textGlow: true,
@@ -416,12 +418,27 @@ const savedPracticePreset = prefs.practicePresets.find(preset => practicePresetS
 prefs.practicePreset = savedPracticePreset;
 prefs.practicePresets = [savedPracticePreset];
 if (!creativeModeStyles.has(prefs.creativeMode)) prefs.creativeMode = defaultPrefs.creativeMode;
+if (!displayModeStyles.has(prefs.displayMode)) prefs.displayMode = defaultPrefs.displayMode;
 if (!themeStyles.has(prefs.theme)) prefs.theme = defaultPrefs.theme;
 if (!lessonColorStyles.has(prefs.lessonColor)) prefs.lessonColor = defaultPrefs.lessonColor;
 if (!scoredModes.has(prefs.mode) && prefs.mode !== "zen") prefs.mode = defaultPrefs.mode;
 if (storedPrefs.showKeyboard === false && storedPrefs.keymapMode === undefined) prefs.keymapMode = "off";
 prefs.dailyGoalMinutes = Math.max(2, Math.min(60, Number(prefs.dailyGoalMinutes) || defaultPrefs.dailyGoalMinutes));
 state.mode = prefs.mode;
+
+const ultrawideDisplayQuery = window.matchMedia("(min-width: 1800px) and (min-aspect-ratio: 17/9)");
+
+function resolvedDisplayMode() {
+  if (prefs.displayMode !== "auto") return prefs.displayMode;
+  return ultrawideDisplayQuery.matches ? "ultrawide" : "standard";
+}
+
+function applyDisplayMode() {
+  const resolvedMode = resolvedDisplayMode();
+  if (document.documentElement.dataset.displayMode === resolvedMode) return false;
+  document.documentElement.dataset.displayMode = resolvedMode;
+  return true;
+}
 
 function applyTheme() {
   document.documentElement.dataset.theme = prefs.theme;
@@ -474,6 +491,7 @@ function applyFont() {
 }
 
 applyTheme();
+applyDisplayMode();
 
 const progress = Object.assign({
   rowsCleared: 0,
@@ -2364,6 +2382,7 @@ function modeCopy() {
 }
 
 function applyDisplayPreferences() {
+  applyDisplayMode();
   document.documentElement.style.setProperty("--lesson-color", lessonColorValues[prefs.lessonColor] || lessonColorValues.theme);
   els.typingText.dataset.caret = prefs.caretStyle;
   els.typingText.dataset.smooth = prefs.smoothCaret;
@@ -4553,6 +4572,7 @@ const settingDescriptions = {
   britishEnglish: "Uses familiar British spellings in generated English word tests.",
   lazyMode: "Lets accented characters use their unaccented equivalent.",
   theme: "Changes the color and contrast style of the whole app.",
+  displayMode: "Auto uses the immersive layout only at 1800px or wider with a 17:9 or wider aspect ratio. Standard keeps the original layout.",
   fontFamily: "Changes the website typeface from the app's broad typography catalog.",
   lessonColor: "Changes the color used by lesson text, the active character, and its glow.",
   currentCue: "Chooses how the exact character you need to type is marked.",
@@ -4663,7 +4683,7 @@ function setupSettings() {
   const selectIds = [
     "practiceMode", "testDuration", "lessonLengthPages", "testWordCount", "dictationPromptCount", "dictationCapitalization", "dictationPunctuation", "quoteLength", "difficulty", "creativeMode", "capitalization", "quickRestart",
     "repeatQuotes", "resultSaving", "minWpm", "minAccuracy", "minBurst", "indicateTypos", "confidenceMode", "errorLimit",
-    "theme", "fontFamily", "lessonColor", "currentCue", "caretStyle", "smoothCaret", "typedEffect", "highlightMode", "fontSize",
+    "theme", "displayMode", "fontFamily", "lessonColor", "currentCue", "caretStyle", "smoothCaret", "typedEffect", "highlightMode", "fontSize",
     "lineWidth", "tapeMode", "timerStyle", "speedUnit", "keyboardLayout", "keyboardSize", "keymapMode",
     "keymapLegend", "soundStyle", "soundVolume", "rewardStyle", "reminderSound", "errorStyle", "timeWarning", "practiceLetters",
     "targetSpeed", "practicePreset", "wordsPerRow", "adaptivePunctuation", "adaptiveCapitals", "dailyGoalMinutes", "bibleBook", "bibleChapter", "bibleStart", "bibleEnd"
@@ -4686,7 +4706,7 @@ function setupSettings() {
     el.value = prefs[prefKey];
     el.addEventListener("change", event => {
       prefs[prefKey] = numericIds.has(id) ? Number(event.target.value) : event.target.value;
-      if (["fontSize", "lineWidth", "fontFamily"].includes(id)) {
+      if (["displayMode", "fontSize", "lineWidth", "fontFamily"].includes(id)) {
         state.practiceFontSize = null;
         state.practiceFitSignature = "";
       }
@@ -4710,6 +4730,7 @@ function setupSettings() {
       if (id === "practicePreset") prefs.practicePresets = [prefs.practicePreset];
       save();
       if (id === "theme") applyTheme();
+      if (id === "displayMode") applyDisplayMode();
       if (id === "fontFamily") applyFont();
       if (id === "creativeMode") updateCreativeDescription();
       if (id === "practicePreset") updatePracticePresetDescription();
@@ -5072,6 +5093,11 @@ let resizeFitTimer;
 window.addEventListener("resize", () => {
   clearTimeout(resizeFitTimer);
   resizeFitTimer = setTimeout(() => {
+    const displayModeChanged = prefs.displayMode === "auto" && applyDisplayMode();
+    if (displayModeChanged) {
+      state.practiceFontSize = null;
+      state.practiceFitSignature = "";
+    }
     if (["adaptive", "time", "words", "creative", "placement"].includes(state.mode) && !state.testCompleted) {
       state.practiceFontSize = null;
       renderText();
