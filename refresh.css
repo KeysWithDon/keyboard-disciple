@@ -1098,6 +1098,22 @@ body[data-mode="quote"] .typing-text {
 .key.zone-right-index { background: color-mix(in srgb, var(--finger-right-index) 38%, var(--panel)); }
 .key.zone-thumb { background: color-mix(in srgb, var(--finger-thumb) 38%, var(--panel)); }
 .key.zone-neutral { background: color-mix(in srgb, var(--text) 7%, var(--panel)); }
+.key.home-key { position: relative; }
+.key.home-key::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: max(4px, calc(var(--key-height) * .1));
+  width: clamp(8px, calc(var(--quarter-key) * 1.15), 14px);
+  height: 2px;
+  border-radius: 999px;
+  background: currentColor;
+  box-shadow: 0 1px 0 color-mix(in srgb, var(--text) 28%, transparent);
+  opacity: .58;
+  transform: translateX(-50%);
+  pointer-events: none;
+}
+.keyboard.layout-typewriter .key.home-key::after { bottom: 7px; width: 10px; }
 .key.workout-zone {
   filter: saturate(1.2) brightness(1.08);
 }
