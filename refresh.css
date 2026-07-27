@@ -3201,3 +3201,89 @@ body.lesson-recap.stats-page-open {
   min-height: 100vh;
   overflow-y: auto;
 }
+
+/*
+ * Let the document grow when a lesson needs more room. Fixed-height lesson
+ * shells caused long Scripture passages to escape their card and sit beneath
+ * the keyboard. Short lessons still fit the viewport; longer lessons use the
+ * normal page scroller and keep every section in document flow.
+ */
+body.lesson-active {
+  height: auto;
+  min-height: 100svh;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+body.lesson-active .app-shell {
+  height: auto;
+  min-height: 100svh;
+  overflow: visible;
+}
+
+body.lesson-active .stage {
+  height: auto;
+  min-height: calc(100svh - var(--app-header-height, 74px));
+  overflow: visible;
+}
+
+body.lesson-active:not([data-mode="zen"]) .typing-card {
+  flex: 0 0 auto;
+}
+
+body.lesson-active[data-mode="zen"] {
+  height: 100svh;
+  overflow: hidden;
+}
+
+body.lesson-active[data-mode="zen"] .app-shell {
+  height: 100svh;
+  overflow: hidden;
+}
+
+body.lesson-active[data-mode="zen"] .stage {
+  height: calc(100svh - var(--app-header-height, 74px));
+  min-height: 0;
+  overflow: hidden;
+}
+
+.stage > *,
+.typing-card,
+.typing-card > *,
+.typing-text,
+.typing-word,
+.keyboard-wrap,
+.keyboard {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.typing-text {
+  width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.typing-word {
+  white-space: normal;
+}
+
+@media (max-width: 620px) {
+  #keyboard.keyboard.compact,
+  #keyboard.keyboard.standard,
+  #keyboard.keyboard.large {
+    --quarter-key: min(7.5px, calc((100vw - 162px) / 60));
+    --key-gap: 2px;
+    padding: 7px 8px 0;
+  }
+
+  #keyboard.keyboard.compact { --key-height: 30px; }
+  #keyboard.keyboard.standard { --key-height: 34px; }
+  #keyboard.keyboard.large { --key-height: 38px; }
+}
+
+@media (max-width: 360px) {
+  .app-header .brand-name,
+  .app-header .brand-caret {
+    display: none;
+  }
+}
