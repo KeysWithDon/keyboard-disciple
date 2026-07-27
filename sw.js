@@ -1,10 +1,10 @@
-const CACHE_NAME = "keyboard-disciple-mastery-adaptive-v1";
+const CACHE_NAME = "keyboard-disciple-scripture-case-v1";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./styles.css?v=20260727-clean-spacebar",
   "./refresh.css?v=20260727-mastery-adaptive",
-  "./app.js?v=20260727-mastery-adaptive",
+  "./app.js?v=20260727-scripture-case",
   "./manifest.webmanifest",
   "./assets/biblical-word-bank.js?v=20260723",
   "./assets/kjv-verses-1769.json",
