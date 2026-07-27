@@ -3203,48 +3203,95 @@ body.lesson-recap.stats-page-open {
 }
 
 /*
- * Let the document grow when a lesson needs more room. Fixed-height lesson
- * shells caused long Scripture passages to escape their card and sit beneath
- * the keyboard. Short lessons still fit the viewport; longer lessons use the
- * normal page scroller and keep every section in document flow.
+ * Active lessons always occupy one viewport. The typing surface is the only
+ * moving layer; it advances behind the fixed divider above the keyboard.
+ * Settings and Progress remain regular document pages with normal scrolling.
  */
-body.lesson-active {
-  height: auto;
+body.lesson-active[data-mode]:not(.settings-page-open):not(.stats-page-open) {
+  height: 100svh;
   min-height: 100svh;
-  overflow-x: hidden;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
-body.lesson-active .app-shell {
-  height: auto;
+body.lesson-active[data-mode]:not(.settings-page-open):not(.stats-page-open) .app-shell {
+  height: 100svh;
   min-height: 100svh;
-  overflow: visible;
+  overflow: hidden;
 }
 
-body.lesson-active .stage {
-  height: auto;
-  min-height: calc(100svh - var(--app-header-height, 74px));
-  overflow: visible;
+body.lesson-active[data-mode]:not(.settings-page-open):not(.stats-page-open) .stage {
+  height: calc(100svh - var(--app-header-height, 74px));
+  min-height: 0;
+  justify-content: flex-start;
+  gap: clamp(5px, .9svh, 12px);
+  overflow: hidden;
+  padding-top: clamp(6px, 1.2svh, 14px);
+  padding-bottom: clamp(6px, 1.2svh, 14px);
 }
 
-body.lesson-active:not([data-mode="zen"]) .typing-card {
+body.lesson-active[data-mode]:not(.settings-page-open):not(.stats-page-open) .devotion-line,
+body.lesson-active[data-mode]:not(.settings-page-open):not(.stats-page-open) .daily-discipline-bar,
+body.lesson-active[data-mode]:not(.settings-page-open):not(.stats-page-open) .live-metrics,
+body.lesson-active[data-mode]:not(.settings-page-open):not(.stats-page-open) .technique-cue,
+body.lesson-active[data-mode]:not(.settings-page-open):not(.stats-page-open) .ghost-race,
+body.lesson-active[data-mode]:not(.settings-page-open):not(.stats-page-open) .letter-hud,
+body.lesson-active[data-mode]:not(.settings-page-open):not(.stats-page-open) .scripture-strip,
+body.lesson-active[data-mode]:not(.settings-page-open):not(.stats-page-open) .verse-memory-path,
+body.lesson-active[data-mode]:not(.settings-page-open):not(.stats-page-open) .row-status,
+body.lesson-active[data-mode]:not(.settings-page-open):not(.stats-page-open) .dictation-controls {
   flex: 0 0 auto;
 }
 
-body.lesson-active[data-mode="zen"] {
-  height: 100svh;
-  overflow: hidden;
-}
-
-body.lesson-active[data-mode="zen"] .app-shell {
-  height: 100svh;
-  overflow: hidden;
-}
-
-body.lesson-active[data-mode="zen"] .stage {
-  height: calc(100svh - var(--app-header-height, 74px));
+body.lesson-active[data-mode]:not(.settings-page-open):not(.stats-page-open) .typing-card {
+  flex: 1 1 0;
   min-height: 0;
   overflow: hidden;
+  padding-top: clamp(4px, .8svh, 10px);
+  padding-bottom: clamp(4px, .8svh, 10px);
+}
+
+body.lesson-active[data-mode]:not(.settings-page-open):not(.stats-page-open) .typing-card .typing-text {
+  flex: 1 1 0;
+  width: 100%;
+  min-height: 0;
+  max-height: none;
+  overflow: hidden;
+  overscroll-behavior: none;
+  scrollbar-width: none;
+}
+
+body.lesson-active[data-mode]:not(.settings-page-open):not(.stats-page-open) .typing-card .typing-text::-webkit-scrollbar {
+  display: none;
+}
+
+body.lesson-active[data-mode]:not(.settings-page-open):not(.stats-page-open) .keyboard-wrap {
+  position: relative;
+  z-index: 5;
+  flex: 0 0 auto;
+  margin-top: 0;
+  padding-top: clamp(8px, 1.2svh, 13px);
+  padding-bottom: 0;
+  overflow: visible;
+  border-top: 1px solid color-mix(in srgb, var(--lesson-color) 42%, var(--line));
+  background: var(--bg);
+  box-shadow: 0 -16px 28px color-mix(in srgb, var(--bg) 94%, transparent);
+}
+
+body.lesson-active[data-mode]:not(.settings-page-open):not(.stats-page-open) .keyboard-wrap::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  right: 0;
+  bottom: 100%;
+  left: 0;
+  height: clamp(12px, 2.5svh, 26px);
+  pointer-events: none;
+  background: linear-gradient(to top, var(--bg), transparent);
+}
+
+body.lesson-active[data-mode]:not(.settings-page-open):not(.stats-page-open) .keyboard {
+  position: relative;
+  z-index: 1;
 }
 
 .stage > *,
@@ -3265,6 +3312,16 @@ body.lesson-active[data-mode="zen"] .stage {
 
 .typing-word {
   white-space: normal;
+}
+
+@media (max-height: 760px) and (min-width: 621px) {
+  #keyboard.keyboard.compact { --key-height: 30px; }
+  #keyboard.keyboard.standard { --key-height: 36px; }
+  #keyboard.keyboard.large { --key-height: 42px; }
+
+  body.lesson-active[data-mode]:not(.settings-page-open):not(.stats-page-open) .finger-legend {
+    font-size: 7px;
+  }
 }
 
 @media (max-width: 620px) {
