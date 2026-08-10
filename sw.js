@@ -1,13 +1,11 @@
-const CACHE_NAME = "keyboard-disciple-static-lesson-viewport-v1";
+const CACHE_NAME = "keyboard-disciple-native-keyboard-v2";
 const APP_SHELL = [
   "./",
   "./index.html",
-  "./styles.css?v=20260727-clean-spacebar",
-  "./refresh.css?v=20260727-static-lesson-viewport",
-  "./app.js?v=20260727-static-lesson-viewport",
+  "./styles.css?v=20260810-minimal-shell",
+  "./refresh.css?v=20260810-native-keyboard-v2",
+  "./app.js?v=20260810-minimal-shell",
   "./manifest.webmanifest",
-  "./assets/biblical-word-bank.js?v=20260723",
-  "./assets/kjv-verses-1769.json",
   "./assets/keyboard-disciple-mark.png",
   "./assets/app-icon-192.png",
   "./assets/app-icon-512.png"
