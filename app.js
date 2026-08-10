@@ -6413,7 +6413,6 @@ function setupQuickControls() {
       button.setAttribute("aria-pressed", String(active));
     });
     root.querySelectorAll("[data-quick-time]").forEach(button => button.classList.toggle("active", Number(button.dataset.quickTime) === Number(prefs.testDuration)));
-    root.querySelectorAll("[data-quick-words]").forEach(button => button.classList.toggle("active", Number(button.dataset.quickWords) === Number(prefs.testWordCount)));
     root.querySelectorAll("[data-quick-pages]").forEach(button => button.classList.toggle("active", Number(button.dataset.quickPages) === Number(prefs.lessonLengthPages)));
     root.querySelectorAll("[data-quick-options]").forEach(group => {
       const groupName = group.dataset.quickOptions;
@@ -6441,9 +6440,6 @@ function setupQuickControls() {
     } else if (button.dataset.quickTime) {
       prefs.testDuration = Number(button.dataset.quickTime);
       setNativeControl("testDuration", prefs.testDuration);
-    } else if (button.dataset.quickWords) {
-      prefs.testWordCount = Number(button.dataset.quickWords);
-      setNativeControl("testWordCount", prefs.testWordCount);
     } else if (button.dataset.quickPages) {
       prefs.lessonLengthPages = Number(button.dataset.quickPages);
       setNativeControl("lessonLengthPages", prefs.lessonLengthPages);
