@@ -444,6 +444,7 @@ const prefs = Object.fromEntries(Object.keys(defaultPrefs).map(key => [
   key,
   storedPrefs[key] ?? defaultPrefs[key]
 ]));
+if (["quote", "bible", "bibleQuotes"].includes(prefs.mode)) prefs.mode = defaultPrefs.mode;
 prefs.practiceLetters = Math.max(startLetters, Math.min(letterOrder.length, Number(prefs.practiceLetters) || startLetters));
 if (!Array.isArray(prefs.focusLetters)) prefs.focusLetters = [];
 prefs.focusLetters = [...new Set(prefs.focusLetters.map(letter => String(letter).toUpperCase()))]
@@ -2344,7 +2345,9 @@ function wordDeck() {
   const rightHand = shuffle(allNatural.filter(word => handWeight(word, "right") >= .64));
   const outerFinger = shuffle(allNatural.filter(word => fingerBandWeight(word, "outer") >= .42));
   const innerFinger = shuffle(allNatural.filter(word => fingerBandWeight(word, "inner") >= .58));
-  const christian = shuffle([...new Set(biblicalWordBank.filter(isAllowed))]);
+  // Keep the default practice pool neutral while retaining the data for
+  // backwards-compatible saved preferences.
+  const christian = [];
   const workoutNatural = [...new Set(Object.values(workoutZoneWords).flat().concat(workoutWords, expandedWords, moderateWords, rareWords, dictionaryExtra))]
     .filter(isAllowed)
     .filter(word => word.length >= 7);
@@ -2404,6 +2407,7 @@ function activeTestDuration() {
 }
 
 function lessonWordTarget() {
+  if (state.mode === "words") return Math.max(1, Number(prefs.testWordCount) || 50);
   return lessonLineLimit() * visibleWordsPerRow();
 }
 
@@ -2470,6 +2474,10 @@ function pickWordForRow(list, index, currentWords, budget, fallbackList = [], pr
 
 function formatAdaptiveRow(words, rowNumber) {
   const output = words.slice();
+  if (prefs.includeNumbers && output.length) {
+    const numberIndex = (Math.max(0, rowNumber) * 3 + 2) % output.length;
+    output[numberIndex] = String(10 + ((Math.max(0, rowNumber) * 37) % 990));
+  }
   const density = prefs.adaptivePunctuation;
   if (output.length && density !== "off") {
     const punctuationTokens = [",", ".", "?", "!", ":", ";", "—", "/", "…", ["(", ")"], ["\"", "\""], ["'", "'"]];
@@ -2555,7 +2563,6 @@ function makeAdaptiveRows(rowCount = rowsPerPage * 2) {
       else if (pos % 6 === 0 && deck.confidentReview.length) { list = deck.confidentReview; index = reviewIndex++; }
       else if (explicitFocus && deck.focus.length && pos % 5 !== 0) { list = deck.focus; index = fi++; }
       else if (deck.priority.length && pos % 5 !== 0) { list = deck.priority; index = pi++; }
-      else if (pos % 7 === 0 && deck.christian.length) { list = deck.christian; index = bi++; }
       else if (phasePool.length && pos % 4 !== 1) { list = phasePool; index = wi++; }
       else if (presetPool.length && pos % 2 === 0) { list = presetPool; index = wi++; }
       else if (pos % 3 === 0 && deck.focus.length) { list = deck.focus; index = fi++; }
@@ -2594,7 +2601,7 @@ function makePlacementRows(rowCount = lessonLineLimit()) {
 }
 
 function testWordPool() {
-  if (prefs.difficulty === "master") return commonWords.concat(expandedWords, moderateWords, rareWords, dictionaryExtra, biblicalWordBank);
+  if (prefs.difficulty === "master") return commonWords.concat(expandedWords, moderateWords, rareWords, dictionaryExtra);
   if (prefs.difficulty === "expert") return commonWords.concat(expandedWords, moderateWords, dictionaryExtra);
   return commonWords.concat(expandedWords.filter(word => word.length <= 10), dictionaryExtra.filter(word => word.length <= 8));
 }
@@ -3081,6 +3088,7 @@ async function restart({ freshLesson = false } = {}) {
   state.testCompleted = false;
   state.result = null;
   state.completion = false;
+  document.getElementById("quickControls")?.sync?.();
   state.memoryVisible = true;
   state.lastRestReminder = 0;
   state.techniqueMessageUntil = 0;
@@ -3443,7 +3451,6 @@ function renderLetterProgress() {
   const keys = letterOrder.map(letter => {
     const isEarned = earnedLetters.has(letter);
     const isNext = letter === nextLetter;
-    const isFocus = letter === focusLetter;
     const stats = progress.letterStats[letter.toLowerCase()] || { attempts: 0, correct: 0 };
     const mastery = letterMastery(letter);
     if (isEarned) {
@@ -3457,7 +3464,7 @@ function renderLetterProgress() {
     const accuracy = stats.attempts ? Math.round((stats.correct / stats.attempts) * 100) : 0;
     const hasProgress = isEarned && (Number(stats.attempts) > 0 || mastery.pages > 0 || mastery.bestConfidence > 0);
     const strength = hasProgress ? "sampled" : "unseen";
-    const status = [isEarned ? "" : isNext ? "next" : "locked", isFocus ? "focus" : ""].filter(Boolean).join(" ");
+    const status = isEarned ? "" : isNext ? "next" : "locked";
     const detail = !isEarned
       ? isNext ? "Next to unlock" : "Locked"
       : stats.attempts ? `${mastery.percent}% confidence, ${Math.round(mastery.smoothedWpm)} WPM, ${accuracy}% accuracy` : "Building baseline";
@@ -3467,7 +3474,7 @@ function renderLetterProgress() {
     const deepHue = Math.min(120, hue + 12);
     const heatColor = hasEvidence ? `hsl(${hue} 78% 48%)` : "var(--panel-strong)";
     const heatColorDeep = hasEvidence ? `hsl(${deepHue} 76% 34%)` : "var(--panel-strong)";
-  const fill = hasEvidence ? `background:linear-gradient(145deg,${heatColor},${heatColorDeep});` : "";
+    const fill = hasEvidence ? `background:linear-gradient(145deg,${heatColor},${heatColorDeep});` : "";
     return `<button type="button" class="heat-key ${strength} ${status}" data-letter="${letter}" style="--confidence:${mastery.visualScore.toFixed(3)};--heat-color:${heatColor};--heat-color-deep:${heatColorDeep};${fill}"${disabled} title="${letter}: ${detail}" aria-label="${letter}: ${detail}">${letter}</button>`;
   }).join("");
   els.letterHeatRow.innerHTML = keys;
@@ -5772,7 +5779,7 @@ const settingDescriptions = {
   dictationCapitalization: "Choose whether Dictation requires uppercase letters or accepts the same words in lowercase.",
   dictationPunctuation: "Choose whether Dictation requires punctuation or accepts the spoken words without sentence marks.",
   quoteLength: "Limits general quotes to the selected length range.",
-  difficulty: `Controls vocabulary breadth. Master includes every easier pool plus the complete ${biblicalWordBank.length.toLocaleString()}-entry biblical word bank.`,
+  difficulty: "Controls vocabulary breadth. Master includes every easier vocabulary pool plus rare and extended words.",
   capitalization: "Controls letter case in generated practice outside Scripture.",
   quickRestart: "Assigns one key to restart the current lesson immediately.",
   creativeMode: "Chooses the word or character transformation used by Skill Forge.",
@@ -6244,6 +6251,75 @@ function setupSettings() {
   setupThemePicker();
 }
 
+function setupQuickControls() {
+  const root = document.getElementById("quickControls");
+  if (!root) return;
+
+  const setNativeControl = (id, value) => {
+    const control = document.getElementById(id);
+    if (control) control.value = String(value);
+  };
+
+  const sync = () => {
+    root.querySelectorAll("[data-quick-mode]").forEach(button => {
+      const active = button.dataset.quickMode === prefs.mode;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+    root.querySelectorAll("[data-quick-toggle]").forEach(button => {
+      const active = button.dataset.quickToggle === "punctuation"
+        ? prefs.mode === "adaptive" ? prefs.adaptivePunctuation !== "off" : prefs.includePunctuation
+        : prefs.includeNumbers;
+      button.classList.toggle("active", active);
+      button.setAttribute("aria-pressed", String(active));
+    });
+    root.querySelectorAll("[data-quick-time]").forEach(button => button.classList.toggle("active", Number(button.dataset.quickTime) === Number(prefs.testDuration)));
+    root.querySelectorAll("[data-quick-words]").forEach(button => button.classList.toggle("active", Number(button.dataset.quickWords) === Number(prefs.testWordCount)));
+    root.querySelectorAll("[data-quick-pages]").forEach(button => button.classList.toggle("active", Number(button.dataset.quickPages) === Number(prefs.lessonLengthPages)));
+    root.querySelectorAll("[data-quick-options]").forEach(group => {
+      const groupName = group.dataset.quickOptions;
+      group.hidden = groupName === "time" ? prefs.mode !== "time" : groupName === "words" ? prefs.mode !== "words" : ["time", "words", "zen"].includes(prefs.mode);
+    });
+  };
+
+  root.addEventListener("click", event => {
+    const button = event.target.closest("button");
+    if (!button) return;
+    if (button.dataset.quickMode) {
+      prefs.mode = button.dataset.quickMode;
+      state.mode = prefs.mode;
+      setNativeControl("practiceMode", prefs.mode);
+    } else if (button.dataset.quickToggle) {
+      if (button.dataset.quickToggle === "punctuation" && prefs.mode === "adaptive") {
+        prefs.adaptivePunctuation = prefs.adaptivePunctuation === "off" ? "medium" : "off";
+        setNativeControl("adaptivePunctuation", prefs.adaptivePunctuation);
+      } else {
+        const prefKey = button.dataset.quickToggle === "punctuation" ? "includePunctuation" : "includeNumbers";
+        prefs[prefKey] = !prefs[prefKey];
+        const control = document.getElementById(prefKey);
+        if (control) control.checked = prefs[prefKey];
+      }
+    } else if (button.dataset.quickTime) {
+      prefs.testDuration = Number(button.dataset.quickTime);
+      setNativeControl("testDuration", prefs.testDuration);
+    } else if (button.dataset.quickWords) {
+      prefs.testWordCount = Number(button.dataset.quickWords);
+      setNativeControl("testWordCount", prefs.testWordCount);
+    } else if (button.dataset.quickPages) {
+      prefs.lessonLengthPages = Number(button.dataset.quickPages);
+      setNativeControl("lessonLengthPages", prefs.lessonLengthPages);
+    } else {
+      return;
+    }
+    save();
+    sync();
+    restart({ freshLesson: true });
+  });
+
+  root.sync = sync;
+  sync();
+}
+
 function makeThemeSwatches(value) {
   const swatches = document.createElement("span");
   swatches.className = "theme-swatches";
@@ -6592,6 +6668,7 @@ preloadRewardSounds();
 preloadKeySounds();
 applyFont();
 setupSettings();
+setupQuickControls();
 setupSpokenReminderSettings();
 if (!(document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen)) els.fullscreenBtn.hidden = true;
 syncFullscreenButton();
