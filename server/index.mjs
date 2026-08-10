@@ -11,7 +11,7 @@ const USER_HEADER = String(process.env.KD_USER_HEADER || "x-user-id").toLowerCas
 const REQUIRE_APP_AUTH = String(process.env.KD_REQUIRE_APP_AUTH || "false").toLowerCase() === "true";
 const ALLOWED_ORIGIN = String(process.env.KD_ALLOWED_ORIGIN || "");
 const MAX_BODY_BYTES = 16 * 1024;
-const RATE_LIMIT = Math.max(1, Number(process.env.KD_TTS_RATE_LIMIT || 60));
+const RATE_LIMIT = Math.max(1, Number(process.env.KD_TTS_RATE_LIMIT || 240));
 const RATE_WINDOW_MS = 60_000;
 const requestBuckets = new Map();
 

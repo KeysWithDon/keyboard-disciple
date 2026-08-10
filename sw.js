@@ -1,10 +1,10 @@
-const CACHE_NAME = "keyboard-disciple-native-keyboard-v2";
+const CACHE_NAME = "keyboard-disciple-ceramic-dictation-v3";
 const APP_SHELL = [
   "./",
   "./index.html",
   "./styles.css?v=20260810-minimal-shell",
-  "./refresh.css?v=20260810-native-keyboard-v2",
-  "./app.js?v=20260810-minimal-shell",
+  "./refresh.css?v=20260810-ceramic-dictation-v3",
+  "./app.js?v=20260810-ceramic-dictation-v3",
   "./manifest.webmanifest",
   "./assets/keyboard-disciple-mark.png",
   "./assets/app-icon-192.png",

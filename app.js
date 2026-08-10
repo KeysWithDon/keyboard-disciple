@@ -318,6 +318,10 @@ const state = {
   dictationPromptHeard: false,
   dictationBrowserFallback: false,
   dictationPromptId: 0,
+  dictationWords: [],
+  dictationWordIndex: 0,
+  dictationWordAudioBlobs: [],
+  dictationWordAudioPromises: [],
   dictationPromptStartedAt: null,
   dictationPromptEndedAt: null,
   dictationPromptDurationMs: 0,
@@ -3108,6 +3112,10 @@ async function restart({ freshLesson = false } = {}) {
   state.dictationPromptHeard = false;
   state.dictationBrowserFallback = false;
   state.dictationPromptId++;
+  state.dictationWords = [];
+  state.dictationWordIndex = 0;
+  state.dictationWordAudioBlobs = [];
+  state.dictationWordAudioPromises = [];
   state.dictationPromptStartedAt = null;
   state.dictationPromptEndedAt = null;
   state.dictationPromptDurationMs = 0;
@@ -3223,12 +3231,93 @@ function prepareCreativeLine() {
   if (["tts", "simon_says"].includes(prefs.creativeMode)) setTimeout(speakCurrentTarget, 40);
 }
 
+function dictationVoiceOptions() {
+  const selectedModel = String(prefs.reminderTtsModel || "");
+  const modelId = selectedModel.startsWith("chatterbox-") ? selectedModel : "chatterbox-english";
+  const selectedVoice = String(prefs.reminderVoiceId || "");
+  let voiceId = selectedVoice.startsWith("browser-") || !selectedVoice
+    ? (modelId === "chatterbox-multilingual" ? "default-multilingual" : "default-english")
+    : selectedVoice;
+  if (modelId === "chatterbox-turbo" && voiceId !== "default-english") voiceId = "default-english";
+  if (modelId === "chatterbox-multilingual" && voiceId !== "default-multilingual") voiceId = "default-multilingual";
+  if (modelId === "chatterbox-english" && voiceId === "default-multilingual") voiceId = "default-english";
+  return {
+    scope: "dictation-word",
+    modelId,
+    voiceId,
+    language: modelId === "chatterbox-multilingual" ? prefs.reminderLanguage : "en"
+  };
+}
+
+function spokenDictationWords() {
+  return currentTarget().match(/\S+/g) || [];
+}
+
+function normalizedDictationToken(value) {
+  let token = String(value || "");
+  if (prefs.dictationPunctuation === "ignore") token = token.replace(/[^\w]/g, "");
+  if (prefs.dictationCapitalization === "ignore") token = token.toLowerCase();
+  return token;
+}
+
+function completedDictationWordCount() {
+  const input = String(state.input || "");
+  const segments = input.trimStart().split(/\s+/).filter(Boolean);
+  if (!segments.length) return 0;
+  const endedWithSpace = /\s$/.test(input);
+  let completed = Math.max(0, segments.length - (endedWithSpace ? 0 : 1));
+  if (!endedWithSpace && completed < state.dictationWords.length) {
+    const typedLength = normalizedDictationToken(segments.at(-1)).length;
+    const targetLength = normalizedDictationToken(state.dictationWords[completed]).length;
+    if (targetLength > 0 && typedLength >= targetLength) completed++;
+  }
+  return Math.min(completed, state.dictationWords.length);
+}
+
+async function loadDictationWordAudio(index, promptId = state.dictationPromptId) {
+  if (promptId !== state.dictationPromptId || state.mode !== "dictation") return null;
+  if (state.dictationWordAudioBlobs[index]) return state.dictationWordAudioBlobs[index];
+  if (state.dictationWordAudioPromises[index]) return state.dictationWordAudioPromises[index];
+  const word = state.dictationWords[index];
+  if (!word) return null;
+  const promise = spokenReminderManager.synthesizeAudio(word, dictationVoiceOptions())
+    .then(blob => {
+      if (promptId === state.dictationPromptId && state.mode === "dictation") {
+        state.dictationWordAudioBlobs[index] = blob;
+      }
+      return blob;
+    })
+    .finally(() => {
+      if (promptId === state.dictationPromptId) state.dictationWordAudioPromises[index] = null;
+    });
+  state.dictationWordAudioPromises[index] = promise;
+  return promise;
+}
+
+async function warmDictationWordQueue(startIndex, promptId) {
+  const endIndex = Math.min(state.dictationWords.length, startIndex + 3);
+  for (let index = startIndex; index < endIndex; index++) {
+    if (promptId !== state.dictationPromptId || state.mode !== "dictation" || state.dictationBrowserFallback) return;
+    try {
+      await loadDictationWordAudio(index, promptId);
+    } catch (error) {
+      if (error?.name !== "AbortError") console.warn("A queued dictation word could not be prepared.", error);
+      return;
+    }
+  }
+}
+
 async function prepareDictationPrompt(requestId = restartRequestId) {
   if (state.mode !== "dictation" || state.testCompleted) return;
   const promptId = ++state.dictationPromptId;
+  state.dictationWords = spokenDictationWords();
+  state.dictationWordIndex = 0;
+  state.dictationWordAudioBlobs = [];
+  state.dictationWordAudioPromises = [];
   state.dictationAudioBlob = null;
   state.dictationAudioStatus = "loading";
   state.dictationPromptHeard = false;
+  state.dictationBrowserFallback = false;
   state.dictationPromptStartedAt = null;
   state.dictationPromptEndedAt = null;
   state.dictationPromptDurationMs = 0;
@@ -3236,17 +3325,22 @@ async function prepareDictationPrompt(requestId = restartRequestId) {
   state.dictationCorrectDuringPrompt = 0;
   state.dictationPromptRecorded = false;
   renderText();
+  if (!state.dictationWords.length) {
+    state.dictationAudioStatus = "error";
+    renderText();
+    return;
+  }
   try {
-    const blob = await spokenReminderManager.synthesizeAudio(currentTarget(), { scope: "dictation" });
+    const blob = await loadDictationWordAudio(0, promptId);
     if (requestId !== restartRequestId || promptId !== state.dictationPromptId || state.mode !== "dictation") return;
     state.dictationAudioBlob = blob;
     state.dictationAudioStatus = "ready";
-    state.dictationBrowserFallback = false;
     renderText();
+    void warmDictationWordQueue(1, promptId);
     if (spokenReminderManager.unlocked) playDictationPrompt();
   } catch (error) {
     if (requestId !== restartRequestId || promptId !== state.dictationPromptId || error?.name === "AbortError") return;
-    console.warn("Dictation prompt could not be generated.", error);
+    console.warn("Chatterbox dictation could not be generated.", error);
     if ("speechSynthesis" in window) {
       state.dictationAudioStatus = "browser-ready";
       state.dictationBrowserFallback = true;
@@ -3256,41 +3350,75 @@ async function prepareDictationPrompt(requestId = restartRequestId) {
     }
     state.dictationAudioStatus = "error";
     renderText();
-    spokenReminderManager.showToast("Dictation audio unavailable", "Connect the Chatterbox service, then replay the prompt.", true);
+    spokenReminderManager.showToast("Dictation audio unavailable", "Connect the Chatterbox service, then replay the current word.", true);
   }
 }
 
-async function playDictationPrompt() {
-  if (state.mode !== "dictation" || (!state.dictationAudioBlob && !state.dictationBrowserFallback)) return;
+async function playDictationWord(index = state.dictationWordIndex) {
+  if (state.mode !== "dictation" || state.testCompleted || !state.dictationWords[index]) return;
   const promptId = state.dictationPromptId;
   const firstPlayback = state.dictationPromptStartedAt === null;
-  if (firstPlayback) state.dictationPromptStartedAt = performance.now();
-  state.dictationAudioStatus = "playing";
+  state.dictationWordIndex = index;
+  state.dictationAudioStatus = state.dictationBrowserFallback ? "browser-ready" : "loading";
   renderText();
   try {
+    let blob = null;
+    if (!state.dictationBrowserFallback) blob = await loadDictationWordAudio(index, promptId);
+    if (promptId !== state.dictationPromptId || index !== state.dictationWordIndex || state.mode !== "dictation") return;
+    state.dictationAudioBlob = blob;
     spokenReminderManager.unlock();
-    if (state.dictationBrowserFallback) await speakBrowserDictationPrompt(currentTarget());
-    else await spokenReminderManager.playBlob(state.dictationAudioBlob);
-    if (promptId !== state.dictationPromptId || state.mode !== "dictation" || state.testCompleted) return;
-    if (firstPlayback) {
-      state.dictationPromptEndedAt = performance.now();
-      state.dictationPromptDurationMs = Math.max(0, state.dictationPromptEndedAt - state.dictationPromptStartedAt);
-    }
+    spokenReminderManager.stopPlayback();
+    window.speechSynthesis?.cancel();
+    if (firstPlayback) state.dictationPromptStartedAt = performance.now();
     state.dictationPromptHeard = true;
-    state.dictationAudioStatus = "ready";
+    state.dictationAudioStatus = "playing";
+    renderText();
+    if (state.dictationBrowserFallback) {
+      await speakBrowserDictationPrompt(state.dictationWords[index]);
+    } else {
+      await spokenReminderManager.playBlob(blob);
+      void warmDictationWordQueue(index + 1, promptId);
+    }
+    if (promptId !== state.dictationPromptId || index !== state.dictationWordIndex || state.mode !== "dictation" || state.testCompleted) return;
+    state.dictationPromptEndedAt = performance.now();
+    state.dictationPromptDurationMs = Math.max(0, state.dictationPromptEndedAt - state.dictationPromptStartedAt);
+    state.dictationAudioStatus = state.dictationBrowserFallback ? "browser-ready" : "ready";
     renderText();
   } catch (error) {
-    if (promptId !== state.dictationPromptId || error?.name === "AbortError") return;
-    if (firstPlayback) {
-      state.dictationPromptStartedAt = null;
-      state.dictationPromptEndedAt = null;
-      state.dictationPromptDurationMs = 0;
+    if (promptId !== state.dictationPromptId || index !== state.dictationWordIndex || error?.name === "AbortError") return;
+    if (!state.dictationBrowserFallback && "speechSynthesis" in window) {
+      console.warn("Chatterbox word playback failed; using the browser fallback.", error);
+      state.dictationBrowserFallback = true;
+      state.dictationAudioBlob = null;
+      return playDictationWord(index);
     }
-    console.warn("Dictation prompt playback failed.", error);
+    console.warn("Dictation word playback failed.", error);
     state.dictationAudioStatus = "error";
     renderText();
-    spokenReminderManager.showToast("Playback blocked", "Press replay prompt to hear the sentence again.", false);
+    spokenReminderManager.showToast("Playback blocked", "Press replay to hear the current word again.", false);
   }
+}
+
+function playDictationPrompt() {
+  return playDictationWord(state.dictationWordIndex);
+}
+
+function advanceDictationWordIfComplete() {
+  if (state.mode !== "dictation" || !state.dictationWords.length) return;
+  const completed = completedDictationWordCount();
+  const nextIndex = Math.min(state.dictationWords.length - 1, completed);
+  if (nextIndex <= state.dictationWordIndex) return;
+  state.dictationWordIndex = nextIndex;
+  state.dictationAudioBlob = state.dictationWordAudioBlobs[nextIndex] || null;
+  state.dictationAudioStatus = state.dictationAudioBlob ? "ready" : state.dictationBrowserFallback ? "browser-ready" : "loading";
+  state.dictationPromptEndedAt = performance.now();
+  if (state.dictationPromptStartedAt !== null) {
+    state.dictationPromptDurationMs = Math.max(0, state.dictationPromptEndedAt - state.dictationPromptStartedAt);
+  }
+  spokenReminderManager.stopPlayback();
+  window.speechSynthesis?.cancel();
+  renderText();
+  void playDictationWord(nextIndex);
 }
 
 function speakBrowserDictationPrompt(text) {
@@ -3972,21 +4100,24 @@ function renderText() {
   const hasPromptControls = isDictation || isListenClosely;
   els.dictationControls?.classList.toggle("hidden", !hasPromptControls || state.testCompleted);
   if (hasPromptControls && els.dictationAudioStatus && els.dictationReplayButton) {
+    const dictationWordNumber = Math.min(state.dictationWords.length, state.dictationWordIndex + 1);
+    const dictationWordTotal = state.dictationWords.length;
+    const wordPosition = dictationWordTotal ? `Word ${dictationWordNumber} of ${dictationWordTotal}` : "Dictation word";
     const statusCopy = {
       idle: "Preparing prompt",
-      loading: "Generating audio...",
-      ready: state.dictationPromptHeard ? "Prompt heard. Type what you remember." : "Listen before typing.",
-      "browser-ready": state.dictationPromptHeard ? "Prompt heard. Type what you remember." : "Browser voice ready. Listen before typing.",
-      playing: "Type while listening...",
-      error: "Audio unavailable. Try replay."
+      loading: `${wordPosition} / generating Chatterbox audio...`,
+      ready: `${wordPosition} / ready`,
+      "browser-ready": `${wordPosition} / browser fallback ready`,
+      playing: `${wordPosition} / listening...`,
+      error: `${wordPosition} / audio unavailable`
     }[state.dictationAudioStatus] || "Listen before typing.";
     els.dictationAudioStatus.textContent = isListenClosely ? "Listen Closely prompt" : statusCopy;
     els.dictationReplayButton.disabled = isDictation
       ? (!state.dictationAudioBlob && !state.dictationBrowserFallback) || ["loading", "playing"].includes(state.dictationAudioStatus)
       : false;
     els.dictationReplayButton.textContent = isDictation && state.dictationAudioStatus === "playing"
-      ? "Playing..."
-      : "Replay audio";
+      ? "Playing word..."
+      : isDictation ? "Replay word" : "Replay audio";
     els.dictationSubmitButton.classList.toggle("hidden", isListenClosely);
     els.dictationSubmitButton.disabled = isListenClosely || !state.input.length;
   }
@@ -4004,7 +4135,7 @@ function renderText() {
     const typed = state.input
       ? escapeHtml(state.input)
       : `<span class="dictation-placeholder">${state.dictationPromptHeard ? "Start typing" : state.dictationAudioStatus === "playing" ? "Type what you hear" : "Listen for the prompt"}</span>`;
-    els.typingText.innerHTML = `<div class="dictation-stage"><div class="dictation-typed">${typed}</div><span class="dictation-hint">Type what you hear while the prompt plays.</span></div>`;
+    els.typingText.innerHTML = `<div class="dictation-stage"><div class="dictation-typed">${typed}</div><span class="dictation-hint">Finish each word to hear the next one.</span></div>`;
     els.typingText.style.fontSize = "";
     state.practiceFontSize = null;
     state.practiceFitSignature = "";
@@ -4393,9 +4524,7 @@ function handleKey(event) {
   const oppositeShiftError = prefs.oppositeShiftMode && state.mode !== "dictation" && /^[A-Z]$/.test(String(expected || "")) && !["b", "y"].includes(expectedLower)
     && state.shiftSide !== (expectedZone.startsWith("Left") ? "right" : "left");
   const isCorrect = key === expected && !oppositeShiftError;
-  const followingPrompt = state.mode === "dictation"
-    && state.dictationAudioStatus === "playing"
-    && !state.dictationPromptHeard;
+  const followingPrompt = state.mode === "dictation" && state.dictationAudioStatus === "playing";
   if (followingPrompt) {
     state.dictationTypedDuringPrompt++;
     if (isCorrect) state.dictationCorrectDuringPrompt++;
@@ -4438,6 +4567,7 @@ function handleKey(event) {
     state.lineRawTyped++;
   }
   if (prefs.typingSounds) playKey(event.code, event.shiftKey || state.capsLock);
+  if (state.mode === "dictation") advanceDictationWordIfComplete();
   if (state.input.length >= target.length) {
     finishLine();
     return;
@@ -4800,6 +4930,10 @@ async function nextDictationPrompt() {
   state.dictationPromptHeard = false;
   state.dictationBrowserFallback = false;
   state.dictationPromptId++;
+  state.dictationWords = [];
+  state.dictationWordIndex = 0;
+  state.dictationWordAudioBlobs = [];
+  state.dictationWordAudioPromises = [];
   state.dictationPromptStartedAt = null;
   state.dictationPromptEndedAt = null;
   state.dictationPromptDurationMs = 0;
@@ -5146,6 +5280,10 @@ class SpokenReminderAudioManager {
   stop() {
     this.currentRequest?.abort();
     this.currentRequest = null;
+    this.stopPlayback();
+  }
+
+  stopPlayback() {
     if (this.currentAudio) {
       const audio = this.currentAudio;
       audio.pause();
@@ -5154,6 +5292,7 @@ class SpokenReminderAudioManager {
       audio.load();
       this.currentAudio = null;
     }
+    window.speechSynthesis?.cancel();
   }
 
   async processQueue() {
@@ -6444,7 +6583,7 @@ function setupSpokenReminderSettings() {
     spokenReminderManager.hideToast();
     if (state.mode === "dictation") {
       if (state.dictationAudioBlob) playDictationPrompt();
-      else prepareDictationPrompt(restartRequestId);
+      else playDictationWord(state.dictationWordIndex);
     } else spokenReminderManager.replayLastReminder();
   });
   window.speechSynthesis?.addEventListener("voiceschanged", () => {
@@ -6459,7 +6598,7 @@ els.dictationReplayButton?.addEventListener("click", () => {
     return;
   }
   if (state.dictationAudioStatus === "error" && !state.dictationAudioBlob) {
-    prepareDictationPrompt(restartRequestId);
+    playDictationWord(state.dictationWordIndex);
     return;
   }
   playDictationPrompt();
